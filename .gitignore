@@ -31,3 +31,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local-only drop-off folder for handing new assets to Claude — not a real
+# site asset, actual copies live under public/images/
+/Images/

@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: "Nosotros — Story Hunters Guild" };
 export default function AboutPage() {
   return (
     <main className="max-w-2xl mx-auto px-6 py-16 text-center">
-      <Image src="/images/crest.png" alt="" width={120} height={120} className="mx-auto mb-6" />
+      <Image src="/images/crest.png" alt="" width={120} height={120} className="mx-auto mb-6 object-contain" />
       <h1 className="font-display text-3xl text-parchment mb-4">Sobre Story Hunters Guild</h1>
       <div className="font-body text-base text-parchment-dark/85 leading-relaxed flex flex-col gap-4 text-left">
         <p>

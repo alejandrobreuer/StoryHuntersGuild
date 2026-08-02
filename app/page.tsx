@@ -51,7 +51,7 @@ export default async function HomePage() {
           alt="Story Hunters Guild"
           width={220}
           height={220}
-          className="mx-auto mb-6 drop-shadow-[0_0_30px_rgba(184,134,11,0.5)]"
+          className="mx-auto mb-6 object-contain drop-shadow-[0_0_30px_rgba(184,134,11,0.5)]"
           priority
         />
         <h1 className="font-display text-3xl sm:text-5xl text-brass-light leading-tight max-w-2xl mx-auto text-balance">
