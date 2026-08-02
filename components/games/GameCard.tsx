@@ -1,0 +1,39 @@
+import Image from "next/image";
+import { Users, Clock, Dice5 } from "lucide-react";
+import { formatPlayers, formatPlaytime } from "@/lib/formatting";
+import { cn } from "@/lib/utils";
+import type { ShgGame } from "@/types/database";
+
+const COMPLEXITY_LABEL: Record<string, string> = { light: "Fácil", medium: "Intermedio", heavy: "Avanzado" };
+
+export function GameCard({ game }: { game: ShgGame }) {
+  return (
+    <div className="surface-parchment border-t-4 border-t-moss p-5 transition-transform duration-200 hover:-translate-y-1">
+      <div className="relative w-full aspect-square mb-3 bg-parchment-dark/40 flex items-center justify-center overflow-hidden">
+        {game.image_url ? (
+          <Image src={game.image_url} alt={game.name} fill className="object-cover" sizes="220px" />
+        ) : (
+          <Dice5 size={40} className="text-leather-light" />
+        )}
+      </div>
+      <h3 className="font-label text-sm font-bold text-ink mb-1">{game.name}</h3>
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-2xs text-leather-light mb-2">
+        <span className="flex items-center gap-1"><Users size={11} />{formatPlayers(game.min_players, game.max_players)}</span>
+        <span className="flex items-center gap-1"><Clock size={11} />{formatPlaytime(game.playtime_minutes)}</span>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        <span className={cn(
+          "font-label text-2xs font-bold uppercase tracking-wide px-2 py-0.5 rounded-sm",
+          game.complexity === "light" ? "bg-moss/15 text-moss-dark" : game.complexity === "heavy" ? "bg-crimson/15 text-crimson" : "bg-brass/15 text-brass"
+        )}>
+          {COMPLEXITY_LABEL[game.complexity]}
+        </span>
+        {game.beginner_friendly && (
+          <span className="font-label text-2xs font-bold uppercase tracking-wide px-2 py-0.5 rounded-sm bg-moss/15 text-moss-dark">
+            Para empezar
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}

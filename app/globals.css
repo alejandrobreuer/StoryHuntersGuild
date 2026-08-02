@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Base reset ─────────────────────────────────────────────────── */
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-ink font-body;
+    font-size: 16px;
+    line-height: 1.6;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display text-ink tracking-tight;
+  }
+
+  a {
+    @apply text-brass transition-colors duration-150 hover:text-brass-bright;
+  }
+
+  ::selection {
+    @apply bg-brass/20 text-ink;
+  }
+
+  ::-webkit-scrollbar        { width: 7px; height: 7px; }
+  ::-webkit-scrollbar-track  { @apply bg-leather; }
+  ::-webkit-scrollbar-thumb  { @apply bg-leather-light rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-brass; }
+}
+
+/* ─── Utility classes ────────────────────────────────────────────── */
+@layer utilities {
+  .surface-parchment {
+    @apply bg-gradient-to-br from-parchment to-parchment-dark border border-border shadow-parchment;
+  }
+
+  /* Torn-parchment "bounty posting" edges — serrated clip-path on the top
+   * and bottom edges only, left/right stay straight. Zero-asset MVP version;
+   * can be swapped for an SVG mask once paper-texture art exists. */
+  .torn-edge {
+    clip-path: polygon(
+      0% 2%, 3% 0%, 8% 1.5%, 14% 0%, 20% 2%, 27% 0.5%, 33% 2%, 40% 0%, 47% 1.5%, 53% 0%,
+      60% 2%, 67% 0.5%, 74% 2%, 80% 0%, 87% 1.5%, 93% 0%, 100% 2%,
+      100% 98%, 97% 100%, 92% 98.5%, 86% 100%, 80% 98%, 73% 99.5%, 67% 98%, 60% 100%, 53% 98.5%, 47% 100%,
+      40% 98%, 33% 99.5%, 27% 98%, 20% 100%, 13% 98.5%, 7% 100%, 0% 98%
+    );
+  }
+
+  /* Small brass "pin" dot, for a pinned-notice feel on bounty-posting cards */
+  .pin-dot::before {
+    content: "";
+    position: absolute;
+    top: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 10px;
+    height: 10px;
+    border-radius: 9999px;
+    background: radial-gradient(circle at 35% 35%, #f0c040, #8c6520);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    z-index: 10;
+  }
+
+  .text-balance { text-wrap: balance; }
+}
