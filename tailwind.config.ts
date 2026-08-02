@@ -12,7 +12,7 @@ const config: Config = {
         // reference prototype's tuned palette (public/index.html in the
         // story-hunters-guild reference build).
         parchment: {
-          DEFAULT: "#f2e8d5",
+          DEFAULT: "#EFE4CC",
           dark:    "#e0cfa8",
           deep:    "#c9b07a",
         },
@@ -22,8 +22,8 @@ const config: Config = {
           lighter: "#a89f94", // "stone-light"
         },
         ink: {
-          DEFAULT: "#2b1d0e",
-          light:   "#4a3520",
+          DEFAULT: "#4A3423", // headline/body text on light surfaces — deep leather-brown, not near-black
+          light:   "#6B5D4F", // "ink-muted" — secondary text on light surfaces
         },
         moss: {
           DEFAULT: "#4a6741",
@@ -31,11 +31,13 @@ const config: Config = {
           dark:    "#2e4028",
         },
         crimson: {
-          DEFAULT: "#8b3a0f", // "ember" in the reference
-          foreground: "#f2e8d5",
+          DEFAULT:    "#7A2020",
+          foreground: "#F4EBD9",
         },
         brass: {
-          DEFAULT: "#b8860b", // "gold"
+          // Accent only — borders, small uppercase labels, icons. Never large
+          // headline/body text; its saturation reads as neon on big surfaces.
+          DEFAULT: "#A9793A",
           light:   "#d4a843",
           bright:  "#f0c040",
         },
@@ -58,10 +60,10 @@ const config: Config = {
 
       boxShadow: {
         // Warm leather-brown tint, replacing cardstash.ar's cool navy shadows
-        parchment:    "0 2px 6px 0 rgba(43,29,14,0.25), 0 1px 2px -1px rgba(43,29,14,0.18)",
-        "parchment-lg": "0 10px 28px -6px rgba(43,29,14,0.30), 0 4px 10px -4px rgba(43,29,14,0.20)",
-        seal: "0 0 0 3px rgba(184,134,11,0.45)",
-        glow: "0 0 18px rgba(184,134,11,0.38)",
+        parchment:    "0 2px 6px 0 rgba(74,52,35,0.25), 0 1px 2px -1px rgba(74,52,35,0.18)",
+        "parchment-lg": "0 10px 28px -6px rgba(74,52,35,0.30), 0 4px 10px -4px rgba(74,52,35,0.20)",
+        seal: "0 0 0 3px rgba(169,121,58,0.45)",
+        glow: "0 0 18px rgba(169,121,58,0.38)",
       },
 
       keyframes: {

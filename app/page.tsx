@@ -45,25 +45,25 @@ export default async function HomePage() {
   return (
     <main>
       {/* ── Hero ──────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-[#1a1205] via-[#2a1e0c] to-[#151005] text-center px-6 py-20 sm:py-28">
+      <section className="relative overflow-hidden bg-gradient-to-b from-parchment to-parchment-dark text-center px-6 py-20 sm:py-28">
         <Image
           src="/images/crest.png"
           alt="Story Hunters Guild"
           width={220}
           height={220}
-          className="mx-auto mb-6 object-contain drop-shadow-[0_0_30px_rgba(184,134,11,0.5)]"
+          className="mx-auto mb-6 object-contain drop-shadow-[0_10px_25px_rgba(74,52,35,0.3)]"
           priority
         />
-        <h1 className="font-display text-3xl sm:text-5xl text-brass-light leading-tight max-w-2xl mx-auto text-balance">
+        <h1 className="font-display text-3xl sm:text-5xl text-ink leading-tight max-w-2xl mx-auto text-balance">
           Juegos de mesa, gente nueva,{" "}
-          <em className="not-italic text-brass-bright">tardes que se hacen cortas.</em>
+          <em className="not-italic">tardes que se hacen cortas.</em>
         </h1>
-        <p className="font-body italic text-base sm:text-lg text-parchment-dark/80 max-w-lg mx-auto mt-5 mb-9">
+        <p className="font-body italic text-base sm:text-lg text-ink-light/70 max-w-lg mx-auto mt-5 mb-9">
           Sumate a nuestros eventos de juegos de mesa, conocé gente y descubrí tu próximo juego favorito — no hace falta experiencia previa.
         </p>
         <div className="flex flex-wrap gap-3 justify-center">
-          <Button asChild size="lg"><Link href="/events">Ver próximos eventos</Link></Button>
-          <Button asChild size="lg" variant="secondary"><Link href="/games">Explorar ludoteca</Link></Button>
+          <Button asChild size="lg" variant="cta"><Link href="/events">Ver próximos eventos</Link></Button>
+          <Button asChild size="lg" variant="ghost"><Link href="/games">Explorar ludoteca</Link></Button>
         </div>
       </section>
 
@@ -92,7 +92,7 @@ export default async function HomePage() {
       {/* ── Game library teaser ──────────────────────────────────────── */}
       <section className="bg-gradient-to-b from-[#1c1810] to-[#261f13] px-6 py-16">
         <div className="max-w-6xl mx-auto">
-          <h2 className="font-display text-2xl sm:text-3xl text-brass-light text-center mb-2">Ideal para empezar</h2>
+          <h2 className="font-display text-2xl sm:text-3xl text-parchment text-center mb-2">Ideal para empezar</h2>
           <p className="font-body italic text-parchment-dark/70 text-center mb-10">Juegos fáciles de aprender, perfectos para tu primera vez.</p>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
