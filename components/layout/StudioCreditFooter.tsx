@@ -11,7 +11,7 @@ export function StudioCreditFooter() {
         Creado por Story Hunters
       </p>
       <p className="font-label text-2xs tracking-widest text-leather-lighter/70 uppercase mt-1">
-        © {new Date().getFullYear()} Story Hunters Guild. Todos los derechos reservados.
+        © {new Date().getFullYear()} Story Hunters. Todos los derechos reservados.
       </p>
     </footer>
   );

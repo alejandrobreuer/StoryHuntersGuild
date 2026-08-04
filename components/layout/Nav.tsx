@@ -41,8 +41,7 @@ export function Nav() {
       <Link href="/" className="flex items-center gap-2.5 py-2 no-underline">
         <Image src="/images/crest.png" alt="" width={40} height={40} className="size-10 object-contain" />
         <span className="font-display text-sm text-brass-light leading-tight">
-          Story Hunters
-          <span className="block font-label text-[0.55rem] tracking-[0.2em] text-parchment-dark uppercase">Guild</span>
+          Story Hunters Guild
         </span>
       </Link>
 
