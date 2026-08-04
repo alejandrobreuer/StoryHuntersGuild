@@ -13,6 +13,7 @@ const NAV_LINKS = [
   { href: "/games",       label: "Ludoteca" },
   { href: "/about",       label: "Nosotros" },
   { href: "/my-bookings", label: "Mis reservas" },
+  { href: "/sign-in",     label: "Ingresar" },
 ];
 
 function NavItem({ href, label, onClick }: { href: string; label: string; onClick?: () => void }) {
