@@ -39,7 +39,7 @@ export function Nav() {
   return (
     <nav className="sticky top-0 z-40 flex items-center justify-between bg-gradient-to-b from-[#2a2015] to-[#1a1508] border-b-[3px] border-brass px-4 sm:px-6 shadow-parchment-lg">
       <Link href="/" className="flex items-center gap-2.5 py-2 no-underline">
-        <Image src="/images/crest.png" alt="" width={40} height={40} className="size-10 object-contain" />
+        <Image src="/images/logo-bw.png" alt="" width={40} height={40} className="size-10 object-contain" />
         <span className="font-display text-sm text-brass-light leading-tight">
           Story Hunters Guild
         </span>
