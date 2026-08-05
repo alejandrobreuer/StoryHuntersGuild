@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Edit2, Trash2, Upload } from "lucide-react";
+import Image from "next/image";
+import { Plus, Edit2, Trash2, Upload, Dice5 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
@@ -109,10 +110,19 @@ export function GamesManager() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {games.map((g) => (
             <div key={g.id} className="surface-parchment p-4 flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="font-label text-sm font-bold text-ink">{g.name}</p>
-                <p className="font-body text-xs text-ink-light">{g.min_players}–{g.max_players} jugadores · {g.playtime_minutes} min</p>
-                {g.beginner_friendly && <span className="text-2xs text-moss-dark font-label uppercase">Para empezar</span>}
+              <div className="flex items-start gap-3 min-w-0">
+                <div className="relative size-11 shrink-0 bg-parchment-dark/40 border border-border flex items-center justify-center overflow-hidden">
+                  {g.image_url ? (
+                    <Image src={g.image_url} alt="" fill className="object-cover" sizes="44px" />
+                  ) : (
+                    <Dice5 size={18} className="text-leather-light" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-label text-sm font-bold text-ink">{g.name}</p>
+                  <p className="font-body text-xs text-ink-light">{g.min_players}–{g.max_players} jugadores · {g.playtime_minutes} min</p>
+                  {g.beginner_friendly && <span className="text-2xs text-moss-dark font-label uppercase">Para empezar</span>}
+                </div>
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 <button onClick={() => openEdit(g)} className="p-1.5 text-leather-light hover:text-brass transition-colors"><Edit2 size={15} /></button>
@@ -145,16 +155,25 @@ export function GamesManager() {
           <Input label="Tags (separados por coma)" value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} />
           <div className="flex flex-col gap-1.5">
             <label className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">Imagen</label>
-            <label className="flex items-center gap-2 border border-dashed border-border px-3 py-2.5 cursor-pointer hover:border-brass transition-colors text-sm font-body text-ink-light">
-              <Upload size={15} />
-              {uploading ? "Subiendo…" : form.image_url ? "Cambiar imagen" : "Subir imagen"}
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/gif"
-                className="hidden"
-                onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0])}
-              />
-            </label>
+            <div className="flex items-center gap-3">
+              <div className="relative size-20 shrink-0 bg-parchment-dark/40 border border-brass/30 flex items-center justify-center overflow-hidden">
+                {form.image_url ? (
+                  <Image src={form.image_url} alt="" fill className="object-contain" sizes="80px" />
+                ) : (
+                  <Dice5 size={24} className="text-leather-light" />
+                )}
+              </div>
+              <label className="flex items-center gap-2 border border-dashed border-border px-3 py-2.5 cursor-pointer hover:border-brass transition-colors text-sm font-body text-ink-light flex-1">
+                <Upload size={15} />
+                {uploading ? "Subiendo…" : form.image_url ? "Cambiar imagen" : "Subir imagen"}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="hidden"
+                  onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0])}
+                />
+              </label>
+            </div>
             <p className="font-body text-2xs text-ink-light/70">JPG, PNG, WebP o GIF — hasta 5MB. Se recorta automáticamente a cuadrado al mostrarse.</p>
           </div>
           <Textarea label="Descripción" rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />

@@ -9,9 +9,9 @@ const COMPLEXITY_LABEL: Record<string, string> = { light: "Fácil", medium: "Int
 export function GameCard({ game }: { game: ShgGame }) {
   return (
     <div className="surface-parchment border-t-4 border-t-moss p-5 transition-transform duration-200 hover:-translate-y-1">
-      <div className="relative w-full aspect-square mb-3 bg-parchment-dark/40 flex items-center justify-center overflow-hidden">
+      <div className="relative w-full aspect-square mb-3 bg-parchment-dark/40 border border-brass/30 flex items-center justify-center overflow-hidden">
         {game.image_url ? (
-          <Image src={game.image_url} alt={game.name} fill className="object-cover" sizes="220px" />
+          <Image src={game.image_url} alt={game.name} fill className="object-contain" sizes="220px" />
         ) : (
           <Dice5 size={40} className="text-leather-light" />
         )}
