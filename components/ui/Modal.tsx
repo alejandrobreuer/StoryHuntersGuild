@@ -10,9 +10,10 @@ interface ModalProps {
   title:     string;
   children:  React.ReactNode;
   className?: string;
+  titleClassName?: string;
 }
 
-export function Modal({ open, onClose, title, children, className }: ModalProps) {
+export function Modal({ open, onClose, title, children, className, titleClassName }: ModalProps) {
   if (!open) return null;
 
   return (
@@ -31,7 +32,7 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
         >
           <X size={20} />
         </button>
-        <h2 className="font-label text-lg font-semibold text-ink mb-5 pb-3 border-b-2 border-border">
+        <h2 className={cn("font-label font-semibold text-ink mb-5 pb-3 border-b-2 border-border", titleClassName ?? "text-lg")}>
           {title}
         </h2>
         {children}
