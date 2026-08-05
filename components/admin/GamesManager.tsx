@@ -148,8 +148,14 @@ export function GamesManager() {
             <label className="flex items-center gap-2 border border-dashed border-border px-3 py-2.5 cursor-pointer hover:border-brass transition-colors text-sm font-body text-ink-light">
               <Upload size={15} />
               {uploading ? "Subiendo…" : form.image_url ? "Cambiar imagen" : "Subir imagen"}
-              <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0])} />
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="hidden"
+                onChange={(e) => e.target.files?.[0] && handleImageUpload(e.target.files[0])}
+              />
             </label>
+            <p className="font-body text-2xs text-ink-light/70">JPG, PNG, WebP o GIF — hasta 5MB. Se recorta automáticamente a cuadrado al mostrarse.</p>
           </div>
           <Textarea label="Descripción" rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           <Button type="submit" loading={saving} className="mt-2">Guardar</Button>
