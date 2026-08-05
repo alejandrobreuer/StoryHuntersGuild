@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { unstable_noStore as noStore } from "next/cache";
 import { ArrowLeft } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSessionUser } from "@/lib/auth/guard";
@@ -10,6 +11,7 @@ export const metadata = { title: "Reservar — Story Hunters Guild" };
 export const dynamic = "force-dynamic";
 
 export default async function BookEventPage({ params }: { params: { id: string } }) {
+  noStore();
   const admin = createAdminClient();
 
   const { data: event } = await admin

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { unstable_noStore as noStore } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EventCard } from "@/components/events/EventCard";
 import { EventFilters } from "@/components/events/EventFilters";
@@ -12,6 +13,7 @@ export default async function EventsPage({
 }: {
   searchParams: { from?: string; venueId?: string };
 }) {
+  noStore();
   const admin = createAdminClient();
 
   let query = admin

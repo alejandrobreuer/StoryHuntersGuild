@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { unstable_noStore as noStore } from "next/cache";
 import { Dice5, Users, Clock } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Button } from "@/components/ui/Button";
@@ -19,6 +20,7 @@ const HERO_TAGLINES = [
 ];
 
 export default async function HomePage() {
+  noStore();
   const tagline = HERO_TAGLINES[Math.floor(Math.random() * HERO_TAGLINES.length)];
   const admin = createAdminClient();
   const now = new Date().toISOString();

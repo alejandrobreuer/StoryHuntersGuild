@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { unstable_noStore as noStore } from "next/cache";
 import { MapPin, Users, Clock, Dice5, AtSign } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Button } from "@/components/ui/Button";
@@ -17,6 +18,7 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
 }
 
 export default async function EventDetailPage({ params }: { params: { id: string } }) {
+  noStore();
   const admin = createAdminClient();
 
   const { data: event } = await admin
