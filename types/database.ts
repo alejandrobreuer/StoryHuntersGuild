@@ -61,6 +61,7 @@ export interface ShgGame {
   image_url:         string | null;
   description:       string | null;
   bgg_link:          string | null;
+  rules:             string | null;
   available:         boolean;
   created_at:        string;
   updated_at:        string;
@@ -106,6 +107,7 @@ export interface ShgBooking {
   guest_count:   number;
   cost:          number;
   status:        BookingStatus;
+  attended:      boolean;
   receipt_path:  string | null;
   admin_note:    string | null;
   reviewed_by:   string | null;

@@ -14,7 +14,7 @@ export function CapacityBadge({ remaining, className }: CapacityBadgeProps) {
   return (
     <div
       className={cn(
-        "relative flex size-16 shrink-0 items-center justify-center rounded-full border-2 shadow-seal",
+        "grid place-items-center size-16 shrink-0 rounded-full border-2 shadow-seal",
         full ? "bg-leather border-leather-light" : "bg-crimson border-brass",
         className
       )}
@@ -22,9 +22,9 @@ export function CapacityBadge({ remaining, className }: CapacityBadgeProps) {
       <Crosshair
         size={64}
         strokeWidth={0.75}
-        className={cn("absolute inset-0 m-auto", full ? "text-leather-lighter/40" : "text-brass-light/50")}
+        className={cn("col-start-1 row-start-1 size-full", full ? "text-leather-lighter/40" : "text-brass-light/50")}
       />
-      <div className="relative flex flex-col items-center leading-none">
+      <div className="col-start-1 row-start-1 flex flex-col items-center leading-none">
         <span className="font-label text-lg font-bold text-parchment">{full ? "0" : remaining}</span>
         <span className="font-label text-[0.5rem] uppercase tracking-widest text-parchment/80">
           {full ? "Lleno" : "lugares"}

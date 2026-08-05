@@ -8,14 +8,26 @@ import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
+import { RulesContent } from "@/components/games/RulesContent";
+import { parseRulesMarkup } from "@/lib/rules-markup";
 import { toast } from "sonner";
 import type { ShgGame, GameComplexity } from "@/types/database";
 
 const EMPTY = {
   name: "", min_players: 2, max_players: 4, playtime_minutes: 60,
   complexity: "light" as GameComplexity, beginner_friendly: false,
-  tags: "", image_url: "", description: "", bgg_link: "", available: true,
+  tags: "", image_url: "", description: "", bgg_link: "", available: true, rules: "",
 };
+
+const RULES_TOOLBAR: { label: string; kind: "line" | "wrap"; value: string; after?: string; placeholder: string }[] = [
+  { label: "Título",     kind: "line", value: "# ",       placeholder: "Título de sección" },
+  { label: "Subtítulo",  kind: "line", value: "## ",      placeholder: "Subtítulo" },
+  { label: "Viñeta",     kind: "line", value: "- ",       placeholder: "Punto de la lista" },
+  { label: "Negrita",    kind: "wrap", value: "**", after: "**", placeholder: "texto en negrita" },
+  { label: "Consejo",    kind: "line", value: "!tip ",     placeholder: "Consejo útil" },
+  { label: "Atención",   kind: "line", value: "!warning ", placeholder: "Punto importante" },
+  { label: "Nota",       kind: "line", value: "!note ",    placeholder: "Nota adicional" },
+];
 
 export function GamesManager() {
   const [games, setGames] = React.useState<ShgGame[]>([]);
@@ -25,6 +37,7 @@ export function GamesManager() {
   const [form, setForm] = React.useState(EMPTY);
   const [saving, setSaving] = React.useState(false);
   const [uploading, setUploading] = React.useState(false);
+  const rulesRef = React.useRef<HTMLTextAreaElement>(null);
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -49,7 +62,7 @@ export function GamesManager() {
       playtime_minutes: g.playtime_minutes, complexity: g.complexity,
       beginner_friendly: g.beginner_friendly, tags: g.tags.join(", "),
       image_url: g.image_url ?? "", description: g.description ?? "",
-      bgg_link: g.bgg_link ?? "", available: g.available,
+      bgg_link: g.bgg_link ?? "", available: g.available, rules: g.rules ?? "",
     });
     setModalOpen(true);
   }
@@ -65,6 +78,28 @@ export function GamesManager() {
       setForm((f) => ({ ...f, image_url: json.data.url }));
     } finally {
       setUploading(false);
+    }
+  }
+
+  function applyRulesTool(tool: (typeof RULES_TOOLBAR)[number]) {
+    const el = rulesRef.current;
+    const current = form.rules;
+    const start = el?.selectionStart ?? current.length;
+    const end = el?.selectionEnd ?? current.length;
+
+    if (tool.kind === "wrap") {
+      const selectedText = current.slice(start, end) || tool.placeholder;
+      const newValue = current.slice(0, start) + tool.value + selectedText + (tool.after ?? "") + current.slice(end);
+      setForm((f) => ({ ...f, rules: newValue }));
+      const cursor = start + tool.value.length + selectedText.length + (tool.after?.length ?? 0);
+      requestAnimationFrame(() => { el?.focus(); el?.setSelectionRange(cursor, cursor); });
+    } else {
+      const needsLeadingNewline = start > 0 && current[start - 1] !== "\n";
+      const line = (needsLeadingNewline ? "\n" : "") + tool.value + tool.placeholder + "\n";
+      const newValue = current.slice(0, start) + line + current.slice(start);
+      setForm((f) => ({ ...f, rules: newValue }));
+      const cursor = start + line.length;
+      requestAnimationFrame(() => { el?.focus(); el?.setSelectionRange(cursor, cursor); });
     }
   }
 
@@ -137,7 +172,12 @@ export function GamesManager() {
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar juego" : "Nuevo juego"} className="max-w-lg">
+      <Modal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={editing ? "Editar juego" : "Nuevo juego"}
+        className="max-w-2xl max-h-[85vh] overflow-y-auto"
+      >
         <form onSubmit={handleSave} className="flex flex-col gap-3">
           <Input label="Nombre" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <div className="grid grid-cols-3 gap-3">
@@ -186,6 +226,39 @@ export function GamesManager() {
             <p className="font-body text-2xs text-ink-light/70">JPG, PNG, WebP o GIF — hasta 5MB. Se recorta automáticamente a cuadrado al mostrarse.</p>
           </div>
           <Textarea label="Descripción" rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+
+          <div className="flex flex-col gap-1.5">
+            <label className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">Reglas (opcional)</label>
+            <div className="flex flex-wrap gap-1.5">
+              {RULES_TOOLBAR.map((tool) => (
+                <button
+                  key={tool.label}
+                  type="button"
+                  onClick={() => applyRulesTool(tool)}
+                  className="font-label text-2xs px-2.5 py-1 border border-border rounded-sm text-ink-light hover:border-brass hover:text-ink transition-colors"
+                >
+                  {tool.label}
+                </button>
+              ))}
+            </div>
+            <Textarea
+              ref={rulesRef}
+              rows={8}
+              value={form.rules}
+              onChange={(e) => setForm({ ...form, rules: e.target.value })}
+              placeholder={"# Título\n- Punto de la lista\n!tip Un consejo útil"}
+            />
+            <p className="font-body text-2xs text-ink-light/70">
+              Usá los botones de arriba o escribí directo: <code>#</code> título, <code>##</code> subtítulo, <code>-</code> viñeta, <code>**texto**</code> negrita, <code>!tip</code>/<code>!warning</code>/<code>!note</code> para recuadros de color.
+            </p>
+            {form.rules.trim() && (
+              <div className="border border-border bg-parchment/40 p-3 mt-1">
+                <p className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light mb-2">Vista previa</p>
+                <RulesContent blocks={parseRulesMarkup(form.rules)} />
+              </div>
+            )}
+          </div>
+
           <Button type="submit" loading={saving} className="mt-2">Guardar</Button>
         </form>
       </Modal>

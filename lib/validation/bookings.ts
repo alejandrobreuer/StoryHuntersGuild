@@ -11,3 +11,7 @@ export const createBookingSchema = z.object({
 export const rejectBookingSchema = z.object({
   note: z.string().max(500).nullable().optional(),
 });
+
+export const attendanceSchema = z.object({
+  attended: z.boolean(),
+});

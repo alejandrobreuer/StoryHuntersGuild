@@ -2,32 +2,59 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { Users, Clock, Dice5, ExternalLink } from "lucide-react";
+import { Users, Clock, Dice5, ExternalLink, BookOpen, ArrowLeft } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { GameCard, COMPLEXITY_LABEL, complexityBadgeClass } from "@/components/games/GameCard";
+import { RulesContent } from "@/components/games/RulesContent";
+import { parseRulesMarkup } from "@/lib/rules-markup";
 import { formatPlayers, formatPlaytime } from "@/lib/formatting";
 import { cn } from "@/lib/utils";
 import type { ShgGame } from "@/types/database";
 
 export function GameGrid({ games }: { games: ShgGame[] }) {
   const [selected, setSelected] = React.useState<ShgGame | null>(null);
+  const [showRules, setShowRules] = React.useState(false);
+  const hasRules = !!selected?.rules && selected.rules.trim().length > 0;
+
+  function openGame(g: ShgGame) {
+    setSelected(g);
+    setShowRules(false);
+  }
+
+  function closeModal() {
+    setSelected(null);
+    setShowRules(false);
+  }
 
   return (
     <>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
         {games.map((g) => (
-          <GameCard key={g.id} game={g} onClick={() => setSelected(g)} />
+          <GameCard key={g.id} game={g} onClick={() => openGame(g)} />
         ))}
       </div>
 
       <Modal
         open={!!selected}
-        onClose={() => setSelected(null)}
-        title={selected?.name ?? ""}
+        onClose={closeModal}
+        title={selected ? (showRules ? `${selected.name} — Reglas` : selected.name) : ""}
         className="max-w-2xl p-9"
         titleClassName="text-2xl"
       >
-        {selected && (
+        {selected && showRules && (
+          <div className="flex flex-col gap-4">
+            <button
+              type="button"
+              onClick={() => setShowRules(false)}
+              className="inline-flex items-center gap-1.5 font-label text-xs font-semibold uppercase tracking-widest text-brass hover:text-brass-bright transition-colors w-fit"
+            >
+              <ArrowLeft size={15} /> Volver a la ficha
+            </button>
+            <RulesContent blocks={parseRulesMarkup(selected.rules ?? "")} />
+          </div>
+        )}
+
+        {selected && !showRules && (
           <div className="flex flex-col gap-5">
             <div className="flex items-start gap-5">
               <div className="relative size-36 shrink-0 bg-parchment-dark/40 border border-brass/30 flex items-center justify-center overflow-hidden">
@@ -85,16 +112,27 @@ export function GameGrid({ games }: { games: ShgGame[] }) {
               </div>
             )}
 
-            {selected.bgg_link && (
-              <a
-                href={selected.bgg_link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 font-label text-sm font-semibold uppercase tracking-widest text-brass hover:text-brass-bright transition-colors w-fit"
-              >
-                Ver en BoardGameGeek <ExternalLink size={15} />
-              </a>
-            )}
+            <div className="flex flex-wrap items-center gap-4">
+              {hasRules && (
+                <button
+                  type="button"
+                  onClick={() => setShowRules(true)}
+                  className="inline-flex items-center gap-1.5 font-label text-sm font-semibold uppercase tracking-widest text-brass hover:text-brass-bright transition-colors w-fit"
+                >
+                  <BookOpen size={15} /> Reglas
+                </button>
+              )}
+              {selected.bgg_link && (
+                <a
+                  href={selected.bgg_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 font-label text-sm font-semibold uppercase tracking-widest text-brass hover:text-brass-bright transition-colors w-fit"
+                >
+                  Ver en BoardGameGeek <ExternalLink size={15} />
+                </a>
+              )}
+            </div>
           </div>
         )}
       </Modal>
