@@ -16,11 +16,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Datos inválidos." }, { status: 422 });
   }
 
-  const { image_url, ...fields } = parsed.data;
+  const { image_url, bgg_link, ...fields } = parsed.data;
   const admin = createAdminClient();
   const { data, error: updateError } = await admin
     .from("shg_games")
-    .update({ ...fields, image_url: image_url || null })
+    .update({ ...fields, image_url: image_url || null, bgg_link: bgg_link || null })
     .eq("id", params.id)
     .select()
     .single();

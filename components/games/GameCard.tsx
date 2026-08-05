@@ -4,11 +4,19 @@ import { formatPlayers, formatPlaytime } from "@/lib/formatting";
 import { cn } from "@/lib/utils";
 import type { ShgGame } from "@/types/database";
 
-const COMPLEXITY_LABEL: Record<string, string> = { light: "Fácil", medium: "Intermedio", heavy: "Avanzado" };
+export const COMPLEXITY_LABEL: Record<string, string> = { light: "Fácil", medium: "Intermedio", heavy: "Avanzado" };
 
-export function GameCard({ game }: { game: ShgGame }) {
+export function complexityBadgeClass(complexity: string): string {
+  return complexity === "light" ? "bg-moss/15 text-moss-dark" : complexity === "heavy" ? "bg-crimson/15 text-crimson" : "bg-brass/15 text-brass";
+}
+
+export function GameCard({ game, onClick }: { game: ShgGame; onClick?: () => void }) {
   return (
-    <div className="surface-parchment border-t-4 border-t-moss p-5 transition-transform duration-200 hover:-translate-y-1">
+    <button
+      type="button"
+      onClick={onClick}
+      className="surface-parchment border-t-4 border-t-moss p-5 text-left w-full transition-transform duration-200 hover:-translate-y-1"
+    >
       <div className="relative w-full aspect-square mb-3 bg-parchment-dark/40 border border-brass/30 flex items-center justify-center overflow-hidden">
         {game.image_url ? (
           <Image src={game.image_url} alt={game.name} fill className="object-contain" sizes="220px" />
@@ -24,7 +32,7 @@ export function GameCard({ game }: { game: ShgGame }) {
       <div className="flex flex-wrap gap-1.5">
         <span className={cn(
           "font-label text-2xs font-bold uppercase tracking-wide px-2 py-0.5 rounded-sm",
-          game.complexity === "light" ? "bg-moss/15 text-moss-dark" : game.complexity === "heavy" ? "bg-crimson/15 text-crimson" : "bg-brass/15 text-brass"
+          complexityBadgeClass(game.complexity)
         )}>
           {COMPLEXITY_LABEL[game.complexity]}
         </span>
@@ -33,7 +41,21 @@ export function GameCard({ game }: { game: ShgGame }) {
             Para empezar
           </span>
         )}
+        {!game.available && (
+          <span className="font-label text-2xs font-bold uppercase tracking-wide px-2 py-0.5 rounded-sm bg-crimson/15 text-crimson">
+            No disponible
+          </span>
+        )}
       </div>
-    </div>
+      {game.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-1.5">
+          {game.tags.map((tag) => (
+            <span key={tag} className="font-label text-2xs uppercase tracking-wide px-2 py-0.5 rounded-sm bg-leather/10 text-leather">
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+    </button>
   );
 }

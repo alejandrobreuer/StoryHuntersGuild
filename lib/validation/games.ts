@@ -10,6 +10,8 @@ export const gameSchema = z.object({
   tags:              z.array(z.string().max(40)).max(20).default([]),
   image_url:         z.string().url().nullable().optional().or(z.literal("")),
   description:       z.string().max(2000).nullable().optional(),
+  bgg_link:          z.string().url().nullable().optional().or(z.literal("")),
+  available:         z.boolean().default(true),
 }).refine((d) => d.max_players >= d.min_players, {
   message: "El máximo de jugadores debe ser mayor o igual al mínimo.",
   path: ["max_players"],

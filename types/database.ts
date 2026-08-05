@@ -58,6 +58,8 @@ export interface ShgGame {
   tags:              string[];
   image_url:         string | null;
   description:       string | null;
+  bgg_link:          string | null;
+  available:         boolean;
   created_at:        string;
   updated_at:        string;
 }

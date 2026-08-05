@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { GameCard } from "@/components/games/GameCard";
+import { GameGrid } from "@/components/games/GameGrid";
 import { GameFilters } from "@/components/games/GameFilters";
 import type { ShgGame, GameComplexity } from "@/types/database";
 
@@ -10,17 +10,23 @@ export const dynamic = "force-dynamic";
 export default async function GamesPage({
   searchParams,
 }: {
-  searchParams: { q?: string; complexity?: string; beginner?: string };
+  searchParams: { q?: string; complexity?: string; beginner?: string; tags?: string };
 }) {
   const admin = createAdminClient();
+  const selectedTags = searchParams.tags ? searchParams.tags.split(",").filter(Boolean) : [];
 
   let query = admin.from("shg_games").select("*").order("name");
   if (searchParams.q) query = query.ilike("name", `%${searchParams.q}%`);
   if (searchParams.complexity) query = query.eq("complexity", searchParams.complexity as GameComplexity);
   if (searchParams.beginner === "1") query = query.eq("beginner_friendly", true);
+  if (selectedTags.length > 0) query = query.overlaps("tags", selectedTags);
 
-  const { data } = await query;
+  const [{ data }, { data: allGamesTags }] = await Promise.all([
+    query,
+    admin.from("shg_games").select("tags"),
+  ]);
   const games = (data ?? []) as ShgGame[];
+  const allTags = Array.from(new Set((allGamesTags ?? []).flatMap((g) => g.tags as string[]))).sort();
 
   return (
     <main className="max-w-6xl mx-auto px-6 py-14">
@@ -29,16 +35,14 @@ export default async function GamesPage({
         Nuestra colección de juegos, para todos los niveles.
       </p>
 
-      <GameFilters />
+      <GameFilters allTags={allTags} />
 
       {games.length === 0 ? (
         <p className="font-body italic text-center text-parchment-dark py-16">
           No encontramos juegos con esos filtros.
         </p>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
-          {games.map((g) => <GameCard key={g.id} game={g} />)}
-        </div>
+        <GameGrid games={games} />
       )}
     </main>
   );

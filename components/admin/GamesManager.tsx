@@ -14,7 +14,7 @@ import type { ShgGame, GameComplexity } from "@/types/database";
 const EMPTY = {
   name: "", min_players: 2, max_players: 4, playtime_minutes: 60,
   complexity: "light" as GameComplexity, beginner_friendly: false,
-  tags: "", image_url: "", description: "",
+  tags: "", image_url: "", description: "", bgg_link: "", available: true,
 };
 
 export function GamesManager() {
@@ -49,6 +49,7 @@ export function GamesManager() {
       playtime_minutes: g.playtime_minutes, complexity: g.complexity,
       beginner_friendly: g.beginner_friendly, tags: g.tags.join(", "),
       image_url: g.image_url ?? "", description: g.description ?? "",
+      bgg_link: g.bgg_link ?? "", available: g.available,
     });
     setModalOpen(true);
   }
@@ -121,7 +122,10 @@ export function GamesManager() {
                 <div className="min-w-0">
                   <p className="font-label text-sm font-bold text-ink">{g.name}</p>
                   <p className="font-body text-xs text-ink-light">{g.min_players}–{g.max_players} jugadores · {g.playtime_minutes} min</p>
-                  {g.beginner_friendly && <span className="text-2xs text-moss-dark font-label uppercase">Para empezar</span>}
+                  <div className="flex flex-wrap gap-x-2">
+                    {g.beginner_friendly && <span className="text-2xs text-moss-dark font-label uppercase">Para empezar</span>}
+                    {!g.available && <span className="text-2xs text-crimson font-label uppercase">No disponible</span>}
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-1 shrink-0">
@@ -152,7 +156,12 @@ export function GamesManager() {
               Ideal para empezar
             </label>
           </div>
+          <label className="flex items-center gap-2 font-body text-sm text-ink">
+            <input type="checkbox" className="accent-moss size-4" checked={form.available} onChange={(e) => setForm({ ...form, available: e.target.checked })} />
+            Disponible (si está destildado, sigue apareciendo en la Ludoteca marcado como no disponible)
+          </label>
           <Input label="Tags (separados por coma)" value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} />
+          <Input label="Link de BoardGameGeek (opcional)" type="url" placeholder="https://boardgamegeek.com/boardgame/…" value={form.bgg_link} onChange={(e) => setForm({ ...form, bgg_link: e.target.value })} />
           <div className="flex flex-col gap-1.5">
             <label className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">Imagen</label>
             <div className="flex items-center gap-3">
