@@ -14,6 +14,13 @@ interface ModalProps {
 }
 
 export function Modal({ open, onClose, title, children, className, titleClassName }: ModalProps) {
+  React.useEffect(() => {
+    if (!open) return;
+    const original = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = original; };
+  }, [open]);
+
   if (!open) return null;
 
   return (

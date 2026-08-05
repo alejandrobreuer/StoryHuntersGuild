@@ -38,7 +38,7 @@ export function GameGrid({ games }: { games: ShgGame[] }) {
         open={!!selected}
         onClose={closeModal}
         title={selected ? (showRules ? `${selected.name} — Reglas` : selected.name) : ""}
-        className="max-w-2xl p-9"
+        className="max-w-2xl p-9 max-h-[85vh] overflow-y-auto"
         titleClassName="text-2xl"
       >
         {selected && showRules && (
