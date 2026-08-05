@@ -23,45 +23,60 @@ export function GameGrid({ games }: { games: ShgGame[] }) {
       <Modal open={!!selected} onClose={() => setSelected(null)} title={selected?.name ?? ""} className="max-w-lg">
         {selected && (
           <div className="flex flex-col gap-4">
-            <div className="relative w-full aspect-square bg-parchment-dark/40 border border-brass/30 flex items-center justify-center overflow-hidden">
-              {selected.image_url ? (
-                <Image src={selected.image_url} alt={selected.name} fill className="object-contain" sizes="480px" />
-              ) : (
-                <Dice5 size={56} className="text-leather-light" />
-              )}
+            <div className="flex items-start gap-4">
+              <div className="relative size-24 shrink-0 bg-parchment-dark/40 border border-brass/30 flex items-center justify-center overflow-hidden">
+                {selected.image_url ? (
+                  <Image src={selected.image_url} alt={selected.name} fill className="object-contain" sizes="96px" />
+                ) : (
+                  <Dice5 size={32} className="text-leather-light" />
+                )}
+              </div>
+
+              <div className="flex flex-col gap-2 min-w-0">
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-leather-light">
+                  <span className="flex items-center gap-1.5"><Users size={13} />{formatPlayers(selected.min_players, selected.max_players)}</span>
+                  <span className="flex items-center gap-1.5"><Clock size={13} />{formatPlaytime(selected.playtime_minutes)}</span>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5">
+                  <span className={cn(
+                    "font-label text-2xs font-bold uppercase tracking-wide px-2 py-0.5 rounded-sm",
+                    complexityBadgeClass(selected.complexity)
+                  )}>
+                    {COMPLEXITY_LABEL[selected.complexity]}
+                  </span>
+                  {selected.beginner_friendly && (
+                    <span className="font-label text-2xs font-bold uppercase tracking-wide px-2 py-0.5 rounded-sm bg-moss/15 text-moss-dark">
+                      Para empezar
+                    </span>
+                  )}
+                  {!selected.available && (
+                    <span className="font-label text-2xs font-bold uppercase tracking-wide px-2 py-0.5 rounded-sm bg-crimson/15 text-crimson">
+                      No disponible
+                    </span>
+                  )}
+                </div>
+              </div>
             </div>
 
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-leather-light">
-              <span className="flex items-center gap-1.5"><Users size={13} />{formatPlayers(selected.min_players, selected.max_players)}</span>
-              <span className="flex items-center gap-1.5"><Clock size={13} />{formatPlaytime(selected.playtime_minutes)}</span>
-            </div>
-
-            <div className="flex flex-wrap gap-1.5">
-              <span className={cn(
-                "font-label text-2xs font-bold uppercase tracking-wide px-2 py-0.5 rounded-sm",
-                complexityBadgeClass(selected.complexity)
-              )}>
-                {COMPLEXITY_LABEL[selected.complexity]}
-              </span>
-              {selected.beginner_friendly && (
-                <span className="font-label text-2xs font-bold uppercase tracking-wide px-2 py-0.5 rounded-sm bg-moss/15 text-moss-dark">
-                  Para empezar
-                </span>
-              )}
-              {!selected.available && (
-                <span className="font-label text-2xs font-bold uppercase tracking-wide px-2 py-0.5 rounded-sm bg-crimson/15 text-crimson">
-                  No disponible
-                </span>
-              )}
-              {selected.tags.map((tag) => (
-                <span key={tag} className="font-label text-2xs font-bold uppercase tracking-wide px-2 py-0.5 rounded-sm bg-leather/10 text-leather">
-                  {tag}
-                </span>
-              ))}
-            </div>
+            {selected.tags.length > 0 && (
+              <div>
+                <h3 className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light mb-1.5">Tags</h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {selected.tags.map((tag) => (
+                    <span key={tag} className="font-label text-xs font-bold uppercase tracking-wide px-2.5 py-1 rounded-sm bg-leather/10 text-leather">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {selected.description && (
-              <p className="font-body text-sm text-ink-light leading-relaxed">{selected.description}</p>
+              <div>
+                <h3 className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light mb-1.5">Descripción</h3>
+                <p className="font-body text-base text-ink leading-relaxed">{selected.description}</p>
+              </div>
             )}
 
             {selected.bgg_link && (
