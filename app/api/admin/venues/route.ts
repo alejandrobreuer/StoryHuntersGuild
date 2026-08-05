@@ -29,7 +29,12 @@ export async function POST(req: NextRequest) {
   const admin = createAdminClient();
   const { data, error: insertError } = await admin
     .from("shg_venues")
-    .insert({ ...parsed.data, map_url: parsed.data.map_url || null })
+    .insert({
+      ...parsed.data,
+      map_url: parsed.data.map_url || null,
+      instagram_url: parsed.data.instagram_url || null,
+      logo_url: parsed.data.logo_url || null,
+    })
     .select()
     .single();
 

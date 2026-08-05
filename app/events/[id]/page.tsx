@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { MapPin, Users, Clock, Dice5 } from "lucide-react";
+import { MapPin, Users, Clock, Dice5, AtSign } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Button } from "@/components/ui/Button";
 import { CapacityBadge } from "@/components/ui/CapacityBadge";
@@ -21,7 +21,7 @@ export default async function EventDetailPage({ params }: { params: { id: string
 
   const { data: event } = await admin
     .from("shg_events")
-    .select("*, venue:shg_venues(id, name, address, city, map_url, created_at, updated_at)")
+    .select("*, venue:shg_venues(id, name, address, city, map_url, instagram_url, logo_url, created_at, updated_at)")
     .eq("id", params.id)
     .eq("status", "published")
     .maybeSingle();
@@ -65,13 +65,34 @@ export default async function EventDetailPage({ params }: { params: { id: string
         <h2 className="font-label text-xs uppercase tracking-widest text-leather-light mb-2 flex items-center gap-1.5">
           <MapPin size={14} /> Lugar
         </h2>
-        <p className="font-display text-lg text-ink">{venue.name}</p>
-        <p className="font-body text-sm text-ink-light">{venue.address}{venue.city ? `, ${venue.city}` : ""}</p>
-        {venue.map_url && (
-          <a href={venue.map_url} target="_blank" rel="noopener noreferrer" className="inline-block mt-2 text-xs font-label uppercase tracking-widest">
-            Ver en el mapa →
-          </a>
-        )}
+        <div className="flex items-start gap-3">
+          {venue.logo_url && (
+            <div className="relative size-12 shrink-0 bg-parchment-dark/40 border border-brass/30 overflow-hidden">
+              <Image src={venue.logo_url} alt="" fill className="object-contain" sizes="48px" />
+            </div>
+          )}
+          <div className="min-w-0">
+            <p className="font-display text-lg text-ink">{venue.name}</p>
+            <p className="font-body text-sm text-ink-light">{venue.address}{venue.city ? `, ${venue.city}` : ""}</p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2">
+          {venue.map_url && (
+            <a href={venue.map_url} target="_blank" rel="noopener noreferrer" className="inline-block text-xs font-label uppercase tracking-widest">
+              Ver en el mapa →
+            </a>
+          )}
+          {venue.instagram_url && (
+            <a
+              href={venue.instagram_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs font-label uppercase tracking-widest"
+            >
+              <AtSign size={13} /> Instagram
+            </a>
+          )}
+        </div>
       </div>
 
       {games.length > 0 && (

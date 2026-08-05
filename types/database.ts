@@ -33,14 +33,16 @@ export interface ShgAdminUser {
 // ─── Catalog ────────────────────────────────────────────────────────────────
 
 export interface ShgVenue {
-  id:         string;
-  name:       string;
-  address:    string;
-  city:       string | null;
-  map_url:    string | null;
-  notes:      string | null;   // admin-only, never sent to public API responses
-  created_at: string;
-  updated_at: string;
+  id:             string;
+  name:           string;
+  address:        string;
+  city:           string | null;
+  map_url:        string | null;
+  instagram_url:  string | null;
+  logo_url:       string | null;
+  notes:          string | null;   // admin-only, never sent to public API responses
+  created_at:     string;
+  updated_at:     string;
 }
 
 /** Venue fields safe to include in a public API response — no `notes`. */

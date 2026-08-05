@@ -19,7 +19,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const admin = createAdminClient();
   const { data, error: updateError } = await admin
     .from("shg_venues")
-    .update({ ...parsed.data, map_url: parsed.data.map_url || null })
+    .update({
+      ...parsed.data,
+      map_url: parsed.data.map_url || null,
+      instagram_url: parsed.data.instagram_url || null,
+      logo_url: parsed.data.logo_url || null,
+    })
     .eq("id", params.id)
     .select()
     .single();
