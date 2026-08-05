@@ -9,7 +9,17 @@ import type { ShgEventListItem, ShgGame } from "@/types/database";
 
 export const dynamic = "force-dynamic";
 
+const HERO_TAGLINES = [
+  "We don't look for players, we look for stories. And yours starts at this table.",
+  "Walk in not knowing how to play, and walk out wanting more.",
+  "Every adventurer deserves their story. We help you find it.",
+  "Become part of the Guild, and join us on amazing adventures.",
+  "No character sheet required — just curiosity and a free evening.",
+  "The best stories aren't written. They're rolled, drawn, and won.",
+];
+
 export default async function HomePage() {
+  const tagline = HERO_TAGLINES[Math.floor(Math.random() * HERO_TAGLINES.length)];
   const admin = createAdminClient();
   const now = new Date().toISOString();
 
@@ -55,8 +65,7 @@ export default async function HomePage() {
           priority
         />
         <h1 className="font-display text-3xl sm:text-5xl text-ink leading-tight max-w-2xl mx-auto text-balance">
-          Juegos de mesa, gente nueva,{" "}
-          <em className="not-italic">tardes que se hacen cortas.</em>
+          {tagline}
         </h1>
         <p className="font-body italic text-base sm:text-lg text-ink-light/70 max-w-lg mx-auto mt-5 mb-9">
           Sumate a nuestros eventos de juegos de mesa, conocé gente y descubrí tu próximo juego favorito — no hace falta experiencia previa.
