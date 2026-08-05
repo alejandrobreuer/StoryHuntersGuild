@@ -98,7 +98,13 @@ export default async function HomePage() {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
             {games.map((g) => (
               <div key={g.id} className="surface-parchment p-4 text-center transition-transform hover:-translate-y-1">
-                <Dice5 size={28} className="mx-auto mb-2 text-moss" />
+                <div className="relative w-full aspect-square mb-2 bg-parchment-dark/40 border border-brass/30 flex items-center justify-center overflow-hidden">
+                  {g.image_url ? (
+                    <Image src={g.image_url} alt={g.name} fill className="object-contain" sizes="150px" />
+                  ) : (
+                    <Dice5 size={28} className="text-leather-light" />
+                  )}
+                </div>
                 <p className="font-label text-xs font-bold text-ink mb-1.5 line-clamp-2">{g.name}</p>
                 <p className="flex items-center justify-center gap-1 text-2xs text-leather-light">
                   <Users size={11} /> {formatPlayers(g.min_players, g.max_players)}
