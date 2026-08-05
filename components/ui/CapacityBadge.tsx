@@ -22,7 +22,7 @@ export function CapacityBadge({ remaining, className }: CapacityBadgeProps) {
       <Crosshair
         size={64}
         strokeWidth={0.75}
-        className={cn("absolute inset-0", full ? "text-leather-lighter/40" : "text-brass-light/50")}
+        className={cn("absolute inset-0 m-auto", full ? "text-leather-lighter/40" : "text-brass-light/50")}
       />
       <div className="relative flex flex-col items-center leading-none">
         <span className="font-label text-lg font-bold text-parchment">{full ? "0" : remaining}</span>
