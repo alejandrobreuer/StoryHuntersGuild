@@ -7,13 +7,12 @@ import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const NAV_LINKS = [
+const BASE_LINKS = [
   { href: "/",            label: "Inicio" },
   { href: "/events",      label: "Eventos" },
   { href: "/games",       label: "Ludoteca" },
   { href: "/about",       label: "Nosotros" },
   { href: "/my-bookings", label: "Mis reservas" },
-  { href: "/sign-in",     label: "Ingresar" },
 ];
 
 function NavItem({ href, label, onClick }: { href: string; label: string; onClick?: () => void }) {
@@ -33,8 +32,34 @@ function NavItem({ href, label, onClick }: { href: string; label: string; onClic
   );
 }
 
-export function Nav() {
+function SignOutItem({ onClick }: { onClick?: () => void }) {
+  async function handleSignOut() {
+    await fetch("/api/auth/sign-out", { method: "POST" });
+    window.location.href = "/";
+  }
+  return (
+    <button
+      onClick={() => { handleSignOut(); onClick?.(); }}
+      className="font-label text-xs font-semibold uppercase tracking-widest px-3.5 py-2 transition-colors text-parchment-dark hover:text-brass-bright hover:bg-brass/10"
+    >
+      Salir
+    </button>
+  );
+}
+
+export function Nav({
+  sessionUser,
+  isAdmin,
+}: {
+  sessionUser: { id: string; email: string } | null;
+  isAdmin: boolean;
+}) {
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const links = [
+    ...BASE_LINKS,
+    ...(isAdmin ? [{ href: "/admin", label: "Panel Admin" }] : []),
+    ...(sessionUser ? [] : [{ href: "/sign-in", label: "Ingresar" }]),
+  ];
 
   return (
     <nav className="sticky top-0 z-40 flex items-center justify-between bg-gradient-to-b from-[#2a2015] to-[#1a1508] border-b-[3px] border-brass px-4 sm:px-6 shadow-parchment-lg">
@@ -46,9 +71,10 @@ export function Nav() {
       </Link>
 
       <ul className="hidden md:flex items-center gap-1 list-none">
-        {NAV_LINKS.map((l) => (
+        {links.map((l) => (
           <li key={l.href}><NavItem {...l} /></li>
         ))}
+        {sessionUser && <li><SignOutItem /></li>}
       </ul>
 
       <button
@@ -61,9 +87,10 @@ export function Nav() {
 
       {mobileOpen && (
         <div className="md:hidden absolute top-full left-0 right-0 bg-[#1a1508] border-b-[3px] border-brass flex flex-col p-3 gap-1">
-          {NAV_LINKS.map((l) => (
+          {links.map((l) => (
             <NavItem key={l.href} {...l} onClick={() => setMobileOpen(false)} />
           ))}
+          {sessionUser && <SignOutItem onClick={() => setMobileOpen(false)} />}
         </div>
       )}
     </nav>

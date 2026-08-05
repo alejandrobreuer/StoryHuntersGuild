@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Cinzel, Crimson_Text, Oswald } from "next/font/google";
 import { Toaster } from "sonner";
 import { SiteChromeGuard } from "@/components/layout/SiteChromeGuard";
+import { getSessionUser, getAdminUser } from "@/lib/auth/guard";
 import "./globals.css";
 
 const cinzel = Cinzel({
@@ -32,13 +33,14 @@ export const metadata: Metadata = {
     "Eventos de juegos de mesa para todos — reservá tu lugar en la próxima aventura del grupo.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const [sessionUser, adminUser] = await Promise.all([getSessionUser(), getAdminUser()]);
   return (
     <html lang="es" className={`${cinzel.variable} ${crimson.variable} ${oswald.variable}`}>
       <body className="antialiased">
-        <SiteChromeGuard>{children}</SiteChromeGuard>
+        <SiteChromeGuard sessionUser={sessionUser} isAdmin={!!adminUser}>{children}</SiteChromeGuard>
         <Toaster
           position="bottom-right"
           toastOptions={{

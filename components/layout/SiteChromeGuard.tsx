@@ -9,7 +9,15 @@ const HIDDEN_PREFIX = "/admin";
 /** Hides the public nav/footer on the admin panel, which has its own sidebar
  * chrome (see app/admin/(dashboard)/layout.tsx) — mirrors cardstash.ar's
  * TopbarGuard pattern. */
-export function SiteChromeGuard({ children }: { children: React.ReactNode }) {
+export function SiteChromeGuard({
+  children,
+  sessionUser,
+  isAdmin,
+}: {
+  children: React.ReactNode;
+  sessionUser: { id: string; email: string } | null;
+  isAdmin: boolean;
+}) {
   const pathname = usePathname();
   const hidden = pathname === HIDDEN_PREFIX || pathname.startsWith(HIDDEN_PREFIX + "/");
 
@@ -17,7 +25,7 @@ export function SiteChromeGuard({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <Nav />
+      <Nav sessionUser={sessionUser} isAdmin={isAdmin} />
       {children}
       <StudioCreditFooter />
     </>
