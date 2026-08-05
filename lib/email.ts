@@ -1,7 +1,7 @@
 import { Resend } from "resend";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://guild.cardstash.ar";
-const FROM    = "Story Hunters Guild <noreply@guild.cardstash.ar>";
+const FROM    = "Story Hunters Guild <guild@cardstash.ar>";
 
 function wrapHtml(title: string, bodyHtml: string): string {
   return `<!DOCTYPE html>
