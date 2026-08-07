@@ -29,9 +29,9 @@ function useChangeFlash(value: number): boolean {
 function StatTile({ label, value }: { label: string; value: number }) {
   const flash = useChangeFlash(value);
   return (
-    <div className="fu-panel p-3 text-center">
-      <div className="fu-label text-[9px] text-[var(--fu-text-muted)]">{label}</div>
-      <div className={cn("fu-heading text-xl font-bold text-[var(--fu-gold-bright)]", flash && "fu-stat-changed")}>
+    <div className="fu-panel p-4 text-center">
+      <div className="fu-label text-sm text-[var(--fu-text-muted)]">{label}</div>
+      <div className={cn("fu-heading text-3xl font-bold text-[var(--fu-gold-bright)]", flash && "fu-stat-changed")}>
         {value}
       </div>
     </div>
@@ -61,10 +61,10 @@ function AttributesAndStatusPanel({
   }
 
   return (
-    <section className="fu-panel p-5">
-      <h2 className="fu-heading text-lg font-bold text-[var(--fu-gold-bright)]">Attributes &amp; Status Effects</h2>
+    <section className="fu-panel p-6">
+      <h2 className="fu-heading text-2xl font-bold text-[var(--fu-gold-bright)]">Attributes &amp; Status Effects</h2>
 
-      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+      <div className="mt-4 grid gap-2.5">
         {ATTRIBUTE_ROWS.map(({ key, label }) => {
           const base = character.attributes[key];
           const curr = current[key];
@@ -72,10 +72,10 @@ function AttributesAndStatusPanel({
           return (
             <div
               key={key}
-              className="flex items-center justify-between rounded border border-[var(--fu-border)] px-3 py-2"
+              className="flex items-center justify-between rounded border border-[var(--fu-border)] px-4 py-2.5"
             >
-              <span className="text-sm font-semibold text-[var(--fu-text)]">{label}</span>
-              <span className="fu-label text-sm">
+              <span className="text-base font-semibold text-[var(--fu-text)]">{label}</span>
+              <span className="fu-label text-base">
                 <span className={reduced ? "text-[var(--fu-text-muted)] line-through" : "text-[var(--fu-gold-bright)]"}>
                   d{base}
                 </span>
@@ -86,23 +86,23 @@ function AttributesAndStatusPanel({
         })}
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <div className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
         {statusEffects.map((effect) => {
           const active = character.statusEffects.includes(effect.id);
           return (
             <div
               key={effect.id}
               className={cn(
-                "flex items-center gap-1.5 rounded border px-2 py-1.5 text-xs",
+                "flex items-center gap-2 rounded border px-3 py-2.5 text-sm",
                 active ? "border-[var(--fu-danger)] bg-[var(--fu-danger)]/10" : "border-[var(--fu-border)]",
               )}
             >
-              <label className="flex flex-1 cursor-pointer items-center gap-1.5">
+              <label className="flex flex-1 cursor-pointer items-center gap-2">
                 <input
                   type="checkbox"
                   checked={active}
                   onChange={() => toggleEffect(effect.id)}
-                  className="accent-[var(--fu-danger)]"
+                  className="h-4 w-4 accent-[var(--fu-danger)]"
                 />
                 <span className={active ? "font-semibold text-[var(--fu-danger)]" : "text-[var(--fu-text)]"}>
                   {effect.name}
@@ -113,7 +113,7 @@ function AttributesAndStatusPanel({
           );
         })}
       </div>
-      <p className="mt-3 text-[10px] leading-relaxed text-[var(--fu-text-muted)]">{statusEffectRulesNote}</p>
+      <p className="mt-4 text-sm leading-relaxed text-[var(--fu-text-muted)]">{statusEffectRulesNote}</p>
     </section>
   );
 }
@@ -134,48 +134,48 @@ function FabulaPointsPanel({
   }
 
   return (
-    <section className="fu-panel p-5">
-      <h2 className="fu-heading text-lg font-bold text-[var(--fu-gold-bright)]">Fabula Points</h2>
-      <div className="mt-3 flex items-center gap-3">
+    <section className="fu-panel p-6">
+      <h2 className="fu-heading text-2xl font-bold text-[var(--fu-gold-bright)]">Fabula Points</h2>
+      <div className="mt-4 flex items-center gap-4">
         <button
           type="button"
           onClick={() => adjust(-1)}
           aria-label="Spend a Fabula Point"
-          className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--fu-border)] text-lg leading-none text-[var(--fu-text)] hover:border-[var(--fu-gold)]"
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--fu-border)] text-2xl leading-none text-[var(--fu-text)] hover:border-[var(--fu-gold)]"
         >
           −
         </button>
-        <span className="fu-heading w-10 text-center text-2xl font-bold text-[var(--fu-gold-bright)]">
+        <span className="fu-heading w-12 text-center text-4xl font-bold text-[var(--fu-gold-bright)]">
           {character.fabulaPoints}
         </span>
         <button
           type="button"
           onClick={() => adjust(1)}
           aria-label="Gain a Fabula Point"
-          className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--fu-border)] text-lg leading-none text-[var(--fu-text)] hover:border-[var(--fu-gold)]"
+          className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--fu-border)] text-2xl leading-none text-[var(--fu-text)] hover:border-[var(--fu-gold)]"
         >
           +
         </button>
       </div>
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+      <div className="mt-5 grid gap-5 sm:grid-cols-2">
         <div>
-          <p className="fu-label text-[10px] text-[var(--fu-text-muted)]">Gain a point when…</p>
-          <ul className="mt-1 space-y-1 text-[11px] leading-snug text-[var(--fu-text)]">
+          <p className="fu-label text-sm text-[var(--fu-text-muted)]">Gain a point when…</p>
+          <ul className="mt-1.5 space-y-1.5 text-base leading-snug text-[var(--fu-text)]">
             {fabulaPointGains.map((g, i) => (
               <li key={i}>· {g}</li>
             ))}
           </ul>
         </div>
         <div>
-          <p className="fu-label text-[10px] text-[var(--fu-text-muted)]">Spend a point to…</p>
-          <ul className="mt-1 space-y-1 text-[11px] leading-snug text-[var(--fu-text)]">
+          <p className="fu-label text-sm text-[var(--fu-text-muted)]">Spend a point to…</p>
+          <ul className="mt-1.5 space-y-1.5 text-base leading-snug text-[var(--fu-text)]">
             {fabulaPointUses.map((u, i) => (
               <li key={i}>· {u}</li>
             ))}
           </ul>
         </div>
       </div>
-      <p className="mt-3 text-[10px] leading-relaxed text-[var(--fu-text-muted)]">{fabulaPointsNote}</p>
+      <p className="mt-4 text-sm leading-relaxed text-[var(--fu-text-muted)]">{fabulaPointsNote}</p>
     </section>
   );
 }
@@ -183,39 +183,39 @@ function FabulaPointsPanel({
 function QuickReferenceSection() {
   const [open, setOpen] = useState(false);
   return (
-    <section className="fu-panel p-5">
+    <section className="fu-panel p-6">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="fu-heading flex w-full items-center justify-between text-lg font-bold text-[var(--fu-gold-bright)]"
+        className="fu-heading flex w-full items-center justify-between text-2xl font-bold text-[var(--fu-gold-bright)]"
       >
         Quick Reference
-        <span className="fu-label text-[10px] text-[var(--fu-text-muted)]">{open ? "Hide" : "Show"}</span>
+        <span className="fu-label text-sm text-[var(--fu-text-muted)]">{open ? "Hide" : "Show"}</span>
       </button>
       {open && (
-        <div className="mt-4 grid gap-6 sm:grid-cols-2">
+        <div className="mt-5 grid gap-8 lg:grid-cols-2">
           <div>
-            <h3 className="fu-label text-xs text-[var(--fu-cyan)]">Actions</h3>
-            <dl className="mt-2 space-y-2">
+            <h3 className="fu-label text-base text-[var(--fu-cyan)]">Actions</h3>
+            <dl className="mt-3 space-y-3">
               {actions.map((a) => (
                 <div key={a.name}>
-                  <dt className="text-sm font-semibold text-[var(--fu-text)]">{a.name}</dt>
-                  <dd className="text-[11px] leading-snug text-[var(--fu-text-muted)]">{a.description}</dd>
+                  <dt className="text-lg font-semibold text-[var(--fu-text)]">{a.name}</dt>
+                  <dd className="text-base leading-snug text-[var(--fu-text-muted)]">{a.description}</dd>
                 </div>
               ))}
             </dl>
           </div>
           <div>
-            <h3 className="fu-label text-xs text-[var(--fu-cyan)]">Status Effects</h3>
-            <dl className="mt-2 space-y-2">
+            <h3 className="fu-label text-base text-[var(--fu-cyan)]">Status Effects</h3>
+            <dl className="mt-3 space-y-3">
               {statusEffects.map((e) => (
                 <div key={e.id}>
-                  <dt className="text-sm font-semibold text-[var(--fu-text)]">{e.name}</dt>
-                  <dd className="text-[11px] leading-snug text-[var(--fu-text-muted)]">{e.description}</dd>
+                  <dt className="text-lg font-semibold text-[var(--fu-text)]">{e.name}</dt>
+                  <dd className="text-base leading-snug text-[var(--fu-text-muted)]">{e.description}</dd>
                 </div>
               ))}
             </dl>
-            <p className="mt-2 text-[10px] leading-relaxed text-[var(--fu-text-muted)]">{statusEffectRulesNote}</p>
+            <p className="mt-3 text-sm leading-relaxed text-[var(--fu-text-muted)]">{statusEffectRulesNote}</p>
           </div>
         </div>
       )}
@@ -243,152 +243,170 @@ export function CharacterSheet({
   const equippedArmor = character.equipment.armor ? findEquipmentItem(character.equipment.armor) : undefined;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 px-4 py-8 md:px-8">
+    <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 md:px-8">
       <div className="flex items-center justify-between">
         <Link
           href="/FU"
-          className="fu-label text-[10px] text-[var(--fu-text-onwood-muted)] hover:text-[var(--fu-text-onwood)]"
+          className="fu-label text-sm text-[var(--fu-text-onwood-muted)] hover:text-[var(--fu-text-onwood)]"
         >
           ← Roster
         </Link>
         <button
           type="button"
           onClick={onLevelUp}
-          className="fu-label rounded-md bg-[var(--fu-gold-glow)] px-4 py-2 text-xs font-bold text-[var(--fu-bg)] transition-opacity hover:opacity-90"
+          className="fu-label rounded-md bg-[var(--fu-gold-glow)] px-5 py-2.5 text-sm font-bold text-[var(--fu-bg)] transition-opacity hover:opacity-90"
         >
           Level Up
         </button>
       </div>
 
-      <header className="fu-panel p-5">
+      <header className="fu-panel p-6">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h1 className="fu-heading text-3xl font-extrabold text-[var(--fu-gold-bright)]">
+          <h1 className="fu-heading text-4xl font-extrabold text-[var(--fu-gold-bright)] lg:text-5xl">
             {character.name || "Unnamed Hero"}
           </h1>
-          <span className="fu-label rounded-full border border-[var(--fu-gold)]/50 px-3 py-1 text-xs text-[var(--fu-gold)]">
+          <span className="fu-label rounded-full border border-[var(--fu-gold)]/50 px-4 py-1.5 text-sm text-[var(--fu-gold)]">
             LV {character.level}
           </span>
         </div>
-        {character.pronouns && <p className="mt-0.5 text-xs text-[var(--fu-text-muted)]">{character.pronouns}</p>}
-        <p className="mt-3 text-sm text-[var(--fu-text)]">
-          <span className="fu-label text-[var(--fu-cyan)]">Identity </span>
-          {character.identity}
-        </p>
-        <p className="mt-1 text-sm text-[var(--fu-text)]">
-          <span className="fu-label text-[var(--fu-cyan)]">Theme </span>
-          {character.theme}
-        </p>
-        <p className="mt-1 text-sm text-[var(--fu-text)]">
-          <span className="fu-label text-[var(--fu-cyan)]">Origin </span>
-          {character.origin}
-        </p>
+        {character.pronouns && <p className="mt-1 text-sm text-[var(--fu-text-muted)]">{character.pronouns}</p>}
+        <div className="mt-4 grid gap-1 sm:grid-cols-3">
+          <p className="text-base text-[var(--fu-text)]">
+            <span className="fu-label text-[var(--fu-cyan)]">Identity </span>
+            {character.identity}
+          </p>
+          <p className="text-base text-[var(--fu-text)]">
+            <span className="fu-label text-[var(--fu-cyan)]">Theme </span>
+            {character.theme}
+          </p>
+          <p className="text-base text-[var(--fu-text)]">
+            <span className="fu-label text-[var(--fu-cyan)]">Origin </span>
+            {character.origin}
+          </p>
+        </div>
         {character.appearance && (
-          <p className="mt-3 text-sm italic leading-relaxed text-[var(--fu-text-muted)]">{character.appearance}</p>
+          <p className="mt-4 text-base italic leading-relaxed text-[var(--fu-text-muted)]">{character.appearance}</p>
         )}
       </header>
 
-      <AttributesAndStatusPanel character={character} current={current} onUpdate={onUpdate} />
+      <div className="grid gap-6 lg:grid-cols-12 lg:items-start">
+        <div className="space-y-6 lg:col-span-5 lg:sticky lg:top-6">
+          <AttributesAndStatusPanel character={character} current={current} onUpdate={onUpdate} />
 
-      <section className="fu-panel space-y-3 p-5">
-        <StatBar
-          label="Hit Points"
-          value={stats.hp.value}
-          max={stats.hp.value}
-          colorVar="--fu-success"
-          markerAt={stats.crisis.value}
-        />
-        <StatBar label="Mind Points" value={stats.mp.value} max={stats.mp.value} colorVar="--fu-cyan" />
-        <StatBar label="Inventory Points" value={stats.ip.value} max={stats.ip.value} colorVar="--fu-gold" />
-        <div className="grid grid-cols-2 gap-2 pt-2 sm:grid-cols-4">
-          <StatTile label="Crisis" value={stats.crisis.value} />
-          <StatTile label="Defense" value={stats.defense.value} />
-          <StatTile label="M. Defense" value={stats.magicDefense.value} />
-          <StatTile label="Initiative" value={stats.initiative.value} />
-        </div>
-        <p className="fu-label text-[9px] text-[var(--fu-text-muted)]">
-          Crisis: half your max HP, rounded down — the point at which you gain access to Crisis benefits.
-        </p>
-      </section>
-
-      <FabulaPointsPanel character={character} onUpdate={onUpdate} />
-
-      <section className="space-y-4">
-        <h2 className="fu-heading text-lg font-bold text-[var(--fu-gold-bright)]">Classes &amp; Skills</h2>
-        {character.classLevels.map((cl) => {
-          const cls = classesById[cl.classId];
-          if (!cls) return null;
-          const counts = new Map<string, number>();
-          for (const name of cl.skillsTaken) counts.set(name, (counts.get(name) ?? 0) + 1);
-          return (
-            <div key={cl.classId} className="fu-panel p-4">
-              <div className="flex items-baseline justify-between">
-                <span className="fu-heading text-base font-bold text-[var(--fu-text)]">{cls.name}</span>
-                <span className="fu-label text-[10px] text-[var(--fu-gold)]">Lv {cl.levels}</span>
-              </div>
-              <ul className="mt-1 space-y-0.5 text-[11px] text-[var(--fu-text-muted)]">
-                {cls.freeBenefits.map((b, i) => (
-                  <li key={i}>· {b.text}</li>
-                ))}
-              </ul>
-              <div className="mt-3 space-y-2">
-                {Array.from(counts.entries()).map(([name, count]) => {
-                  const skill = cls.skills.find((s) => s.name === name);
-                  if (!skill) return null;
-                  return (
-                    <div key={name} className="rounded border border-[var(--fu-border)] p-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold text-[var(--fu-text)]">{skill.name}</span>
-                        {skill.maxLevel > 1 && (
-                          <span className="fu-label text-[10px] text-[var(--fu-cyan)]">
-                            SL {count}/{skill.maxLevel}
-                          </span>
-                        )}
-                      </div>
-                      <SkillText text={skill.text} skillLevel={count} className="mt-1 text-[11px] text-[var(--fu-text-muted)]" />
-                    </div>
-                  );
-                })}
-              </div>
+          <section className="fu-panel space-y-4 p-6">
+            <StatBar
+              label="Hit Points"
+              value={stats.hp.value}
+              max={stats.hp.value}
+              colorVar="--fu-success"
+              markerAt={stats.crisis.value}
+            />
+            <StatBar label="Mind Points" value={stats.mp.value} max={stats.mp.value} colorVar="--fu-cyan" />
+            <StatBar label="Inventory Points" value={stats.ip.value} max={stats.ip.value} colorVar="--fu-gold" />
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <StatTile label="Crisis" value={stats.crisis.value} />
+              <StatTile label="Defense" value={stats.defense.value} />
+              <StatTile label="M. Defense" value={stats.magicDefense.value} />
+              <StatTile label="Initiative" value={stats.initiative.value} />
             </div>
-          );
-        })}
-      </section>
+            <p className="fu-label text-sm text-[var(--fu-text-muted)]">
+              Crisis: half your max HP, rounded down — the point at which you gain access to Crisis benefits.
+            </p>
+          </section>
 
-      <section className="fu-panel p-5">
-        <h2 className="fu-heading text-lg font-bold text-[var(--fu-gold-bright)]">Equipment</h2>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          {equippedWeapons.map(
-            (w) =>
-              w && (
-                <div key={w.id} className="rounded border border-[var(--fu-border)] p-2 text-sm">
-                  <div className="font-semibold text-[var(--fu-text)]">{w.name}</div>
-                  {"accuracy" in w && <div className="text-xs text-[var(--fu-cyan)]">{w.accuracy} → {w.damage}</div>}
-                </div>
-              ),
-          )}
-          {equippedShield && (
-            <div className="rounded border border-[var(--fu-border)] p-2 text-sm">
-              <div className="font-semibold text-[var(--fu-text)]">{equippedShield.name}</div>
-              {"defenseBonus" in equippedShield && (
-                <div className="text-xs text-[var(--fu-cyan)]">
-                  Def +{equippedShield.defenseBonus} · M.Def +{equippedShield.magicDefenseBonus}
+          <FabulaPointsPanel character={character} onUpdate={onUpdate} />
+        </div>
+
+        <div className="space-y-6 lg:col-span-7">
+          <section className="space-y-4">
+            <h2 className="fu-heading text-2xl font-bold text-[var(--fu-gold-glow-bright)]">Classes &amp; Skills</h2>
+            <div className={cn("grid gap-4", character.classLevels.length > 1 && "xl:grid-cols-2")}>
+              {character.classLevels.map((cl) => {
+                const cls = classesById[cl.classId];
+                if (!cls) return null;
+                const counts = new Map<string, number>();
+                for (const name of cl.skillsTaken) counts.set(name, (counts.get(name) ?? 0) + 1);
+                return (
+                  <div key={cl.classId} className="fu-panel p-5">
+                    <div className="flex items-baseline justify-between">
+                      <span className="fu-heading text-xl font-bold text-[var(--fu-text)]">{cls.name}</span>
+                      <span className="fu-label text-sm text-[var(--fu-gold)]">Lv {cl.levels}</span>
+                    </div>
+                    <ul className="mt-2 space-y-1 text-base text-[var(--fu-text-muted)]">
+                      {cls.freeBenefits.map((b, i) => (
+                        <li key={i}>· {b.text}</li>
+                      ))}
+                    </ul>
+                    <div className="mt-4 space-y-3">
+                      {Array.from(counts.entries()).map(([name, count]) => {
+                        const skill = cls.skills.find((s) => s.name === name);
+                        if (!skill) return null;
+                        return (
+                          <div key={name} className="rounded border border-[var(--fu-border)] p-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-lg font-semibold text-[var(--fu-text)]">{skill.name}</span>
+                              {skill.maxLevel > 1 && (
+                                <span className="fu-label text-sm text-[var(--fu-cyan)]">
+                                  SL {count}/{skill.maxLevel}
+                                </span>
+                              )}
+                            </div>
+                            <SkillText
+                              text={skill.text}
+                              skillLevel={count}
+                              className="mt-1.5 text-base leading-snug text-[var(--fu-text-muted)]"
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="fu-panel p-6">
+            <h2 className="fu-heading text-2xl font-bold text-[var(--fu-gold-bright)]">Equipment</h2>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {equippedWeapons.map(
+                (w) =>
+                  w && (
+                    <div key={w.id} className="rounded border border-[var(--fu-border)] p-3 text-base">
+                      <div className="font-semibold text-[var(--fu-text)]">{w.name}</div>
+                      {"accuracy" in w && (
+                        <div className="text-sm text-[var(--fu-cyan)]">
+                          {w.accuracy} → {w.damage}
+                        </div>
+                      )}
+                    </div>
+                  ),
+              )}
+              {equippedShield && (
+                <div className="rounded border border-[var(--fu-border)] p-3 text-base">
+                  <div className="font-semibold text-[var(--fu-text)]">{equippedShield.name}</div>
+                  {"defenseBonus" in equippedShield && (
+                    <div className="text-sm text-[var(--fu-cyan)]">
+                      Def +{equippedShield.defenseBonus} · M.Def +{equippedShield.magicDefenseBonus}
+                    </div>
+                  )}
                 </div>
               )}
+              {equippedArmor && (
+                <div className="rounded border border-[var(--fu-border)] p-3 text-base">
+                  <div className="font-semibold text-[var(--fu-text)]">{equippedArmor.name}</div>
+                </div>
+              )}
+              {equippedWeapons.length === 0 && !equippedShield && !equippedArmor && (
+                <p className="text-base text-[var(--fu-text-muted)]">No equipment.</p>
+              )}
             </div>
-          )}
-          {equippedArmor && (
-            <div className="rounded border border-[var(--fu-border)] p-2 text-sm">
-              <div className="font-semibold text-[var(--fu-text)]">{equippedArmor.name}</div>
-            </div>
-          )}
-          {equippedWeapons.length === 0 && !equippedShield && !equippedArmor && (
-            <p className="text-sm text-[var(--fu-text-muted)]">No equipment.</p>
-          )}
-        </div>
-        <p className="fu-label mt-3 text-xs text-[var(--fu-gold-bright)]">{character.zenit} z</p>
-      </section>
+            <p className="fu-label mt-4 text-base text-[var(--fu-gold-bright)]">{character.zenit} z</p>
+          </section>
 
-      <QuickReferenceSection />
+          <QuickReferenceSection />
+        </div>
+      </div>
     </div>
   );
 }

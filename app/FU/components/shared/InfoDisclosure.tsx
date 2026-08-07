@@ -17,19 +17,19 @@ export function InfoDisclosure({ label = "More info", children }: { label?: stri
         onClick={() => setOpen((o) => !o)}
         aria-label={label}
         aria-expanded={open}
-        className="ml-1.5 inline-flex h-4 w-4 -translate-y-px items-center justify-center rounded-full text-[var(--fu-cyan-dim)] transition-colors hover:text-[var(--fu-cyan)]"
+        className="ml-1.5 inline-flex h-5 w-5 -translate-y-px items-center justify-center rounded-full text-[var(--fu-cyan-dim)] transition-colors hover:text-[var(--fu-cyan)]"
       >
-        <Info className="h-3.5 w-3.5" />
+        <Info className="h-4 w-4" />
       </button>
       {open && (
-        <div className="fu-panel fu-scrollbar absolute left-0 top-6 z-30 max-h-64 w-72 overflow-y-auto p-3 text-xs leading-relaxed text-[var(--fu-text-muted)] shadow-2xl">
+        <div className="fu-panel fu-scrollbar absolute left-0 top-7 z-30 max-h-80 w-80 overflow-y-auto p-4 text-sm leading-relaxed text-[var(--fu-text-muted)] shadow-2xl">
           <button
             type="button"
             onClick={() => setOpen(false)}
             aria-label="Close"
-            className="absolute right-2 top-2 text-[var(--fu-text-muted)] hover:text-[var(--fu-text)]"
+            className="absolute right-2.5 top-2.5 text-[var(--fu-text-muted)] hover:text-[var(--fu-text)]"
           >
-            <X className="h-3 w-3" />
+            <X className="h-4 w-4" />
           </button>
           <div className="pr-4">{children}</div>
         </div>

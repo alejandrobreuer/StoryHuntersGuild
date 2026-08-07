@@ -71,19 +71,19 @@ export function LevelUpModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onCancel}>
       <div
-        className="fu-panel fu-scrollbar max-h-[85vh] w-full max-w-lg overflow-y-auto p-5"
+        className="fu-panel fu-scrollbar max-h-[85vh] w-full max-w-2xl overflow-y-auto p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <h2 className="fu-heading text-xl font-bold text-[var(--fu-gold-bright)]">Level Up</h2>
+          <h2 className="fu-heading text-2xl font-bold text-[var(--fu-gold-bright)]">Level Up</h2>
           <button type="button" onClick={onCancel} aria-label="Close">
-            <X className="h-5 w-5 text-[var(--fu-text-muted)] hover:text-[var(--fu-text)]" />
+            <X className="h-6 w-6 text-[var(--fu-text-muted)] hover:text-[var(--fu-text)]" />
           </button>
         </div>
-        <p className="mt-1 text-sm text-[var(--fu-text-muted)]">Advancing to level {character.level + 1}.</p>
+        <p className="mt-1 text-base text-[var(--fu-text-muted)]">Advancing to level {character.level + 1}.</p>
 
-        <div className="mt-4">
-          <span className="fu-label text-[10px] text-[var(--fu-text-muted)]">Which Class gains the new level?</span>
+        <div className="mt-5">
+          <span className="fu-label text-sm text-[var(--fu-text-muted)]">Which Class gains the new level?</span>
           <div className="mt-2 flex flex-wrap gap-2">
             {character.classLevels.map((cl) => {
               const cls = classesById[cl.classId];
@@ -99,7 +99,7 @@ export function LevelUpModal({
                     setChosenSkill("");
                   }}
                   className={cn(
-                    "fu-label rounded-md border px-3 py-1.5 text-xs",
+                    "fu-label rounded-md border px-4 py-2 text-sm",
                     active
                       ? "border-[var(--fu-gold)] text-[var(--fu-gold)]"
                       : "border-[var(--fu-border)] text-[var(--fu-text-muted)]",
@@ -118,7 +118,7 @@ export function LevelUpModal({
                   setChosenSkill("");
                 }}
                 className={cn(
-                  "fu-label rounded-md border px-3 py-1.5 text-xs",
+                  "fu-label rounded-md border px-4 py-2 text-sm",
                   newClassPick
                     ? "border-[var(--fu-gold)] text-[var(--fu-gold)]"
                     : "border-[var(--fu-border)] text-[var(--fu-text-muted)]",
@@ -137,7 +137,7 @@ export function LevelUpModal({
               setTargetClassId(e.target.value || null);
               setChosenSkill("");
             }}
-            className="mt-3 w-full rounded-md border border-[var(--fu-border)] bg-[var(--fu-bg-elevated)] p-2 text-sm text-[var(--fu-text)] focus:border-[var(--fu-gold)] focus:outline-none"
+            className="mt-4 w-full rounded-md border border-[var(--fu-border)] bg-[var(--fu-bg-elevated)] p-3 text-base text-[var(--fu-text)] focus:border-[var(--fu-gold)] focus:outline-none"
           >
             <option value="">Choose a Class…</option>
             {classes
@@ -153,18 +153,18 @@ export function LevelUpModal({
         {targetClass && (
           <>
             {isNewClass && targetClass.freeBenefits.length > 0 && (
-              <ul className="mt-3 space-y-0.5 text-[11px] text-[var(--fu-cyan)]">
+              <ul className="mt-4 space-y-1 text-base text-[var(--fu-cyan)]">
                 {targetClass.freeBenefits.map((b, i) => (
                   <li key={i}>+ {b.text}</li>
                 ))}
               </ul>
             )}
-            <div className="mt-3">
-              <span className="fu-label text-[10px] text-[var(--fu-text-muted)]">Choose a Skill</span>
+            <div className="mt-4">
+              <span className="fu-label text-sm text-[var(--fu-text-muted)]">Choose a Skill</span>
               <select
                 value={chosenSkill}
                 onChange={(e) => setChosenSkill(e.target.value)}
-                className="mt-1 w-full rounded-md border border-[var(--fu-border)] bg-[var(--fu-bg-elevated)] p-2 text-sm text-[var(--fu-text)] focus:border-[var(--fu-gold)] focus:outline-none"
+                className="mt-1.5 w-full rounded-md border border-[var(--fu-border)] bg-[var(--fu-bg-elevated)] p-3 text-base text-[var(--fu-text)] focus:border-[var(--fu-gold)] focus:outline-none"
               >
                 <option value="">Choose…</option>
                 {availableSkills.map((sk) => (
@@ -181,7 +181,7 @@ export function LevelUpModal({
                     <SkillText
                       text={sk.text}
                       skillLevel={countTaken(existingSkillsTaken, chosenSkill) + 1}
-                      className="mt-2 text-[11px] text-[var(--fu-text-muted)]"
+                      className="mt-2 text-base text-[var(--fu-text-muted)]"
                     />
                   ) : null;
                 })()}
@@ -190,7 +190,7 @@ export function LevelUpModal({
         )}
 
         {previewStats && (
-          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {(
               [
                 ["HP", currentStats.hp.value, previewStats.hp.value],
@@ -199,9 +199,9 @@ export function LevelUpModal({
                 ["Crisis", currentStats.crisis.value, previewStats.crisis.value],
               ] as const
             ).map(([label, before, after]) => (
-              <div key={label} className="fu-panel p-2 text-center">
-                <div className="fu-label text-[9px] text-[var(--fu-text-muted)]">{label}</div>
-                <div className="fu-heading text-sm font-bold text-[var(--fu-text)]">
+              <div key={label} className="fu-panel p-3 text-center">
+                <div className="fu-label text-sm text-[var(--fu-text-muted)]">{label}</div>
+                <div className="fu-heading text-lg font-bold text-[var(--fu-text)]">
                   {before}{" "}
                   {after !== before && <span className="text-[var(--fu-success)]">→ {after}</span>}
                 </div>
@@ -210,11 +210,11 @@ export function LevelUpModal({
           </div>
         )}
 
-        <div className="mt-6 flex justify-end gap-2">
+        <div className="mt-7 flex justify-end gap-3">
           <button
             type="button"
             onClick={onCancel}
-            className="fu-label rounded-md border border-[var(--fu-border)] px-4 py-2 text-xs text-[var(--fu-text-muted)] hover:text-[var(--fu-text)]"
+            className="fu-label rounded-md border border-[var(--fu-border)] px-5 py-2.5 text-sm text-[var(--fu-text-muted)] hover:text-[var(--fu-text)]"
           >
             Cancel
           </button>
@@ -222,7 +222,7 @@ export function LevelUpModal({
             type="button"
             disabled={!previewCharacter}
             onClick={handleApply}
-            className="fu-label rounded-md bg-[var(--fu-gold-deep)] px-4 py-2 text-xs font-bold text-[var(--fu-text-onwood)] disabled:opacity-30"
+            className="fu-label rounded-md bg-[var(--fu-gold-deep)] px-5 py-2.5 text-sm font-bold text-[var(--fu-text-onwood)] disabled:opacity-30"
           >
             Apply
           </button>

@@ -41,18 +41,18 @@ export function EquipmentCard({
       {...(dragId ? draggable.attributes : {})}
       style={dragId ? { transform: CSS.Translate.toString(draggable.transform) } : undefined}
       className={cn(
-        "fu-panel select-none p-2.5 text-left transition-colors",
+        "fu-panel select-none p-3.5 text-left transition-colors",
         dragId && !disabled && "cursor-grab touch-none hover:border-[var(--fu-border-bright)] active:cursor-grabbing",
         disabled && "opacity-40",
         draggable.isDragging && "z-50 opacity-90",
-        compact && "p-2",
+        compact && "p-3",
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <span className="fu-heading text-sm font-semibold text-[var(--fu-text)]">{item.name}</span>
-        <div className="flex items-center gap-1">
+        <span className="fu-heading text-base font-semibold text-[var(--fu-text)]">{item.name}</span>
+        <div className="flex items-center gap-1.5">
           {item.martial && (
-            <span className="fu-label rounded bg-[var(--fu-gold)]/15 px-1.5 py-0.5 text-[9px] text-[var(--fu-gold)]">
+            <span className="fu-label rounded bg-[var(--fu-gold)]/15 px-2 py-0.5 text-xs text-[var(--fu-gold)]">
               Martial
             </span>
           )}
@@ -63,14 +63,14 @@ export function EquipmentCard({
               aria-label={`Remove ${item.name}`}
               className="text-[var(--fu-text-muted)] hover:text-[var(--fu-danger)]"
             >
-              <X className="h-3.5 w-3.5" />
+              <X className="h-4 w-4" />
             </button>
           )}
         </div>
       </div>
-      <p className="mt-1 text-xs text-[var(--fu-cyan)]">{item.statLine}</p>
-      {!compact && item.notes && <p className="mt-1 text-[11px] text-[var(--fu-text-muted)]">{item.notes}</p>}
-      <p className="mt-1.5 fu-label text-[10px] text-[var(--fu-text-muted)]">
+      <p className="mt-1 text-sm text-[var(--fu-cyan)]">{item.statLine}</p>
+      {!compact && item.notes && <p className="mt-1 text-sm text-[var(--fu-text-muted)]">{item.notes}</p>}
+      <p className="mt-2 fu-label text-sm text-[var(--fu-text-muted)]">
         {item.cost === null ? "No cost" : `${item.cost} z`}
       </p>
     </div>

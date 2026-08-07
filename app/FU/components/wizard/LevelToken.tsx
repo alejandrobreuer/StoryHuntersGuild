@@ -13,7 +13,7 @@ export function LevelToken({ id }: { id: string }) {
       {...attributes}
       style={{ transform: CSS.Translate.toString(transform) }}
       className={cn(
-        "fu-label flex h-11 w-11 shrink-0 cursor-grab touch-none items-center justify-center rounded-full border-2 border-[var(--fu-gold)] bg-[var(--fu-gold)]/10 text-xs font-bold text-[var(--fu-gold-bright)] shadow-[0_0_12px_rgba(232,178,60,0.15)] transition-opacity active:cursor-grabbing",
+        "fu-label flex h-14 w-14 shrink-0 cursor-grab touch-none items-center justify-center rounded-full border-2 border-[var(--fu-gold)] bg-[var(--fu-gold)]/10 text-sm font-bold text-[var(--fu-gold-bright)] shadow-[0_0_12px_rgba(232,178,60,0.15)] transition-opacity active:cursor-grabbing",
         isDragging && "z-50 opacity-90",
       )}
     >

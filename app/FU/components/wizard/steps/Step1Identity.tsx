@@ -26,8 +26,8 @@ export function Step1Identity() {
   return (
     <div className="space-y-6">
       <header>
-        <h2 className="fu-heading text-2xl font-bold text-[var(--fu-gold-bright)]">Identity</h2>
-        <p className="mt-2 flex items-start text-sm text-[var(--fu-text-muted)]">
+        <h2 className="fu-heading text-3xl font-bold text-[var(--fu-gold-bright)]">Identity</h2>
+        <p className="mt-2 flex items-start text-base text-[var(--fu-text-muted)]">
           A short sentence that briefly summarizes how your character sees themselves right now.
           <InfoDisclosure label="Why Identity matters">
             You can invoke your Identity to give yourself an edge when making Checks — pick
@@ -44,18 +44,18 @@ export function Step1Identity() {
         onChange={(e) => dispatch({ type: "SET_IDENTITY", value: e.target.value })}
         placeholder="e.g. Elderly Amnesiac Sorcerer"
         rows={2}
-        className="w-full resize-none rounded-md border border-[var(--fu-border)] bg-[var(--fu-bg-elevated)] p-3 text-[var(--fu-text)] placeholder:text-[var(--fu-text-muted)]/50 focus:border-[var(--fu-gold)] focus:outline-none"
+        className="w-full max-w-2xl resize-none rounded-md border border-[var(--fu-border)] bg-[var(--fu-bg-elevated)] p-4 text-lg text-[var(--fu-text)] placeholder:text-[var(--fu-text-muted)]/50 focus:border-[var(--fu-gold)] focus:outline-none"
       />
 
       <div>
         <button
           type="button"
           onClick={() => dispatch({ type: "SET_IDENTITY", value: rollIdentity() })}
-          className="fu-label inline-flex items-center gap-2 rounded-md border border-[var(--fu-cyan-dim)] px-4 py-2 text-xs text-[var(--fu-cyan)] transition-colors hover:bg-[var(--fu-cyan)]/10"
+          className="fu-label inline-flex items-center gap-2 rounded-md border border-[var(--fu-cyan-dim)] px-4 py-2.5 text-sm text-[var(--fu-cyan)] transition-colors hover:bg-[var(--fu-cyan)]/10"
         >
           <Dices className="h-4 w-4" /> Roll for me
         </button>
-        <p className="mt-2 text-[11px] text-[var(--fu-text-muted)]">
+        <p className="mt-2 text-sm text-[var(--fu-text-muted)]">
           Assembled from the Core Concept / Adjective / Detail tables — edit freely once rolled.
         </p>
       </div>

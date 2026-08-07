@@ -22,11 +22,11 @@ export default function CharacterPage() {
   if (character === null) {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
-        <p className="fu-heading text-xl text-[var(--fu-text-onwood)]">Character not found.</p>
+        <p className="fu-heading text-2xl text-[var(--fu-text-onwood)]">Character not found.</p>
         <button
           type="button"
           onClick={() => router.push("/FU")}
-          className="fu-label mt-4 rounded-md bg-[var(--fu-gold-glow)] px-4 py-2 text-xs font-bold text-[var(--fu-bg)]"
+          className="fu-label mt-4 rounded-md bg-[var(--fu-gold-glow)] px-5 py-2.5 text-sm font-bold text-[var(--fu-bg)]"
         >
           Back to Roster
         </button>

@@ -43,8 +43,8 @@ export function Step4Classes() {
   return (
     <div className="space-y-6">
       <header>
-        <h2 className="fu-heading text-2xl font-bold text-[var(--fu-gold-bright)]">Classes</h2>
-        <p className="mt-2 flex items-start text-sm text-[var(--fu-text-muted)]">
+        <h2 className="fu-heading text-3xl font-bold text-[var(--fu-gold-bright)]">Classes</h2>
+        <p className="mt-2 flex items-start text-base text-[var(--fu-text-muted)]">
           Choose 2–3 Classes and distribute your five starting levels among them.
           <InfoDisclosure label="Why Classes matter">
             Each level invested in a Class grants one of its Skills (repeatable ones stack into
@@ -65,7 +65,7 @@ export function Step4Classes() {
 
       <div
         className={cn(
-          "fu-label sticky top-0 z-10 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border px-3 py-2 text-[11px]",
+          "fu-label sticky top-0 z-10 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border px-4 py-2.5 text-sm",
           valid
             ? "border-[var(--fu-success)]/40 bg-[var(--fu-success)]/10 text-[var(--fu-success)]"
             : "border-[var(--fu-gold)]/30 bg-[var(--fu-gold)]/5 text-[var(--fu-gold)]",
@@ -81,7 +81,7 @@ export function Step4Classes() {
 
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
         {draft.classLevels.length > 0 && (
-          <div className={cn("grid gap-3", draft.classLevels.length > 1 && "sm:grid-cols-2")}>
+          <div className={cn("grid gap-4", draft.classLevels.length > 1 && "lg:grid-cols-2")}>
             {draft.classLevels.map((cl) => {
               const cls = classesById[cl.classId];
               if (!cls) return null;
@@ -106,8 +106,8 @@ export function Step4Classes() {
           </div>
         )}
 
-        <div className="fu-panel flex flex-wrap items-center gap-3 p-4">
-          <span className="fu-label text-[10px] text-[var(--fu-text-muted)]">
+        <div className="fu-panel flex flex-wrap items-center gap-4 p-5">
+          <span className="fu-label text-sm text-[var(--fu-text-muted)]">
             {remaining > 0 ? "Drag a level onto a class above" : "All levels placed"}
           </span>
           <div className="flex gap-2">

@@ -33,9 +33,9 @@ export function ClassPicker({
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search classes…"
-        className="w-full rounded-md border border-[var(--fu-border)] bg-[var(--fu-bg-elevated)] p-2.5 text-sm text-[var(--fu-text)] placeholder:text-[var(--fu-text-muted)]/50 focus:border-[var(--fu-gold)] focus:outline-none"
+        className="w-full max-w-xl rounded-md border border-[var(--fu-border)] bg-[var(--fu-bg-elevated)] p-3 text-base text-[var(--fu-text)] placeholder:text-[var(--fu-text-muted)]/50 focus:border-[var(--fu-gold)] focus:outline-none"
       />
-      <div className="fu-scrollbar grid max-h-80 grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="fu-scrollbar grid max-h-[28rem] grid-cols-1 gap-3 overflow-y-auto pr-1 sm:grid-cols-2 xl:grid-cols-4">
         {filtered.map((cls) => {
           const selected = selectedIds.includes(cls.id);
           const disabled = !selected && atCap;
@@ -46,22 +46,22 @@ export function ClassPicker({
               disabled={disabled}
               onClick={() => onToggle(cls.id)}
               className={cn(
-                "fu-panel p-3 text-left transition-colors",
+                "fu-panel p-4 text-left transition-colors",
                 selected && "border-[var(--fu-gold)] bg-[var(--fu-panel-hover)]",
                 !selected && !disabled && "hover:border-[var(--fu-border-bright)]",
                 disabled && "opacity-40",
               )}
             >
-              <div className="fu-heading text-sm font-semibold text-[var(--fu-text)]">{cls.name}</div>
-              <div className="text-[10px] text-[var(--fu-text-muted)]">{cls.alsoKnownAs.join(" · ")}</div>
-              <p className="mt-1.5 line-clamp-2 text-[11px] leading-snug text-[var(--fu-text-muted)]">
+              <div className="fu-heading text-lg font-semibold text-[var(--fu-text)]">{cls.name}</div>
+              <div className="text-sm text-[var(--fu-text-muted)]">{cls.alsoKnownAs.join(" · ")}</div>
+              <p className="mt-2 line-clamp-3 text-sm leading-snug text-[var(--fu-text-muted)]">
                 {cls.description}
               </p>
             </button>
           );
         })}
         {filtered.length === 0 && (
-          <p className="col-span-full py-6 text-center text-sm text-[var(--fu-text-muted)]">
+          <p className="col-span-full py-6 text-center text-base text-[var(--fu-text-muted)]">
             No classes match &quot;{query}&quot;.
           </p>
         )}

@@ -48,8 +48,8 @@ export function Step5Attributes() {
   return (
     <div className="space-y-6">
       <header>
-        <h2 className="fu-heading text-2xl font-bold text-[var(--fu-gold-bright)]">Attributes</h2>
-        <p className="mt-2 flex items-start text-sm text-[var(--fu-text-muted)]">
+        <h2 className="fu-heading text-3xl font-bold text-[var(--fu-gold-bright)]">Attributes</h2>
+        <p className="mt-2 flex items-start text-base text-[var(--fu-text-muted)]">
           Set the base die size (d6–d12) of your four Attributes.
           <InfoDisclosure label="Why Attributes matter">
             Bigger die sizes mean a more trained Attribute or stronger natural talent. Take your
@@ -65,7 +65,7 @@ export function Step5Attributes() {
           onChange={(e) =>
             dispatch({ type: "SET_ATTRIBUTE_PRESET", preset: e.target.value as FUAttributePreset })
           }
-          className="w-full rounded-md border border-[var(--fu-border)] bg-[var(--fu-bg-elevated)] p-3 text-sm text-[var(--fu-text)] focus:border-[var(--fu-gold)] focus:outline-none"
+          className="w-full max-w-xl rounded-md border border-[var(--fu-border)] bg-[var(--fu-bg-elevated)] p-4 text-base text-[var(--fu-text)] focus:border-[var(--fu-gold)] focus:outline-none"
         >
           <option value="" disabled>
             Choose a profile…
@@ -78,18 +78,18 @@ export function Step5Attributes() {
         </select>
       )}
 
-      <div className="grid gap-2 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2">
         {ATTR_ROWS.map(({ key, label, blurb }) => (
           <div
             key={key}
             className={cn(
-              "fu-panel flex items-center justify-between p-3",
+              "fu-panel flex items-center justify-between p-4",
               !advanced && swapPick === key && "border-[var(--fu-gold)]",
             )}
           >
             <div>
-              <div className="fu-heading text-sm font-semibold text-[var(--fu-text)]">{label}</div>
-              <div className="text-[10px] text-[var(--fu-text-muted)]">{blurb}</div>
+              <div className="fu-heading text-lg font-semibold text-[var(--fu-text)]">{label}</div>
+              <div className="text-sm text-[var(--fu-text-muted)]">{blurb}</div>
             </div>
             {advanced ? (
               <select
@@ -97,7 +97,7 @@ export function Step5Attributes() {
                 onChange={(e) =>
                   dispatch({ type: "SET_ATTRIBUTE", attribute: key, value: Number(e.target.value) as DieSize })
                 }
-                className="fu-label rounded-md border border-[var(--fu-border)] bg-[var(--fu-bg-elevated)] px-2 py-1.5 text-sm font-bold text-[var(--fu-gold-bright)] focus:border-[var(--fu-gold)] focus:outline-none"
+                className="fu-label rounded-md border border-[var(--fu-border)] bg-[var(--fu-bg-elevated)] px-3 py-2 text-lg font-bold text-[var(--fu-gold-bright)] focus:border-[var(--fu-gold)] focus:outline-none"
               >
                 {[6, 8, 10, 12].map((d) => (
                   <option key={d} value={d}>
@@ -109,7 +109,7 @@ export function Step5Attributes() {
               <button
                 type="button"
                 onClick={() => handleSwapClick(key)}
-                className="fu-label rounded-md border border-[var(--fu-border)] px-3 py-1.5 text-sm font-bold text-[var(--fu-gold-bright)] hover:border-[var(--fu-gold)]"
+                className="fu-label rounded-md border border-[var(--fu-border)] px-4 py-2 text-lg font-bold text-[var(--fu-gold-bright)] hover:border-[var(--fu-gold)]"
               >
                 d{draft.attributes[key]}
               </button>
@@ -118,7 +118,7 @@ export function Step5Attributes() {
         ))}
       </div>
       {!advanced && (
-        <p className="text-[11px] text-[var(--fu-text-muted)]">
+        <p className="text-sm text-[var(--fu-text-muted)]">
           {swapPick
             ? "Now click another attribute to swap die sizes with it."
             : "Click two attributes to swap their assigned die sizes."}
@@ -133,7 +133,7 @@ export function Step5Attributes() {
           setSwapPick(null);
           if (next) dispatch({ type: "SET_ATTRIBUTE_PRESET", preset: "custom" });
         }}
-        className="fu-label text-xs text-[var(--fu-cyan)] underline decoration-dotted underline-offset-4"
+        className="fu-label text-sm text-[var(--fu-cyan)] underline decoration-dotted underline-offset-4"
       >
         {advanced ? "Use a preset instead" : "Advanced: assign each attribute manually"}
       </button>

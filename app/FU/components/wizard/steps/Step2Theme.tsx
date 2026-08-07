@@ -14,8 +14,8 @@ export function Step2Theme() {
   return (
     <div className="space-y-6">
       <header>
-        <h2 className="fu-heading text-2xl font-bold text-[var(--fu-gold-bright)]">Theme</h2>
-        <p className="mt-2 flex items-start text-sm text-[var(--fu-text-muted)]">
+        <h2 className="fu-heading text-3xl font-bold text-[var(--fu-gold-bright)]">Theme</h2>
+        <p className="mt-2 flex items-start text-base text-[var(--fu-text-muted)]">
           A strong ideal, emotion or feeling that dominates your character&apos;s actions.
           <InfoDisclosure label="Why Theme matters">
             If an entire scene were built around your character, their Theme would be its
@@ -27,19 +27,19 @@ export function Step2Theme() {
       </header>
 
       {!customMode ? (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {themes.map((t) => (
             <button
               key={t.name}
               type="button"
               onClick={() => dispatch({ type: "SET_THEME", value: t.name })}
               className={cn(
-                "fu-panel p-3 text-left transition-colors hover:border-[var(--fu-border-bright)]",
+                "fu-panel p-4 text-left transition-colors hover:border-[var(--fu-border-bright)]",
                 draft.theme === t.name && "border-[var(--fu-gold)] bg-[var(--fu-panel-hover)]",
               )}
             >
-              <div className="fu-heading text-sm font-semibold text-[var(--fu-text)]">{t.name}</div>
-              <div className="mt-1 text-[11px] leading-snug text-[var(--fu-text-muted)]">{t.description}</div>
+              <div className="fu-heading text-base font-semibold text-[var(--fu-text)]">{t.name}</div>
+              <div className="mt-1 text-sm leading-snug text-[var(--fu-text-muted)]">{t.description}</div>
             </button>
           ))}
         </div>
@@ -48,14 +48,14 @@ export function Step2Theme() {
           value={draft.theme}
           onChange={(e) => dispatch({ type: "SET_THEME", value: e.target.value })}
           placeholder="Describe your own Theme"
-          className="w-full rounded-md border border-[var(--fu-border)] bg-[var(--fu-bg-elevated)] p-3 text-[var(--fu-text)] placeholder:text-[var(--fu-text-muted)]/50 focus:border-[var(--fu-gold)] focus:outline-none"
+          className="w-full max-w-2xl rounded-md border border-[var(--fu-border)] bg-[var(--fu-bg-elevated)] p-4 text-lg text-[var(--fu-text)] placeholder:text-[var(--fu-text-muted)]/50 focus:border-[var(--fu-gold)] focus:outline-none"
         />
       )}
 
       <button
         type="button"
         onClick={() => setCustomMode((m) => !m)}
-        className="fu-label text-xs text-[var(--fu-cyan)] underline decoration-dotted underline-offset-4 hover:text-[var(--fu-cyan-bright,var(--fu-cyan))]"
+        className="fu-label text-sm text-[var(--fu-cyan)] underline decoration-dotted underline-offset-4 hover:text-[var(--fu-cyan-bright,var(--fu-cyan))]"
       >
         {customMode ? "Choose from suggested Themes instead" : "Write a custom Theme instead"}
       </button>

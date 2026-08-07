@@ -89,10 +89,10 @@ function WizardInner() {
 
   return (
     <>
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 pt-6 md:px-8">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 pt-6 md:px-8">
         <Link
           href="/FU"
-          className="fu-label text-[10px] text-[var(--fu-text-onwood-muted)] hover:text-[var(--fu-text-onwood)]"
+          className="fu-label text-sm text-[var(--fu-text-onwood-muted)] hover:text-[var(--fu-text-onwood)]"
         >
           ← Roster
         </Link>

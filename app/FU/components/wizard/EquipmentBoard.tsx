@@ -78,15 +78,15 @@ function SlotZone({
     <div
       ref={setNodeRef}
       className={cn(
-        "fu-panel min-h-[92px] p-2 transition-colors",
+        "fu-panel min-h-[108px] p-3 transition-colors",
         isOver && "border-[var(--fu-gold)] bg-[var(--fu-gold)]/5",
       )}
     >
-      <div className="fu-label mb-1 text-[9px] text-[var(--fu-text-muted)]">{label}</div>
+      <div className="fu-label mb-1.5 text-sm text-[var(--fu-text-muted)]">{label}</div>
       {data ? (
         <EquipmentCard item={data} onRemove={onRemove} compact />
       ) : (
-        <p className="fu-label rounded border border-dashed border-[var(--fu-border)] p-3 text-center text-[9px] text-[var(--fu-text-muted)]">
+        <p className="fu-label rounded border border-dashed border-[var(--fu-border)] p-4 text-center text-sm text-[var(--fu-text-muted)]">
           Drop here
         </p>
       )}
@@ -149,16 +149,16 @@ export function EquipmentBoard() {
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-      <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
+      <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
         <div>
-          <div className="fu-label mb-2 flex gap-1 text-[10px]">
+          <div className="fu-label mb-3 flex gap-2 text-sm">
             {(["weapons", "armor", "shields"] as ShopTab[]).map((t) => (
               <button
                 key={t}
                 type="button"
                 onClick={() => setTab(t)}
                 className={cn(
-                  "rounded-t-md border-b-2 px-3 py-1.5 capitalize transition-colors",
+                  "rounded-t-md border-b-2 px-4 py-2 capitalize transition-colors",
                   tab === t
                     ? "border-[var(--fu-gold)] text-[var(--fu-gold-bright)]"
                     : "border-transparent text-[var(--fu-text-muted)] hover:text-[var(--fu-text)]",
@@ -168,7 +168,7 @@ export function EquipmentBoard() {
               </button>
             ))}
           </div>
-          <div className="fu-scrollbar grid max-h-[420px] grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+          <div className="fu-scrollbar grid max-h-[32rem] grid-cols-1 gap-3 overflow-y-auto pr-1 sm:grid-cols-2 xl:grid-cols-3">
             {tab === "weapons" &&
               purchasable.weapons.map((w) => (
                 <button key={w.id} type="button" onClick={() => equip(w.id)} className="text-left">
@@ -188,13 +188,13 @@ export function EquipmentBoard() {
                 </button>
               ))}
           </div>
-          <p className="mt-2 text-[11px] text-[var(--fu-text-muted)]">
+          <p className="mt-3 text-sm text-[var(--fu-text-muted)]">
             Drag a card into a slot, or tap it to equip it in the next open slot. Martial (E) items require a
             Class that grants them — only unlocked ones are shown.
           </p>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-3">
           <SlotZone
             id="slot-weapon-0"
             label="Main Hand"
