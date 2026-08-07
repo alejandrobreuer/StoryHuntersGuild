@@ -15,7 +15,7 @@ export function TemplatePicker() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fu-label rounded-md border border-[var(--fu-gold)]/50 px-3 py-1.5 text-[10px] text-[var(--fu-gold)] transition-colors hover:bg-[var(--fu-gold)]/10"
+        className="fu-label rounded-md border border-[var(--fu-gold-glow)]/50 px-3 py-1.5 text-[10px] text-[var(--fu-gold-glow)] transition-colors hover:bg-[var(--fu-gold-glow)]/10"
       >
         Start from a template
       </button>

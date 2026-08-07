@@ -1,32 +1,63 @@
 /* Scoped theme for the Fabula Ultima character creator — deliberately
    independent from the Guild's parchment/leather palette in globals.css.
    Everything here lives under .fu-root so it can never leak into the rest
-   of the site, and nothing from globals.css is relied upon in return. */
+   of the site, and nothing from globals.css is relied upon in return.
+
+   Fantasy-RPG direction: a wooden tabletop behind sheets of parchment.
+   Nearly all text content lives inside a .fu-panel (parchment) — see the
+   note on --fu-text below — so the ink-toned colors are tuned for AA
+   contrast against the parchment tones, not the wood. The small number of
+   elements that sit directly on wood (page titles, the wizard's step nav,
+   a few CTA button fills) use the *-onwood / *-glow variants instead;
+   those pairings were contrast-checked too (>=4.5:1 for text, >=4.5:1 for
+   button fill vs. its own text).
+*/
 
 .fu-root {
-  --fu-bg: #0c0a1a;
-  --fu-bg-elevated: #14112a;
-  --fu-panel: #1a1638;
-  --fu-panel-hover: #221d47;
-  --fu-border: #322c5c;
-  --fu-border-bright: #4a4280;
-  --fu-gold: #e8b23c;
-  --fu-gold-bright: #f5c86a;
-  --fu-cyan: #4fd1d9;
-  --fu-cyan-dim: #3a9aa1;
-  --fu-text: #ede9f7;
-  --fu-text-muted: #9c94c4;
-  --fu-danger: #e8615c;
-  --fu-success: #6ad19c;
+  --fu-bg: #4a3221;              /* wood brown — page background */
+  --fu-bg-elevated: #f7edd6;     /* pale parchment — recessed inputs, bar tracks */
+  --fu-panel: #f0e0bd;           /* parchment — card/panel background */
+  --fu-panel-hover: #e6d2a3;     /* deeper parchment — hover state */
+  --fu-border: #b99a63;
+  --fu-border-bright: #8a6d3f;
 
-  background: var(--fu-bg);
-  color: var(--fu-text);
+  /* Ink-safe accents — used for text/borders that live on parchment. */
+  --fu-gold: #7a5a1a;
+  --fu-gold-bright: #96530a;
+  --fu-gold-deep: #8f4c12;       /* CTA button fill when the button sits ON parchment */
+
+  --fu-cyan: #2f5f7a;
+  --fu-cyan-dim: #3f6883;
+
+  --fu-text: #3a2a17;            /* ink — primary text on parchment */
+  --fu-text-muted: #6b5636;      /* ink — secondary text on parchment */
+
+  --fu-danger: #8f2d21;
+  --fu-success: #2f6b3a;
+
+  /* On-wood variants — only for the handful of elements outside a .fu-panel. */
+  --fu-text-onwood: #f0e0bd;
+  --fu-text-onwood-muted: #cbb489;
+  --fu-gold-glow: #e8b23c;       /* CTA button fill when the button sits ON wood */
+  --fu-gold-glow-bright: #f5c86a;
+
+  background:
+    radial-gradient(ellipse at top, rgba(255, 220, 160, 0.05), transparent 60%),
+    repeating-linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.05) 0px,
+      rgba(0, 0, 0, 0.05) 1px,
+      transparent 1px,
+      transparent 5px
+    ),
+    var(--fu-bg);
+  color: var(--fu-text-onwood);
   min-height: 100vh;
   font-family: var(--font-fu-body), system-ui, sans-serif;
 }
 
 .fu-root ::selection {
-  background: var(--fu-gold);
+  background: var(--fu-gold-glow);
   color: var(--fu-bg);
 }
 
@@ -36,7 +67,7 @@
 }
 
 .fu-label {
-  font-family: var(--font-fu-label), monospace;
+  font-family: var(--font-fu-label), serif;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -45,6 +76,8 @@
   background: var(--fu-panel);
   border: 1px solid var(--fu-border);
   border-radius: 0.5rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  color: var(--fu-text);
 }
 
 .fu-scrollbar {

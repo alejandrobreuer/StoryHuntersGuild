@@ -7,13 +7,18 @@ import type { FUCharacter } from "./types";
 
 const STORAGE_KEY = "fu-characters-v1";
 
+/** Backfills fields added after a character may have already been saved. */
+function normalize(character: FUCharacter): FUCharacter {
+  return character.statusEffects ? character : { ...character, statusEffects: [] };
+}
+
 function readAll(): FUCharacter[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed) ? parsed.map(normalize) : [];
   } catch {
     return [];
   }

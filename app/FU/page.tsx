@@ -24,14 +24,14 @@ export default function RosterPage() {
     <div className="mx-auto max-w-4xl px-4 py-10 md:px-8">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="fu-heading text-3xl font-extrabold text-[var(--fu-gold-bright)]">Character Forge</h1>
-          <p className="mt-1 text-sm text-[var(--fu-text-muted)]">
+          <h1 className="fu-heading text-3xl font-extrabold text-[var(--fu-gold-glow-bright)]">Character Forge</h1>
+          <p className="mt-1 text-sm text-[var(--fu-text-onwood-muted)]">
             Level-5 Fabula Ultima player characters, built and kept here.
           </p>
         </div>
         <Link
           href="/FU/new"
-          className="fu-label inline-flex items-center gap-2 rounded-md bg-[var(--fu-gold)] px-4 py-2 text-xs font-bold text-[var(--fu-bg)] transition-opacity hover:opacity-90"
+          className="fu-label inline-flex items-center gap-2 rounded-md bg-[var(--fu-gold-glow)] px-4 py-2 text-xs font-bold text-[var(--fu-bg)] transition-opacity hover:opacity-90"
         >
           <Plus className="h-4 w-4" /> New Character
         </Link>
@@ -67,7 +67,7 @@ export default function RosterPage() {
           </div>
         ))}
 
-      <p className="mt-10 text-[11px] text-[var(--fu-text-muted)]">
+      <p className="mt-10 text-[11px] text-[var(--fu-text-onwood-muted)]">
         Built for level-5 starting characters, advanced afterward via the sheet&apos;s Level Up
         flow. Higher-level (page 229) creation rules, Heroic Skills, rare/custom equipment
         creation and Bonds aren&apos;t covered here — check the rulebook for those.

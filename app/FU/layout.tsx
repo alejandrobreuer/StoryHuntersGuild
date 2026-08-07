@@ -1,22 +1,22 @@
 import type { Metadata } from "next";
-import { Inter, Orbitron, Press_Start_2P } from "next/font/google";
+import { Cinzel, EB_Garamond, IM_Fell_English_SC } from "next/font/google";
 import "./fu.css";
 
-const orbitron = Orbitron({
+const cinzel = Cinzel({
   subsets: ["latin"],
   weight: ["500", "600", "700", "800"],
   variable: "--font-fu-display",
   display: "swap",
 });
 
-const pressStart = Press_Start_2P({
+const imFell = IM_Fell_English_SC({
   subsets: ["latin"],
   weight: "400",
   variable: "--font-fu-label",
   display: "swap",
 });
 
-const inter = Inter({
+const garamond = EB_Garamond({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-fu-body",
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
 
 export default function FULayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className={`fu-root ${orbitron.variable} ${pressStart.variable} ${inter.variable}`}>
+    <div className={`fu-root ${cinzel.variable} ${imFell.variable} ${garamond.variable}`}>
       {children}
     </div>
   );

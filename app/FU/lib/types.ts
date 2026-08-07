@@ -45,6 +45,8 @@ export interface FUCharacter {
 
   classLevels: FUCharacterClassLevel[];
   attributes: FUCharacterAttributes;
+  /** Active status effect ids (see data/statusEffects.ts) — empty when healthy. */
+  statusEffects: string[];
 
   equipment: FUCharacterEquipment;
   zenit: number;

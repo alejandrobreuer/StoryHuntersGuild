@@ -222,7 +222,7 @@ export function LevelUpModal({
             type="button"
             disabled={!previewCharacter}
             onClick={handleApply}
-            className="fu-label rounded-md bg-[var(--fu-gold)] px-4 py-2 text-xs font-bold text-[var(--fu-bg)] disabled:opacity-30"
+            className="fu-label rounded-md bg-[var(--fu-gold-deep)] px-4 py-2 text-xs font-bold text-[var(--fu-text-onwood)] disabled:opacity-30"
           >
             Apply
           </button>

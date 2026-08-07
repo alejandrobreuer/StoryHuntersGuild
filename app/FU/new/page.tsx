@@ -73,6 +73,7 @@ function WizardInner() {
       origin: draft.origin,
       classLevels: draft.classLevels.filter((cl) => cl.levels > 0),
       attributes: draft.attributes,
+      statusEffects: [],
       equipment: draft.equipment,
       zenit: leftover + (draft.savingsRoll ?? 0),
       name: draft.name,
@@ -89,7 +90,10 @@ function WizardInner() {
   return (
     <>
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 pt-6 md:px-8">
-        <Link href="/FU" className="fu-label text-[10px] text-[var(--fu-text-muted)] hover:text-[var(--fu-text)]">
+        <Link
+          href="/FU"
+          className="fu-label text-[10px] text-[var(--fu-text-onwood-muted)] hover:text-[var(--fu-text-onwood)]"
+        >
           ← Roster
         </Link>
         <TemplatePicker />

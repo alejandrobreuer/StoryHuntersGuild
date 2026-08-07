@@ -8,6 +8,7 @@
  */
 import type { FUClass, StatKey } from "../data/types";
 import { armors, shields, weapons } from "../data/equipment";
+import { statusEffects, stepDownDie, type AttributeKey } from "../data/statusEffects";
 import { CHARACTER_LEVEL } from "./types";
 import type { FUCharacterAttributes, FUCharacterEquipment } from "./types";
 
@@ -121,11 +122,43 @@ export interface DerivedStats {
   initiative: StatResult;
 }
 
+/**
+ * Applies active status effects to base Attributes, per Fabula_Ultima_Guide
+ * "STATUS EFFECTS" (p.94): effects hitting the same Attribute stack, but a
+ * die can never drop below d6.
+ */
+export function currentAttributes(
+  base: FUCharacterAttributes,
+  activeStatusEffectIds: string[],
+): FUCharacterAttributes {
+  const reductions: Record<AttributeKey, number> = { dexterity: 0, insight: 0, might: 0, willpower: 0 };
+  for (const id of activeStatusEffectIds) {
+    const effect = statusEffects.find((e) => e.id === id);
+    if (!effect) continue;
+    for (const attr of effect.affects) reductions[attr] += 1;
+  }
+  return {
+    dexterity: stepDownDie(base.dexterity, reductions.dexterity),
+    insight: stepDownDie(base.insight, reductions.insight),
+    might: stepDownDie(base.might, reductions.might),
+    willpower: stepDownDie(base.willpower, reductions.willpower),
+  };
+}
+
+/**
+ * HP/MP always use the character's BASE Might/Willpower die — the rulebook
+ * is explicit that temporary Attribute changes never alter max HP/MP.
+ * Defense/Magic Defense use the CURRENT (status-effect-adjusted) Dexterity/
+ * Insight die, since they're "based on the current Attribute die size, not
+ * your base Attribute die size" (creation-process.txt).
+ */
 export function calcDerivedStats(
   attributes: FUCharacterAttributes,
   equipment: FUCharacterEquipment,
   classes: FUClass[],
+  activeStatusEffectIds: string[] = [],
 ): DerivedStats {
+  const current = currentAttributes(attributes, activeStatusEffectIds);
   const hp = calcHP(attributes.might, classes);
   const mp = calcMP(attributes.willpower, classes);
   return {
@@ -133,8 +166,8 @@ export function calcDerivedStats(
     crisis: calcCrisis(hp.value),
     mp,
     ip: calcIP(classes),
-    defense: calcDefense(attributes.dexterity, equipment),
-    magicDefense: calcMagicDefense(attributes.insight, equipment),
+    defense: calcDefense(current.dexterity, equipment),
+    magicDefense: calcMagicDefense(current.insight, equipment),
     initiative: calcInitiative(equipment),
   };
 }
