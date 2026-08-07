@@ -1,0 +1,65 @@
+/* Scoped theme for the Fabula Ultima character creator — deliberately
+   independent from the Guild's parchment/leather palette in globals.css.
+   Everything here lives under .fu-root so it can never leak into the rest
+   of the site, and nothing from globals.css is relied upon in return. */
+
+.fu-root {
+  --fu-bg: #0c0a1a;
+  --fu-bg-elevated: #14112a;
+  --fu-panel: #1a1638;
+  --fu-panel-hover: #221d47;
+  --fu-border: #322c5c;
+  --fu-border-bright: #4a4280;
+  --fu-gold: #e8b23c;
+  --fu-gold-bright: #f5c86a;
+  --fu-cyan: #4fd1d9;
+  --fu-cyan-dim: #3a9aa1;
+  --fu-text: #ede9f7;
+  --fu-text-muted: #9c94c4;
+  --fu-danger: #e8615c;
+  --fu-success: #6ad19c;
+
+  background: var(--fu-bg);
+  color: var(--fu-text);
+  min-height: 100vh;
+  font-family: var(--font-fu-body), system-ui, sans-serif;
+}
+
+.fu-root ::selection {
+  background: var(--fu-gold);
+  color: var(--fu-bg);
+}
+
+.fu-heading {
+  font-family: var(--font-fu-display), sans-serif;
+  letter-spacing: 0.02em;
+}
+
+.fu-label {
+  font-family: var(--font-fu-label), monospace;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.fu-panel {
+  background: var(--fu-panel);
+  border: 1px solid var(--fu-border);
+  border-radius: 0.5rem;
+}
+
+.fu-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--fu-border-bright) transparent;
+}
+.fu-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
+.fu-scrollbar::-webkit-scrollbar-thumb { background: var(--fu-border-bright); border-radius: 4px; }
+.fu-scrollbar::-webkit-scrollbar-track { background: transparent; }
+
+@keyframes fu-stat-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.18); color: var(--fu-gold-bright); }
+  100% { transform: scale(1); }
+}
+.fu-stat-changed {
+  animation: fu-stat-pop 0.5s ease-out;
+}

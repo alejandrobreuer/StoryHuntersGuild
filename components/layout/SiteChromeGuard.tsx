@@ -4,11 +4,12 @@ import { usePathname } from "next/navigation";
 import { Nav } from "@/components/layout/Nav";
 import { StudioCreditFooter } from "@/components/layout/StudioCreditFooter";
 
-const HIDDEN_PREFIX = "/admin";
+const HIDDEN_PREFIXES = ["/admin", "/FU"];
 
-/** Hides the public nav/footer on the admin panel, which has its own sidebar
- * chrome (see app/admin/(dashboard)/layout.tsx) — mirrors cardstash.ar's
- * TopbarGuard pattern. */
+/** Hides the public nav/footer on the admin panel and the Fabula Ultima
+ * character creator, both of which have their own chrome (see
+ * app/admin/(dashboard)/layout.tsx and app/FU/layout.tsx) — mirrors
+ * cardstash.ar's TopbarGuard pattern. */
 export function SiteChromeGuard({
   children,
   sessionUser,
@@ -19,7 +20,7 @@ export function SiteChromeGuard({
   isAdmin: boolean;
 }) {
   const pathname = usePathname();
-  const hidden = pathname === HIDDEN_PREFIX || pathname.startsWith(HIDDEN_PREFIX + "/");
+  const hidden = HIDDEN_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix + "/"));
 
   if (hidden) return <>{children}</>;
 
