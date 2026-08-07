@@ -9,7 +9,10 @@ const STORAGE_KEY = "fu-characters-v1";
 
 /** Backfills fields added after a character may have already been saved. */
 function normalize(character: FUCharacter): FUCharacter {
-  return character.statusEffects ? character : { ...character, statusEffects: [] };
+  let next = character;
+  if (!next.statusEffects) next = { ...next, statusEffects: [] };
+  if (!next.bonds) next = { ...next, bonds: [] };
+  return next;
 }
 
 function readAll(): FUCharacter[] {

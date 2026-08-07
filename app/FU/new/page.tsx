@@ -74,6 +74,7 @@ function WizardInner() {
       classLevels: draft.classLevels.filter((cl) => cl.levels > 0),
       attributes: draft.attributes,
       statusEffects: [],
+      bonds: [],
       equipment: draft.equipment,
       zenit: leftover + (draft.savingsRoll ?? 0),
       name: draft.name,

@@ -3,6 +3,7 @@
  * app/FU/data/types.ts which describes the reference rules content itself.
  */
 import type { DieSize } from "../data/types";
+import type { BondEmotionId } from "../data/bonds";
 
 export interface FUCharacterAttributes {
   dexterity: DieSize;
@@ -32,6 +33,13 @@ export interface FUCharacterEquipment {
   armor?: string;
 }
 
+export interface FUBond {
+  /** Who or what the Bond is with — a person, nation, organization, etc. */
+  name: string;
+  /** 0-3 emotions, at most one per pairing (see data/bonds.ts). Strength = length. */
+  emotions: BondEmotionId[];
+}
+
 export interface FUCharacter {
   id: string;
   createdAt: string;
@@ -47,6 +55,12 @@ export interface FUCharacter {
   attributes: FUCharacterAttributes;
   /** Active status effect ids (see data/statusEffects.ts) — empty when healthy. */
   statusEffects: string[];
+  /**
+   * Bonds emerge through play rather than at creation (per the rulebook),
+   * so unlike everything else here this starts empty and is only ever
+   * grown from the character sheet, never the wizard.
+   */
+  bonds: FUBond[];
 
   equipment: FUCharacterEquipment;
   zenit: number;
