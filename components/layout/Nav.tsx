@@ -13,6 +13,7 @@ const BASE_LINKS = [
   { href: "/games",       label: "Ludoteca" },
   { href: "/about",       label: "Nosotros" },
   { href: "/my-bookings", label: "Mis reservas" },
+  { href: "/profile",     label: "Mi perfil" },
 ];
 
 function NavItem({ href, label, onClick }: { href: string; label: string; onClick?: () => void }) {

@@ -12,13 +12,20 @@ export type AdminRole      = "admin" | "owner";
 // ─── Identity ───────────────────────────────────────────────────────────────
 
 export interface ShgUser {
-  id:            string;
-  email:         string;
-  name:          string | null;
-  phone:         string | null;
-  created_at:    string;
-  last_login_at: string | null;
+  id:                    string;
+  email:                 string;
+  name:                  string | null;
+  phone:                 string | null;
+  /** "saltHex:hashHex" from lib/auth/password.ts, or null for magic-link-only accounts. */
+  password_hash:         string | null;
+  failed_login_attempts: number;
+  locked_until:          string | null;
+  created_at:            string;
+  last_login_at:         string | null;
 }
+
+/** ShgUser fields safe to ever send to a client — never password_hash or the lockout counters. */
+export type ShgUserPublic = Omit<ShgUser, "password_hash" | "failed_login_attempts" | "locked_until">;
 
 export interface ShgAdminUser {
   id:            string;

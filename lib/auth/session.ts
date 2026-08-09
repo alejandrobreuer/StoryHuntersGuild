@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
 import type { ShgSessionPayload, ShgAdminSessionPayload } from "@/types/database";
 
@@ -45,3 +46,12 @@ export async function verifyAdminSession(token: string): Promise<ShgAdminSession
 
 export const SESSION_COOKIE       = "shg_session";
 export const ADMIN_SESSION_COOKIE = "shg_admin_session";
+
+/** Sets the public session cookie — same flags/maxAge every call site must
+ * agree on, so this is the one place that owns them (used by /auth/verify,
+ * sign-up, and sign-in). */
+export function setPublicSessionCookie(token: string): void {
+  cookies().set(SESSION_COOKIE, token, {
+    httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 30,
+  });
+}

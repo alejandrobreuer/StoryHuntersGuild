@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { consumeMagicLinkToken } from "@/lib/auth/magic-link";
-import { signPublicSession, signAdminSession, SESSION_COOKIE, ADMIN_SESSION_COOKIE } from "@/lib/auth/session";
+import { signPublicSession, signAdminSession, setPublicSessionCookie, ADMIN_SESSION_COOKIE } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // ─── GET /auth/verify?token=... ────────────────────────────────────────────
@@ -58,9 +58,7 @@ export async function GET(req: NextRequest) {
   await admin.from("shg_users").update({ last_login_at: new Date().toISOString() }).eq("id", user.id);
 
   const sessionToken = await signPublicSession({ sub: user.id, email: user.email, kind: "public" });
-  cookies().set(SESSION_COOKIE, sessionToken, {
-    httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 30,
-  });
+  setPublicSessionCookie(sessionToken);
 
   const next = req.nextUrl.searchParams.get("next") || "/my-bookings";
   return NextResponse.redirect(`${appUrl}${next}`);
