@@ -126,7 +126,7 @@ export default async function ProfilePage() {
     <main className="bg-gradient-to-b from-parchment to-parchment-dark px-6 py-14">
       <div className="max-w-4xl mx-auto">
       {/* ————— Adventurer Card header ————— */}
-      <div className="relative bg-gradient-to-br from-parchment-dark to-parchment-deep border border-brass rounded-md shadow-parchment-lg px-7 py-8 flex flex-col items-center text-center gap-4">
+      <div className="relative bg-gradient-to-br from-parchment-dark to-parchment-deep border border-brass rounded-md shadow-parchment-lg px-7 py-8 flex flex-col md:flex-row items-center justify-center text-center gap-6">
           <div className="shrink-0 relative size-20 rounded-full bg-gradient-to-br from-crimson/90 to-crimson border-4 border-parchment shadow-seal flex items-center justify-center -rotate-3 overflow-hidden">
             {rank?.icon_url ? (
               <Image src={rank.icon_url} alt="" fill className="object-cover" sizes="80px" />
@@ -150,7 +150,7 @@ export default async function ProfilePage() {
           </div>
 
           {showProgress && (
-            <div className="text-center">
+            <div className="text-center shrink-0">
               <p className="font-display text-2xl text-crimson leading-none">{progress.level}</p>
               <p className="font-label text-2xs tracking-widest text-leather-light uppercase mt-1">Nivel</p>
             </div>
