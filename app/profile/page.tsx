@@ -1,12 +1,16 @@
 import { redirect } from "next/navigation";
+import Image from "next/image";
+import { Shield, Sparkles, Crown, Gem, Calendar } from "lucide-react";
 import { getSessionUser } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getFeatureFlags } from "@/lib/features";
 import { levelProgress } from "@/lib/gamification/progression";
 import { currentRank, nextRank } from "@/lib/gamification/ranks";
-import { PasswordForm } from "@/components/profile/PasswordForm";
+import { PasswordSection } from "@/components/profile/PasswordSection";
+import { QuestLedger, type LedgerQuest } from "@/components/profile/QuestLedger";
 import { formatDate } from "@/lib/formatting";
-import type { ShgRank } from "@/types/database";
+import { cn } from "@/lib/utils";
+import type { ShgRank, QuestType } from "@/types/database";
 
 export const metadata = { title: "Mi perfil — Story Hunters Guild" };
 export const dynamic = "force-dynamic";
@@ -19,6 +23,10 @@ const SUBSCRIBER_PERKS = [
   "Acceso prioritario para anotarte a eventos populares",
 ];
 
+function one<T>(v: T | T[] | null | undefined): T | null {
+  return Array.isArray(v) ? (v[0] ?? null) : (v ?? null);
+}
+
 export default async function ProfilePage() {
   const sessionUser = await getSessionUser();
   if (!sessionUser) redirect("/sign-in?next=/profile");
@@ -26,7 +34,15 @@ export default async function ProfilePage() {
   const admin = createAdminClient();
   const features = await getFeatureFlags();
 
-  const [{ data: user }, { data: ranks }, { data: badges }, { data: rewards }] = await Promise.all([
+  const [
+    { data: user },
+    { data: ranks },
+    { data: badges },
+    { data: rewards },
+    { data: activeQuests },
+    { data: myCompletions },
+    { data: attendedBookings },
+  ] = await Promise.all([
     admin
       .from("shg_users")
       .select("email, name, password_hash, xp, rp, is_subscriber, subscriber_since, created_at")
@@ -36,7 +52,7 @@ export default async function ProfilePage() {
       ? admin.from("shg_ranks").select("*").order("rp_required")
       : Promise.resolve({ data: [] as ShgRank[] }),
     features.quests
-      ? admin.from("shg_user_badges").select("awarded_at, badge:shg_badges(id, name, description, icon)").eq("user_id", sessionUser.id).order("awarded_at", { ascending: false })
+      ? admin.from("shg_user_badges").select("awarded_at, badge:shg_badges(id, name, description, icon, icon_url)").eq("user_id", sessionUser.id).order("awarded_at", { ascending: false })
       : Promise.resolve({ data: [] }),
     features.quests
       ? admin
@@ -45,6 +61,16 @@ export default async function ProfilePage() {
           .eq("user_id", sessionUser.id)
           .order("awarded_at", { ascending: false })
       : Promise.resolve({ data: [] }),
+    features.quests
+      ? admin
+          .from("shg_quests")
+          .select("id, title, narrative, type, reward_xp, reward_rp, goal_count, badge:shg_badges(name)")
+          .eq("status", "active")
+      : Promise.resolve({ data: [] }),
+    features.quests
+      ? admin.from("shg_quest_completions").select("quest_id, contribution_amount").eq("user_id", sessionUser.id)
+      : Promise.resolve({ data: [] }),
+    admin.from("shg_bookings").select("id").eq("user_id", sessionUser.id).eq("attended", true),
   ]);
 
   const xp = user?.xp ?? 0;
@@ -53,71 +79,203 @@ export default async function ProfilePage() {
   const rank = currentRank(rp, ranks ?? []);
   const upcoming = nextRank(rp, ranks ?? []);
 
+  // ─── Quest Ledger: active quests + this user's status on each ────────────
+  const communityQuestIds = (activeQuests ?? []).filter((q) => q.type === "community").map((q) => q.id);
+  const { data: guildCompletions } = communityQuestIds.length > 0
+    ? await admin.from("shg_quest_completions").select("quest_id, contribution_amount").in("quest_id", communityQuestIds)
+    : { data: [] as { quest_id: string; contribution_amount: number }[] };
+
+  const rewardedQuestIds = new Set(
+    (rewards ?? []).map((r) => one(r.quest)?.id).filter((id): id is string => Boolean(id))
+  );
+  const myContributions = new Map<string, number>();
+  for (const c of myCompletions ?? []) {
+    myContributions.set(c.quest_id, (myContributions.get(c.quest_id) ?? 0) + c.contribution_amount);
+  }
+  const guildTotals = new Map<string, number>();
+  for (const c of guildCompletions ?? []) {
+    guildTotals.set(c.quest_id, (guildTotals.get(c.quest_id) ?? 0) + c.contribution_amount);
+  }
+
+  const ledger: LedgerQuest[] = (activeQuests ?? []).map((q) => {
+    const badge = one(q.badge);
+    const mine = myContributions.get(q.id) ?? 0;
+    const isDone = rewardedQuestIds.has(q.id);
+    return {
+      id: q.id,
+      title: q.title,
+      narrative: q.narrative,
+      type: q.type as QuestType,
+      reward_xp: q.reward_xp,
+      reward_rp: q.reward_rp,
+      badge: badge ? { name: badge.name } : null,
+      status: isDone ? "done" : q.type === "community" && mine > 0 ? "in_progress" : "available",
+      community: q.type === "community" ? { mine, guildTotal: guildTotals.get(q.id) ?? 0, goal: q.goal_count } : null,
+    };
+  });
+
+  const eventsAttended = attendedBookings?.length ?? 0;
+  const questsCompleted = rewards?.length ?? 0;
+
+  const showProgress = features.progression;
+  const showRankTrack = features.ranks;
+  const showBothTracks = showProgress && showRankTrack;
+  const showPatron = features.subscriptions;
+
   return (
-    <main className="max-w-2xl mx-auto px-6 py-14">
-      <h1 className="font-display text-3xl text-parchment text-center mb-8">Mi perfil</h1>
-
-      <div className="flex flex-col gap-4">
-        <section className="surface-parchment p-6">
-          <h2 className="font-label text-xs font-semibold uppercase tracking-widest text-leather-light mb-3">
-            Cuenta
-          </h2>
-          <dl className="font-body text-sm text-ink flex flex-col gap-1">
-            <div><span className="text-ink-light">Email:</span> {user?.email ?? sessionUser.email}</div>
-            {user?.name && <div><span className="text-ink-light">Nombre:</span> {user.name}</div>}
-            {user?.created_at && (
-              <div><span className="text-ink-light">Miembro desde:</span> {formatDate(user.created_at)}</div>
+    <main className="max-w-4xl mx-auto px-6 py-14">
+      {/* ————— Adventurer Card header ————— */}
+      <div className="relative bg-gradient-to-br from-parchment-dark to-parchment-deep border border-brass rounded-md shadow-parchment-lg px-7 py-6">
+        <div className="flex flex-col md:flex-row items-center md:items-end gap-6">
+          <div className="shrink-0 relative size-20 rounded-full bg-gradient-to-br from-crimson/90 to-crimson border-4 border-parchment shadow-seal flex items-center justify-center -rotate-3 overflow-hidden">
+            {rank?.icon_url ? (
+              <Image src={rank.icon_url} alt="" fill className="object-cover" sizes="80px" />
+            ) : (
+              <Shield size={34} className="text-parchment" strokeWidth={1.5} />
             )}
-          </dl>
-        </section>
+          </div>
 
-        {features.progression && (
-          <section className="surface-parchment p-6">
-            <div className="flex items-baseline justify-between mb-2">
-              <h2 className="font-label text-xs font-semibold uppercase tracking-widest text-leather-light">
-                Progresión
-              </h2>
-              <span className="font-display text-lg text-ink">Nivel {progress.level}</span>
-            </div>
-            <div className="h-2.5 w-full bg-parchment-dark/40 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-brass transition-all"
-                style={{ width: `${(progress.xpIntoLevel / progress.xpForLevel) * 100}%` }}
-              />
-            </div>
-            <p className="font-body text-2xs text-ink-light mt-1">
-              {progress.xpIntoLevel} / {progress.xpForLevel} XP para el próximo nivel · {xp} XP total
+          <div className="flex-1 text-center md:text-left min-w-0">
+            <p className="font-label text-xs uppercase tracking-widest text-brass mb-1">
+              {showRankTrack && rank ? `Aventurero Rango ${rank.name}` : "Aventurero del Gremio"}
             </p>
+            <h1 className="font-display text-2xl sm:text-3xl text-ink leading-snug">
+              {user?.name || user?.email || sessionUser.email}
+            </h1>
+            {user?.created_at && (
+              <p className="font-body italic text-leather-light text-sm mt-0.5">
+                Miembro del Gremio desde {formatDate(user.created_at)}
+              </p>
+            )}
+          </div>
+
+          {(showProgress || showRankTrack) && (
+            <div className="flex gap-6 sm:gap-8 justify-center shrink-0">
+              {showProgress && (
+                <div className="text-center">
+                  <p className="font-display text-2xl text-crimson leading-none">{progress.level}</p>
+                  <p className="font-label text-2xs tracking-widest text-leather-light uppercase mt-1">Nivel</p>
+                </div>
+              )}
+              {showProgress && showRankTrack && <div className="w-px bg-brass/40" />}
+              {showRankTrack && (
+                <div className="text-center">
+                  <p className="font-display text-2xl text-crimson leading-none">{rp}</p>
+                  <p className="font-label text-2xs tracking-widest text-leather-light uppercase mt-1">Puntos de Rango</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ————— Dual progression: Level (personal) | Rank (community) ————— */}
+      {(showProgress || showRankTrack) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-0 mt-6">
+          {showProgress && (
+            <div className={cn(
+              "bg-parchment/60 border border-brass/50 px-5 pt-4 pb-5",
+              showBothTracks ? "rounded-t-md md:rounded-tr-none" : "rounded-t-md md:col-span-2"
+            )}>
+              <div className="flex items-center gap-2 mb-1">
+                <Sparkles size={15} className="text-crimson" />
+                <h2 className="font-display text-sm text-ink">Crecimiento personal</h2>
+              </div>
+              <p className="font-body text-xs text-leather-light mb-3">Se gana jugando y completando misiones.</p>
+              <div className="flex justify-between items-baseline mb-1">
+                <span className="font-label text-2xs text-ink">Nivel {progress.level} → {progress.level + 1}</span>
+                <span className="font-label text-2xs text-leather-light">{progress.xpIntoLevel} / {progress.xpForLevel} XP</span>
+              </div>
+              <div className="h-2.5 bg-parchment-deep rounded-full border border-brass/40 overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-brass-light to-crimson" style={{ width: `${(progress.xpIntoLevel / progress.xpForLevel) * 100}%` }} />
+              </div>
+            </div>
+          )}
+
+          {showRankTrack && (
+            <div className={cn(
+              "bg-parchment/80 border border-brass/50 px-5 pt-4 pb-5",
+              showBothTracks ? "rounded-t-md md:border-l-0" : "rounded-t-md md:col-span-2"
+            )}>
+              <div className="flex items-center gap-2 mb-1">
+                <Crown size={15} className="text-crimson" />
+                <h2 className="font-display text-sm text-ink">Posición en el Gremio</h2>
+              </div>
+              <p className="font-body text-xs text-leather-light mb-3">Se gana en Misiones Comunitarias y de Evento.</p>
+              <div className="flex justify-between items-baseline mb-1">
+                <span className="font-label text-2xs text-ink">
+                  {rank ? rank.name : "Sin rango"}{upcoming ? ` → ${upcoming.name}` : ""}
+                </span>
+                <span className="font-label text-2xs text-leather-light">
+                  {rp}{upcoming ? ` / ${upcoming.rp_required} RP` : " RP"}
+                </span>
+              </div>
+              <div className="h-2.5 bg-parchment-deep rounded-full border border-brass/40 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-leather to-crimson"
+                  style={{
+                    width: upcoming
+                      ? `${Math.min(100, ((rp - (rank?.rp_required ?? 0)) / (upcoming.rp_required - (rank?.rp_required ?? 0))) * 100)}%`
+                      : "100%",
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {showRankTrack && (ranks?.length ?? 0) > 0 && (
+            <div className="col-span-1 md:col-span-2 bg-parchment-dark border border-brass/50 border-t-0 rounded-b-md px-4 py-3 flex justify-between gap-1 overflow-x-auto">
+              {(ranks ?? []).map((r) => {
+                const achieved = rp >= r.rp_required;
+                return (
+                  <div key={r.id} className={cn("flex flex-col items-center shrink-0 min-w-[58px]", !achieved && "opacity-40")}>
+                    <div className={cn(
+                      "relative size-6 rounded-full border-2 border-brass overflow-hidden flex items-center justify-center",
+                      achieved ? "bg-brass/30" : "bg-transparent"
+                    )}>
+                      {r.icon_url && <Image src={r.icon_url} alt="" fill className="object-cover" sizes="24px" />}
+                    </div>
+                    <span className="font-label text-2xs tracking-wide text-leather-light mt-1 uppercase text-center leading-tight">
+                      {r.name}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="flex flex-col gap-4 mt-8">
+        {/* ————— Quest Ledger ————— */}
+        {features.quests && (
+          <section>
+            <h2 className="font-display text-xl text-parchment mb-3">Registro de Misiones</h2>
+            <QuestLedger quests={ledger} />
           </section>
         )}
 
-        {features.ranks && (
-          <section className="surface-parchment p-6">
-            <h2 className="font-label text-xs font-semibold uppercase tracking-widest text-leather-light mb-2">
-              Rango
-            </h2>
-            <p className="font-display text-lg text-ink">{rank ? rank.name : "Sin rango todavía"}</p>
-            {rank?.benefit && <p className="font-body text-xs text-ink-light mt-0.5">{rank.benefit}</p>}
-            <p className="font-body text-2xs text-ink-light mt-2">
-              {rp} RP total
-              {upcoming && ` · ${upcoming.rp_required - rp} RP para "${upcoming.name}"`}
-            </p>
-          </section>
-        )}
-
+        {/* ————— Badges & Tokens ————— */}
         {features.quests && (badges?.length ?? 0) > 0 && (
-          <section className="surface-parchment p-6">
-            <h2 className="font-label text-xs font-semibold uppercase tracking-widest text-leather-light mb-3">
-              Insignias
-            </h2>
-            <div className="flex flex-wrap gap-2">
+          <section>
+            <h2 className="font-display text-xl text-parchment mb-3">Insignias y Tokens</h2>
+            <div className="flex gap-5 overflow-x-auto pb-1">
               {(badges ?? []).map((b, i) => {
-                const badge = Array.isArray(b.badge) ? b.badge[0] : b.badge;
+                const badge = one(b.badge);
                 if (!badge) return null;
                 return (
-                  <div key={i} className="flex items-center gap-1.5 font-label text-2xs uppercase tracking-wide px-2.5 py-1.5 rounded-sm bg-brass/15 text-brass" title={badge.description ?? undefined}>
-                    <span>{badge.icon || "🏅"}</span>
-                    {badge.name}
+                  <div key={i} className="flex flex-col items-center shrink-0 text-center" style={{ minWidth: 84 }}>
+                    <div className="relative size-14 rounded-full bg-gradient-to-br from-brass to-ink border-2 border-brass flex items-center justify-center shadow-parchment overflow-hidden text-xl">
+                      {badge.icon_url ? (
+                        <Image src={badge.icon_url} alt="" fill className="object-cover" sizes="56px" />
+                      ) : (
+                        <span className="text-parchment">{badge.icon || "🏅"}</span>
+                      )}
+                    </div>
+                    <p className="font-label text-2xs text-parchment mt-1.5 leading-tight">{badge.name}</p>
+                    {badge.description && (
+                      <p className="font-body text-2xs text-parchment-dark/70 italic leading-tight">{badge.description}</p>
+                    )}
                   </div>
                 );
               })}
@@ -125,63 +283,59 @@ export default async function ProfilePage() {
           </section>
         )}
 
-        {features.quests && (
-          <section className="surface-parchment p-6">
-            <h2 className="font-label text-xs font-semibold uppercase tracking-widest text-leather-light mb-3">
-              Misiones completadas
-            </h2>
-            {(rewards?.length ?? 0) === 0 ? (
-              <p className="font-body italic text-sm text-ink-light">Todavía no completaste ninguna misión.</p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {(rewards ?? []).map((r, i) => {
-                  const quest = Array.isArray(r.quest) ? r.quest[0] : r.quest;
-                  return (
-                    <div key={i} className="flex items-center justify-between font-body text-sm text-ink border-b border-border/60 pb-2 last:border-0 last:pb-0">
-                      <span>{quest?.title ?? "Misión"}</span>
-                      <span className="text-xs text-ink-light">+{r.awarded_xp} XP · +{r.awarded_rp} RP</span>
-                    </div>
-                  );
-                })}
+        {/* ————— Patron status + Guild Record ————— */}
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {showPatron && (
+            <div className="bg-leather rounded-md px-5 py-4 shadow-[inset_0_0_0_1px_rgba(169,121,58,0.5)]">
+              <div className="flex items-center gap-2 mb-1.5">
+                <Gem size={15} className="text-brass-light" />
+                <h3 className="font-display text-sm text-parchment">Patrón del Gremio</h3>
+              </div>
+              {user?.is_subscriber ? (
+                <>
+                  <p className="font-body text-sm text-parchment-dark">
+                    Apoyando al gremio{user.subscriber_since ? ` desde ${formatDate(user.subscriber_since)}` : ""}.
+                  </p>
+                  <ul className="font-body text-xs text-parchment-dark/80 mt-2 flex flex-col gap-0.5 list-disc list-inside">
+                    {SUBSCRIBER_PERKS.map((perk) => <li key={perk}>{perk}</li>)}
+                  </ul>
+                </>
+              ) : (
+                <p className="font-body text-sm text-parchment-dark">
+                  Todavía no sos Patrón del Gremio. Consultá con un Asistente del Gremio en tu próxima
+                  visita para sumarte.
+                </p>
+              )}
+            </div>
+          )}
+
+          <div className={cn("surface-parchment px-5 py-4", !showPatron && "md:col-span-2")}>
+            <div className="flex items-center gap-2 mb-1.5">
+              <Calendar size={15} className="text-crimson" />
+              <h3 className="font-display text-sm text-ink">Historial del Gremio</h3>
+            </div>
+            <div className="flex justify-between font-body text-sm text-ink-light">
+              <span>Eventos asistidos</span>
+              <span className="font-label text-ink">{eventsAttended}</span>
+            </div>
+            {features.quests && (
+              <div className="flex justify-between font-body text-sm text-ink-light mt-1">
+                <span>Misiones completadas</span>
+                <span className="font-label text-ink">{questsCompleted}</span>
               </div>
             )}
-          </section>
-        )}
+          </div>
+        </section>
 
-        {features.subscriptions && (
-          <section className="surface-parchment p-6">
-            <h2 className="font-label text-xs font-semibold uppercase tracking-widest text-leather-light mb-3">
-              Suscripción
-            </h2>
-            {user?.is_subscriber ? (
-              <>
-                <p className="font-body text-sm text-moss-dark font-semibold">
-                  Sos Patrón del Gremio{user.subscriber_since ? ` desde ${formatDate(user.subscriber_since)}` : ""}.
-                </p>
-                <ul className="font-body text-xs text-ink-light mt-2 flex flex-col gap-1 list-disc list-inside">
-                  {SUBSCRIBER_PERKS.map((perk) => <li key={perk}>{perk}</li>)}
-                </ul>
-              </>
-            ) : (
-              <p className="font-body text-sm text-ink-light">
-                Todavía no sos Patrón del Gremio. Consultá con un Asistente del Gremio en tu próxima
-                visita para sumarte y apoyar al gremio.
-              </p>
-            )}
-          </section>
-        )}
-
+        {/* ————— Cuenta ————— */}
         <section className="surface-parchment p-6">
           <h2 className="font-label text-xs font-semibold uppercase tracking-widest text-leather-light mb-3">
-            {user?.password_hash ? "Cambiar contraseña" : "Crear una contraseña"}
+            Cuenta
           </h2>
-          {!user?.password_hash && (
-            <p className="font-body text-xs text-ink-light mb-3">
-              Tu cuenta todavía usa solo el enlace mágico para entrar. Podés crear una contraseña para
-              iniciar sesión más rápido la próxima vez.
-            </p>
-          )}
-          <PasswordForm hasPassword={Boolean(user?.password_hash)} />
+          <p className="font-body text-sm text-ink mb-4">
+            <span className="text-ink-light">Email:</span> {user?.email ?? sessionUser.email}
+          </p>
+          <PasswordSection hasPassword={Boolean(user?.password_hash)} />
         </section>
       </div>
     </main>

@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Edit2, Trash2, Award } from "lucide-react";
+import Image from "next/image";
+import { Plus, Edit2, Trash2, Award, Upload } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
@@ -9,7 +10,7 @@ import { Modal } from "@/components/ui/Modal";
 import { toast } from "sonner";
 import type { ShgBadge } from "@/types/database";
 
-const EMPTY = { name: "", description: "", icon: "" };
+const EMPTY = { name: "", description: "", icon: "", icon_url: "" };
 
 export function BadgesManager() {
   const [badges, setBadges] = React.useState<ShgBadge[]>([]);
@@ -18,6 +19,7 @@ export function BadgesManager() {
   const [modalOpen, setModalOpen] = React.useState(false);
   const [form, setForm] = React.useState(EMPTY);
   const [saving, setSaving] = React.useState(false);
+  const [uploading, setUploading] = React.useState(false);
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -37,8 +39,22 @@ export function BadgesManager() {
 
   function openEdit(b: ShgBadge) {
     setEditing(b);
-    setForm({ name: b.name, description: b.description ?? "", icon: b.icon ?? "" });
+    setForm({ name: b.name, description: b.description ?? "", icon: b.icon ?? "", icon_url: b.icon_url ?? "" });
     setModalOpen(true);
+  }
+
+  async function handleIconUpload(file: File) {
+    setUploading(true);
+    try {
+      const body = new FormData();
+      body.set("file", file);
+      const res = await fetch("/api/admin/media", { method: "POST", body });
+      const json = await res.json();
+      if (!res.ok) { toast.error(json.error ?? "Error al subir imagen."); return; }
+      setForm((f) => ({ ...f, icon_url: json.data.url }));
+    } finally {
+      setUploading(false);
+    }
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -83,8 +99,12 @@ export function BadgesManager() {
           {badges.map((b) => (
             <div key={b.id} className="surface-parchment p-4 flex items-start justify-between gap-2">
               <div className="flex items-start gap-3 min-w-0">
-                <div className="size-9 shrink-0 rounded-full bg-brass/15 flex items-center justify-center text-lg">
-                  {b.icon || <Award size={16} className="text-brass" />}
+                <div className="relative size-9 shrink-0 rounded-full bg-brass/15 flex items-center justify-center text-lg overflow-hidden">
+                  {b.icon_url ? (
+                    <Image src={b.icon_url} alt="" fill className="object-cover" sizes="36px" />
+                  ) : (
+                    b.icon || <Award size={16} className="text-brass" />
+                  )}
                 </div>
                 <div className="min-w-0">
                   <p className="font-label text-sm font-bold text-ink">{b.name}</p>
@@ -111,6 +131,29 @@ export function BadgesManager() {
             onChange={(e) => setForm({ ...form, icon: e.target.value })}
           />
           <Textarea label="Descripción" rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          <div className="flex flex-col gap-1.5">
+            <label className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">Imagen de la insignia (opcional)</label>
+            <p className="font-body text-2xs text-ink-light -mt-1">Si subís una imagen, reemplaza al emoji en el perfil de los usuarios.</p>
+            <div className="flex items-center gap-3">
+              <div className="relative size-14 shrink-0 rounded-full bg-parchment-dark/40 border border-brass/30 flex items-center justify-center overflow-hidden text-xl">
+                {form.icon_url ? (
+                  <Image src={form.icon_url} alt="" fill className="object-cover" sizes="56px" />
+                ) : (
+                  form.icon || <Award size={18} className="text-leather-light" />
+                )}
+              </div>
+              <label className="flex items-center gap-2 border border-dashed border-border px-3 py-2.5 cursor-pointer hover:border-brass transition-colors text-sm font-body text-ink-light flex-1">
+                <Upload size={15} />
+                {uploading ? "Subiendo…" : form.icon_url ? "Cambiar imagen" : "Subir imagen"}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="hidden"
+                  onChange={(e) => e.target.files?.[0] && handleIconUpload(e.target.files[0])}
+                />
+              </label>
+            </div>
+          </div>
           <Button type="submit" loading={saving} className="mt-2">Guardar</Button>
         </form>
       </Modal>

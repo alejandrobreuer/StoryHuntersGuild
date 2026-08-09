@@ -10,7 +10,7 @@ export async function GET() {
   const admin = createAdminClient();
   const { data, error: dbErr } = await admin
     .from("shg_quests")
-    .select("*, badge:shg_badges(id, name, icon)")
+    .select("*, badge:shg_badges(id, name, icon, icon_url)")
     .order("created_at", { ascending: false });
 
   if (dbErr) return NextResponse.json({ error: "Error al obtener las misiones." }, { status: 500 });

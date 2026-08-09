@@ -160,6 +160,7 @@ export interface ShgRank {
   name:        string;
   rp_required: number;
   benefit:     string | null;
+  icon_url:    string | null;
   created_at:  string;
   updated_at:  string;
 }
@@ -169,6 +170,7 @@ export interface ShgBadge {
   name:        string;
   description: string | null;
   icon:        string | null;
+  icon_url:    string | null;
   created_at:  string;
 }
 

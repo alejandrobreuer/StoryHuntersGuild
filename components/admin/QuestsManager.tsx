@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import { Plus, Edit2, Trash2, ChevronDown, ChevronUp, ScrollText } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -12,7 +13,7 @@ import { cn } from "@/lib/utils";
 import type { ShgQuest, ShgBadge, ShgUserPublic, QuestType, QuestStatus } from "@/types/database";
 
 interface QuestRow extends ShgQuest {
-  badge: { id: string; name: string; icon: string | null } | null;
+  badge: { id: string; name: string; icon: string | null; icon_url: string | null } | null;
 }
 interface EventOption { id: string; title: string; }
 interface CompletionRow {
@@ -301,8 +302,12 @@ export function QuestsManager() {
             <div key={q.id} className="surface-parchment p-4">
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-start gap-3 min-w-0">
-                  <div className="size-9 shrink-0 rounded-full bg-brass/15 flex items-center justify-center text-base">
-                    {q.badge?.icon || <ScrollText size={16} className="text-brass" />}
+                  <div className="relative size-9 shrink-0 rounded-full bg-brass/15 flex items-center justify-center text-base overflow-hidden">
+                    {q.badge?.icon_url ? (
+                      <Image src={q.badge.icon_url} alt="" fill className="object-cover" sizes="36px" />
+                    ) : (
+                      q.badge?.icon || <ScrollText size={16} className="text-brass" />
+                    )}
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
