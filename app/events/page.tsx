@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { unstable_noStore as noStore } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getFeatureFlags } from "@/lib/features";
 import { EventCard } from "@/components/events/EventCard";
 import { EventFilters } from "@/components/events/EventFilters";
 import type { ShgEventListItem } from "@/types/database";
@@ -15,6 +16,7 @@ export default async function EventsPage({
 }) {
   noStore();
   const admin = createAdminClient();
+  const features = await getFeatureFlags();
 
   let query = admin
     .from("shg_events")
@@ -55,7 +57,7 @@ export default async function EventsPage({
         </p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {enrichedEvents.map((e) => <EventCard key={e.id} event={e} />)}
+          {enrichedEvents.map((e) => <EventCard key={e.id} event={e} showRewards={features.event_rewards} />)}
         </div>
       )}
     </main>

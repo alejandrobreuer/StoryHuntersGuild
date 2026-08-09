@@ -51,13 +51,16 @@ function SignOutItem({ onClick }: { onClick?: () => void }) {
 export function Nav({
   sessionUser,
   isAdmin,
+  questsEnabled,
 }: {
   sessionUser: { id: string; email: string } | null;
   isAdmin: boolean;
+  questsEnabled: boolean;
 }) {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const links = [
     ...BASE_LINKS,
+    ...(questsEnabled ? [{ href: "/quests", label: "Misiones" }] : []),
     ...(isAdmin ? [{ href: "/admin", label: "Panel Admin" }] : []),
     ...(sessionUser ? [] : [{ href: "/sign-in", label: "Ingresar" }]),
   ];

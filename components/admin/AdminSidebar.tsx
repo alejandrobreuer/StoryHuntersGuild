@@ -2,18 +2,26 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, CalendarDays, MapPin, Dice5, Tag, ClipboardCheck, BarChart3, Settings, LogOut } from "lucide-react";
+import {
+  LayoutDashboard, CalendarDays, MapPin, Dice5, Tag, ClipboardCheck, BarChart3, Settings, LogOut,
+  Users, ScrollText, Medal, Award, ToggleLeft,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
-  { href: "/admin",          label: "Dashboard",  icon: LayoutDashboard },
-  { href: "/admin/events",   label: "Eventos",    icon: CalendarDays },
-  { href: "/admin/venues",   label: "Lugares",    icon: MapPin },
-  { href: "/admin/games",    label: "Juegos",     icon: Dice5 },
-  { href: "/admin/tags",     label: "Tags",       icon: Tag },
-  { href: "/admin/bookings", label: "Reservas",   icon: ClipboardCheck },
-  { href: "/admin/reports",  label: "Reportes",   icon: BarChart3 },
-  { href: "/admin/settings", label: "Configuración", icon: Settings },
+  { href: "/admin",              label: "Dashboard",  icon: LayoutDashboard },
+  { href: "/admin/events",       label: "Eventos",    icon: CalendarDays },
+  { href: "/admin/venues",       label: "Lugares",    icon: MapPin },
+  { href: "/admin/games",        label: "Juegos",     icon: Dice5 },
+  { href: "/admin/tags",         label: "Tags",       icon: Tag },
+  { href: "/admin/users",        label: "Usuarios",   icon: Users },
+  { href: "/admin/quests",       label: "Misiones",   icon: ScrollText },
+  { href: "/admin/ranks",        label: "Rangos",     icon: Medal },
+  { href: "/admin/badges",       label: "Insignias",  icon: Award },
+  { href: "/admin/feature-flags", label: "Funciones", icon: ToggleLeft },
+  { href: "/admin/bookings",     label: "Reservas",   icon: ClipboardCheck },
+  { href: "/admin/reports",      label: "Reportes",   icon: BarChart3 },
+  { href: "/admin/settings",     label: "Configuración", icon: Settings },
 ];
 
 export function AdminSidebar() {

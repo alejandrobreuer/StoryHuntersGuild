@@ -8,6 +8,10 @@ export type BookingStatus  = "pending" | "approved" | "rejected" | "cancelled";
 export type GameComplexity = "light" | "medium" | "heavy";
 export type MagicLinkPurpose = "public" | "admin";
 export type AdminRole      = "admin" | "owner";
+export type EventType      = "cooperative" | "competitive" | "tournament" | "release" | "guilds_choice";
+export type QuestType      = "individual" | "party" | "community" | "event";
+export type QuestStatus    = "draft" | "active" | "archived";
+export type FeatureFlagKey = "progression" | "quests" | "ranks" | "subscriptions" | "event_rewards";
 
 // ─── Identity ───────────────────────────────────────────────────────────────
 
@@ -20,6 +24,10 @@ export interface ShgUser {
   password_hash:         string | null;
   failed_login_attempts: number;
   locked_until:          string | null;
+  xp:                    number;
+  rp:                    number;
+  is_subscriber:         boolean;
+  subscriber_since:      string | null;
   created_at:            string;
   last_login_at:         string | null;
 }
@@ -94,6 +102,8 @@ export interface ShgEvent {
   currency:          string;
   status:            EventStatus;
   cover_image_url:   string | null;
+  event_type:        EventType | null;
+  reward_rp:         number;
   created_at:        string;
   updated_at:        string;
 }
@@ -122,6 +132,7 @@ export interface ShgBooking {
   cost:          number;
   status:        BookingStatus;
   attended:      boolean;
+  rp_awarded:    number;
   receipt_path:  string | null;
   admin_note:    string | null;
   reviewed_by:   string | null;
@@ -132,6 +143,74 @@ export interface ShgBooking {
 
 export interface ShgBookingWithEvent extends ShgBooking {
   event: Pick<ShgEvent, "id" | "title" | "slug" | "starts_at">;
+}
+
+// ─── Gamification: feature flags, progression, ranks, badges, quests ────────
+
+export interface ShgFeatureFlag {
+  key:         FeatureFlagKey;
+  label:       string;
+  description: string | null;
+  enabled:     boolean;
+  updated_at:  string;
+}
+
+export interface ShgRank {
+  id:          string;
+  name:        string;
+  rp_required: number;
+  benefit:     string | null;
+  created_at:  string;
+  updated_at:  string;
+}
+
+export interface ShgBadge {
+  id:          string;
+  name:        string;
+  description: string | null;
+  icon:        string | null;
+  created_at:  string;
+}
+
+export interface ShgUserBadge {
+  user_id:    string;
+  badge_id:   string;
+  awarded_at: string;
+}
+
+export interface ShgQuest {
+  id:         string;
+  title:      string;
+  narrative:  string | null;
+  type:       QuestType;
+  status:     QuestStatus;
+  reward_xp:  number;
+  reward_rp:  number;
+  badge_id:   string | null;
+  goal_count: number | null;
+  starts_at:  string | null;
+  ends_at:    string | null;
+  event_id:   string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ShgQuestCompletion {
+  id:                  string;
+  quest_id:            string;
+  user_id:             string;
+  contribution_amount: number;
+  logged_by:           string | null;
+  created_at:          string;
+}
+
+export interface ShgQuestReward {
+  quest_id:   string;
+  user_id:    string;
+  awarded_xp: number;
+  awarded_rp: number;
+  awarded_by: string | null;
+  awarded_at: string;
 }
 
 // ─── Settings ───────────────────────────────────────────────────────────────

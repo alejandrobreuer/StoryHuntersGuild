@@ -2,16 +2,19 @@ import Link from "next/link";
 import Image from "next/image";
 import { MapPin } from "lucide-react";
 import { formatARS, formatDateTime } from "@/lib/formatting";
+import { EVENT_TYPE_LABELS } from "@/lib/gamification/eventTypes";
 import { CapacityBadge } from "@/components/ui/CapacityBadge";
 import type { ShgEventListItem } from "@/types/database";
 
 interface EventCardProps {
   event: ShgEventListItem;
+  /** Show the event-type label and RP reward — gated by the event_rewards feature flag. */
+  showRewards?: boolean;
 }
 
 /** "Bounty posting" event card — the signature UI motif: torn-parchment
  * edges + a pinned-notice feel, capacity shown as a crosshair-seal badge. */
-export function EventCard({ event }: EventCardProps) {
+export function EventCard({ event, showRewards }: EventCardProps) {
   return (
     <Link
       href={`/events/${event.id}`}
@@ -35,6 +38,20 @@ export function EventCard({ event }: EventCardProps) {
             <MapPin size={13} className="shrink-0 text-leather-light" />
             {event.venue.name}{event.venue.city ? `, ${event.venue.city}` : ""}
           </p>
+          {showRewards && (event.event_type || event.reward_rp > 0) && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {event.event_type && (
+                <span className="font-label text-2xs uppercase tracking-wide px-2 py-0.5 rounded-sm bg-brass/15 text-brass">
+                  {EVENT_TYPE_LABELS[event.event_type]}
+                </span>
+              )}
+              {event.reward_rp > 0 && (
+                <span className="font-label text-2xs uppercase tracking-wide px-2 py-0.5 rounded-sm bg-moss/15 text-moss-dark">
+                  +{event.reward_rp} RP
+                </span>
+              )}
+            </div>
+          )}
         </div>
         <CapacityBadge remaining={event.remaining} />
       </div>

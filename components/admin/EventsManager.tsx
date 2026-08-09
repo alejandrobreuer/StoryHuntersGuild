@@ -11,15 +11,16 @@ import { Modal } from "@/components/ui/Modal";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { FieldStatus } from "@/components/admin/FieldStatus";
 import { formatARS, formatDateTime } from "@/lib/formatting";
+import { EVENT_TYPE_LABELS } from "@/lib/gamification/eventTypes";
 import { toast } from "sonner";
-import type { ShgGame, EventStatus, ShgBookingWithEvent } from "@/types/database";
+import type { ShgGame, EventStatus, EventType, ShgBookingWithEvent } from "@/types/database";
 
 interface EventRow {
   id: string; title: string; slug: string; description: string | null;
   starts_at: string; ends_at: string | null; capacity: number;
   price_per_person: number; currency: string; status: EventStatus;
   cover_image_url: string | null; venue: { id: string; name: string } | null;
-  game_ids: string[];
+  game_ids: string[]; event_type: EventType | null; reward_rp: number;
 }
 
 interface EventDetail {
@@ -27,6 +28,7 @@ interface EventDetail {
   starts_at: string; ends_at: string | null; capacity: number;
   price_per_person: number; status: EventStatus; cover_image_url: string | null;
   venue: { id: string; name: string } | null; game_ids: string[];
+  event_type: EventType | null; reward_rp: number;
 }
 
 interface VenueOption { id: string; name: string; }
@@ -35,6 +37,7 @@ const EMPTY = {
   title: "", description: "", venue_id: "", starts_at: "", ends_at: "",
   capacity: 10, price_per_person: 0, status: "draft" as EventStatus,
   cover_image_url: "", game_ids: [] as string[],
+  event_type: "" as EventType | "", reward_rp: 0,
 };
 
 export function EventsManager() {
@@ -84,6 +87,7 @@ export function EventsManager() {
       ends_at: e.ends_at ? e.ends_at.slice(0, 16) : "",
       capacity: e.capacity, price_per_person: e.price_per_person, status: e.status,
       cover_image_url: e.cover_image_url ?? "", game_ids: e.game_ids ?? [],
+      event_type: e.event_type ?? "", reward_rp: e.reward_rp ?? 0,
     });
     setModalOpen(true);
   }
@@ -161,6 +165,8 @@ export function EventsManager() {
         ends_at: form.ends_at ? new Date(form.ends_at).toISOString() : null,
         capacity: Number(form.capacity),
         price_per_person: Number(form.price_per_person),
+        event_type: form.event_type || null,
+        reward_rp: Number(form.reward_rp),
       };
       const res = await fetch(editingId ? `/api/admin/events/${editingId}` : "/api/admin/events", {
         method: editingId ? "PATCH" : "POST",
@@ -215,6 +221,11 @@ export function EventsManager() {
                   <div className="flex items-center gap-2 flex-wrap mb-0.5">
                     <p className="font-label text-sm font-bold text-ink">{e.title}</p>
                     <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-leather/10 text-leather">{e.status}</span>
+                    {e.event_type && (
+                      <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-brass/15 text-brass">
+                        {EVENT_TYPE_LABELS[e.event_type]}
+                      </span>
+                    )}
                   </div>
                   <p className="font-body text-2xs text-ink-light/70 truncate">/{e.slug}</p>
                 </div>
@@ -232,6 +243,7 @@ export function EventsManager() {
                   {e.ends_at && <span>{formatDateTime(e.ends_at)}</span>}
                 </div>
                 <p>{e.venue?.name ?? "—"} · cupo {e.capacity} · {formatARS(e.price_per_person)}/persona ({e.currency})</p>
+                {e.reward_rp > 0 && <p className="text-brass">+{e.reward_rp} RP por asistir</p>}
               </div>
 
               <div>
@@ -280,6 +292,27 @@ export function EventsManager() {
               <option value="published">Publicado</option>
               <option value="cancelled">Cancelado</option>
             </Select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 items-end">
+            <Select
+              label="Tipo de evento (opcional)"
+              value={form.event_type}
+              onChange={(e) => setForm({ ...form, event_type: e.target.value as EventType | "" })}
+            >
+              <option value="">Ninguno</option>
+              {(Object.keys(EVENT_TYPE_LABELS) as EventType[]).map((t) => (
+                <option key={t} value={t}>{EVENT_TYPE_LABELS[t]}</option>
+              ))}
+            </Select>
+            <Input
+              label="RP por asistir"
+              type="number"
+              min={0}
+              value={form.reward_rp}
+              onChange={(e) => setForm({ ...form, reward_rp: Number(e.target.value) })}
+              helperText="Guía: partida corta (<30min) 1 RP, media (30-60min) 2 RP, larga (>60min) 3 RP."
+            />
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -341,6 +374,12 @@ export function EventsManager() {
               <div><span className="text-ink-light">Lugar:</span> {viewingEvent.venue?.name ?? "—"}</div>
               <div><span className="text-ink-light">Cupo:</span> {viewingEvent.capacity}</div>
               <div><span className="text-ink-light">Precio:</span> {formatARS(viewingEvent.price_per_person)}/persona</div>
+              {viewingEvent.event_type && (
+                <div><span className="text-ink-light">Tipo:</span> {EVENT_TYPE_LABELS[viewingEvent.event_type]}</div>
+              )}
+              {viewingEvent.reward_rp > 0 && (
+                <div><span className="text-ink-light">Recompensa:</span> +{viewingEvent.reward_rp} RP por asistir</div>
+              )}
             </div>
 
             {viewingEvent.description && (

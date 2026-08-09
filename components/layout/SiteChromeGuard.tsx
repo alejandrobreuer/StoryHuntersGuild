@@ -14,10 +14,12 @@ export function SiteChromeGuard({
   children,
   sessionUser,
   isAdmin,
+  questsEnabled,
 }: {
   children: React.ReactNode;
   sessionUser: { id: string; email: string } | null;
   isAdmin: boolean;
+  questsEnabled: boolean;
 }) {
   const pathname = usePathname();
   const hidden = HIDDEN_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(prefix + "/"));
@@ -26,7 +28,7 @@ export function SiteChromeGuard({
 
   return (
     <>
-      <Nav sessionUser={sessionUser} isAdmin={isAdmin} />
+      <Nav sessionUser={sessionUser} isAdmin={isAdmin} questsEnabled={questsEnabled} />
       {children}
       <StudioCreditFooter />
     </>

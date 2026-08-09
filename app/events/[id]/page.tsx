@@ -4,6 +4,8 @@ import Image from "next/image";
 import { unstable_noStore as noStore } from "next/cache";
 import { MapPin, Users, Clock, Dice5, AtSign } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getFeatureFlags } from "@/lib/features";
+import { EVENT_TYPE_LABELS } from "@/lib/gamification/eventTypes";
 import { Button } from "@/components/ui/Button";
 import { CapacityBadge } from "@/components/ui/CapacityBadge";
 import { formatARS, formatDateTime, formatPlayers, formatPlaytime } from "@/lib/formatting";
@@ -20,6 +22,7 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
 export default async function EventDetailPage({ params }: { params: { id: string } }) {
   noStore();
   const admin = createAdminClient();
+  const features = await getFeatureFlags();
 
   const { data: event } = await admin
     .from("shg_events")
@@ -54,6 +57,20 @@ export default async function EventDetailPage({ params }: { params: { id: string
             {formatDateTime(typedEvent.starts_at)}
           </p>
           <h1 className="font-display text-3xl text-parchment leading-snug">{typedEvent.title}</h1>
+          {features.event_rewards && (typedEvent.event_type || typedEvent.reward_rp > 0) && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {typedEvent.event_type && (
+                <span className="font-label text-2xs uppercase tracking-wide px-2 py-0.5 rounded-sm bg-brass/15 text-brass">
+                  {EVENT_TYPE_LABELS[typedEvent.event_type]}
+                </span>
+              )}
+              {typedEvent.reward_rp > 0 && (
+                <span className="font-label text-2xs uppercase tracking-wide px-2 py-0.5 rounded-sm bg-moss/15 text-moss-dark">
+                  +{typedEvent.reward_rp} RP por asistir
+                </span>
+              )}
+            </div>
+          )}
         </div>
         <CapacityBadge remaining={remaining} className="shrink-0" />
       </div>
