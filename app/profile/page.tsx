@@ -123,10 +123,10 @@ export default async function ProfilePage() {
   const showPatron = features.subscriptions;
 
   return (
-    <main className="max-w-4xl mx-auto px-6 py-14">
+    <main className="bg-gradient-to-b from-parchment to-parchment-dark px-6 py-14">
+      <div className="max-w-4xl mx-auto">
       {/* ————— Adventurer Card header ————— */}
-      <div className="relative bg-gradient-to-br from-parchment-dark to-parchment-deep border border-brass rounded-md shadow-parchment-lg px-7 py-6">
-        <div className="flex flex-col md:flex-row items-center md:items-end gap-6">
+      <div className="relative bg-gradient-to-br from-parchment-dark to-parchment-deep border border-brass rounded-md shadow-parchment-lg px-7 py-8 flex flex-col items-center text-center gap-4">
           <div className="shrink-0 relative size-20 rounded-full bg-gradient-to-br from-crimson/90 to-crimson border-4 border-parchment shadow-seal flex items-center justify-center -rotate-3 overflow-hidden">
             {rank?.icon_url ? (
               <Image src={rank.icon_url} alt="" fill className="object-cover" sizes="80px" />
@@ -135,7 +135,7 @@ export default async function ProfilePage() {
             )}
           </div>
 
-          <div className="flex-1 text-center md:text-left min-w-0">
+          <div className="min-w-0">
             <p className="font-label text-xs uppercase tracking-widest text-brass mb-1">
               {showRankTrack && rank ? `Aventurero Rango ${rank.name}` : "Aventurero del Gremio"}
             </p>
@@ -149,24 +149,12 @@ export default async function ProfilePage() {
             )}
           </div>
 
-          {(showProgress || showRankTrack) && (
-            <div className="flex gap-6 sm:gap-8 justify-center shrink-0">
-              {showProgress && (
-                <div className="text-center">
-                  <p className="font-display text-2xl text-crimson leading-none">{progress.level}</p>
-                  <p className="font-label text-2xs tracking-widest text-leather-light uppercase mt-1">Nivel</p>
-                </div>
-              )}
-              {showProgress && showRankTrack && <div className="w-px bg-brass/40" />}
-              {showRankTrack && (
-                <div className="text-center">
-                  <p className="font-display text-2xl text-crimson leading-none">{rp}</p>
-                  <p className="font-label text-2xs tracking-widest text-leather-light uppercase mt-1">Puntos de Rango</p>
-                </div>
-              )}
+          {showProgress && (
+            <div className="text-center">
+              <p className="font-display text-2xl text-crimson leading-none">{progress.level}</p>
+              <p className="font-label text-2xs tracking-widest text-leather-light uppercase mt-1">Nivel</p>
             </div>
           )}
-        </div>
       </div>
 
       {/* ————— Dual progression: Level (personal) | Rank (community) ————— */}
@@ -174,7 +162,7 @@ export default async function ProfilePage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-0 mt-6">
           {showProgress && (
             <div className={cn(
-              "bg-parchment/60 border border-brass/50 px-5 pt-4 pb-5",
+              "bg-white/35 border border-brass/50 px-5 pt-4 pb-5",
               showBothTracks ? "rounded-t-md md:rounded-tr-none" : "rounded-t-md md:col-span-2"
             )}>
               <div className="flex items-center gap-2 mb-1">
@@ -194,7 +182,7 @@ export default async function ProfilePage() {
 
           {showRankTrack && (
             <div className={cn(
-              "bg-parchment/80 border border-brass/50 px-5 pt-4 pb-5",
+              "bg-white/50 border border-brass/50 px-5 pt-4 pb-5",
               showBothTracks ? "rounded-t-md md:border-l-0" : "rounded-t-md md:col-span-2"
             )}>
               <div className="flex items-center gap-2 mb-1">
@@ -250,36 +238,40 @@ export default async function ProfilePage() {
         {/* ————— Quest Ledger ————— */}
         {features.quests && (
           <section>
-            <h2 className="font-display text-xl text-parchment mb-3">Registro de Misiones</h2>
+            <h2 className="font-display text-xl text-ink mb-3">Registro de Misiones</h2>
             <QuestLedger quests={ledger} />
           </section>
         )}
 
         {/* ————— Badges & Tokens ————— */}
-        {features.quests && (badges?.length ?? 0) > 0 && (
+        {features.quests && (
           <section>
-            <h2 className="font-display text-xl text-parchment mb-3">Insignias y Tokens</h2>
-            <div className="flex gap-5 overflow-x-auto pb-1">
-              {(badges ?? []).map((b, i) => {
-                const badge = one(b.badge);
-                if (!badge) return null;
-                return (
-                  <div key={i} className="flex flex-col items-center shrink-0 text-center" style={{ minWidth: 84 }}>
-                    <div className="relative size-14 rounded-full bg-gradient-to-br from-brass to-ink border-2 border-brass flex items-center justify-center shadow-parchment overflow-hidden text-xl">
-                      {badge.icon_url ? (
-                        <Image src={badge.icon_url} alt="" fill className="object-cover" sizes="56px" />
-                      ) : (
-                        <span className="text-parchment">{badge.icon || "🏅"}</span>
+            <h2 className="font-display text-xl text-ink mb-3">Insignias y Tokens</h2>
+            {(badges?.length ?? 0) === 0 ? (
+              <p className="font-body italic text-sm text-ink-light">Todavía no ganaste ninguna insignia.</p>
+            ) : (
+              <div className="flex gap-5 overflow-x-auto pb-1">
+                {(badges ?? []).map((b, i) => {
+                  const badge = one(b.badge);
+                  if (!badge) return null;
+                  return (
+                    <div key={i} className="flex flex-col items-center shrink-0 text-center" style={{ minWidth: 84 }}>
+                      <div className="relative size-14 rounded-full bg-gradient-to-br from-brass to-ink border-2 border-brass flex items-center justify-center shadow-parchment overflow-hidden text-xl">
+                        {badge.icon_url ? (
+                          <Image src={badge.icon_url} alt="" fill className="object-cover" sizes="56px" />
+                        ) : (
+                          <span className="text-parchment">{badge.icon || "🏅"}</span>
+                        )}
+                      </div>
+                      <p className="font-label text-2xs text-ink mt-1.5 leading-tight">{badge.name}</p>
+                      {badge.description && (
+                        <p className="font-body text-2xs text-ink-light italic leading-tight">{badge.description}</p>
                       )}
                     </div>
-                    <p className="font-label text-2xs text-parchment mt-1.5 leading-tight">{badge.name}</p>
-                    {badge.description && (
-                      <p className="font-body text-2xs text-parchment-dark/70 italic leading-tight">{badge.description}</p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </section>
         )}
 
@@ -337,6 +329,7 @@ export default async function ProfilePage() {
           </p>
           <PasswordSection hasPassword={Boolean(user?.password_hash)} />
         </section>
+      </div>
       </div>
     </main>
   );
