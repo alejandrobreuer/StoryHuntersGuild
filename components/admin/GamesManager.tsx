@@ -2,21 +2,23 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { Plus, Edit2, Trash2, Upload, Dice5 } from "lucide-react";
+import { Plus, Edit2, Trash2, Upload, Dice5, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
+import { FieldStatus } from "@/components/admin/FieldStatus";
 import { RulesContent } from "@/components/games/RulesContent";
 import { parseRulesMarkup } from "@/lib/rules-markup";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import type { ShgGame, GameComplexity } from "@/types/database";
+import type { ShgGame, ShgTag, GameComplexity } from "@/types/database";
 
 const EMPTY = {
   name: "", min_players: 2, max_players: 4, playtime_minutes: 60,
   complexity: "light" as GameComplexity, beginner_friendly: false,
-  tags: "", image_url: "", description: "", bgg_link: "", available: true, rules: "",
+  tags: [] as string[], image_url: "", description: "", bgg_link: "", available: true, rules: "",
 };
 
 const RULES_TOOLBAR: { label: string; kind: "line" | "wrap"; value: string; after?: string; placeholder: string }[] = [
@@ -31,6 +33,7 @@ const RULES_TOOLBAR: { label: string; kind: "line" | "wrap"; value: string; afte
 
 export function GamesManager() {
   const [games, setGames] = React.useState<ShgGame[]>([]);
+  const [tags, setTags] = React.useState<ShgTag[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [editing, setEditing] = React.useState<ShgGame | null>(null);
   const [modalOpen, setModalOpen] = React.useState(false);
@@ -39,15 +42,41 @@ export function GamesManager() {
   const [uploading, setUploading] = React.useState(false);
   const rulesRef = React.useRef<HTMLTextAreaElement>(null);
 
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [playerCount, setPlayerCount] = React.useState("");
+  const [filterTags, setFilterTags] = React.useState<string[]>([]);
+
   const load = React.useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/admin/games");
-    const json = await res.json();
-    setGames(json.data ?? []);
+    const [gamesRes, tagsRes] = await Promise.all([fetch("/api/admin/games"), fetch("/api/admin/tags")]);
+    setGames((await gamesRes.json()).data ?? []);
+    setTags((await tagsRes.json()).data ?? []);
     setLoading(false);
   }, []);
 
   React.useEffect(() => { load(); }, [load]);
+
+  const filteredGames = React.useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    const n = playerCount.trim() ? Number(playerCount) : null;
+    return games.filter((g) => {
+      const matchesSearch = !q || g.name.toLowerCase().includes(q) || g.tags.some((t) => t.toLowerCase().includes(q));
+      const matchesPlayers = n === null || (n >= g.min_players && n <= g.max_players);
+      const matchesTags = filterTags.length === 0 || filterTags.some((t) => g.tags.includes(t));
+      return matchesSearch && matchesPlayers && matchesTags;
+    });
+  }, [games, searchQuery, playerCount, filterTags]);
+
+  function toggleFilterTag(tag: string) {
+    setFilterTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
+  }
+
+  function toggleFormTag(tag: string) {
+    setForm((f) => ({
+      ...f,
+      tags: f.tags.includes(tag) ? f.tags.filter((t) => t !== tag) : [...f.tags, tag],
+    }));
+  }
 
   function openNew() {
     setEditing(null);
@@ -60,7 +89,7 @@ export function GamesManager() {
     setForm({
       name: g.name, min_players: g.min_players, max_players: g.max_players,
       playtime_minutes: g.playtime_minutes, complexity: g.complexity,
-      beginner_friendly: g.beginner_friendly, tags: g.tags.join(", "),
+      beginner_friendly: g.beginner_friendly, tags: g.tags,
       image_url: g.image_url ?? "", description: g.description ?? "",
       bgg_link: g.bgg_link ?? "", available: g.available, rules: g.rules ?? "",
     });
@@ -107,14 +136,10 @@ export function GamesManager() {
     e.preventDefault();
     setSaving(true);
     try {
-      const payload = {
-        ...form,
-        tags: form.tags.split(",").map((t) => t.trim()).filter(Boolean),
-      };
       const res = await fetch(editing ? `/api/admin/games/${editing.id}` : "/api/admin/games", {
         method: editing ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(form),
       });
       const json = await res.json();
       if (!res.ok) { toast.error(json.error ?? "Error al guardar."); return; }
@@ -140,32 +165,108 @@ export function GamesManager() {
         <Button size="sm" onClick={openNew}><Plus size={14} className="mr-1" />Nuevo juego</Button>
       </div>
 
+      <div className="mb-3 flex flex-wrap gap-3 items-end">
+        <Input
+          wrapperClassName="flex-1 min-w-[220px]"
+          label="Buscar por nombre o tag"
+          placeholder="Ej: Catan, cooperativo…"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+        <Input
+          wrapperClassName="w-48"
+          label="Cantidad de jugadores"
+          type="number"
+          min={1}
+          placeholder="Ej: 4"
+          value={playerCount}
+          onChange={(e) => setPlayerCount(e.target.value)}
+        />
+      </div>
+      {tags.length > 0 && (
+        <div className="mb-6 flex flex-wrap gap-1.5">
+          {tags.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => toggleFilterTag(t.name)}
+              className={cn(
+                "font-label text-2xs font-semibold uppercase tracking-wide px-2.5 py-1 rounded-sm border transition-colors",
+                filterTags.includes(t.name)
+                  ? "bg-brass text-ink border-brass"
+                  : "bg-transparent text-parchment-dark border-parchment-dark/40 hover:border-brass hover:text-brass-bright"
+              )}
+            >
+              {t.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       {loading ? (
         <p className="font-body italic text-parchment-dark">Cargando…</p>
+      ) : filteredGames.length === 0 ? (
+        <p className="font-body italic text-parchment-dark">Ningún juego coincide con los filtros.</p>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {games.map((g) => (
-            <div key={g.id} className="surface-parchment p-4 flex items-start justify-between gap-2">
-              <div className="flex items-start gap-3 min-w-0">
-                <div className="relative size-11 shrink-0 bg-parchment-dark/40 border border-border flex items-center justify-center overflow-hidden">
-                  {g.image_url ? (
-                    <Image src={g.image_url} alt="" fill className="object-cover" sizes="44px" />
-                  ) : (
-                    <Dice5 size={18} className="text-leather-light" />
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <p className="font-label text-sm font-bold text-ink">{g.name}</p>
-                  <p className="font-body text-xs text-ink-light">{g.min_players}–{g.max_players} jugadores · {g.playtime_minutes} min</p>
-                  <div className="flex flex-wrap gap-x-2">
-                    {g.beginner_friendly && <span className="text-2xs text-moss-dark font-label uppercase">Para empezar</span>}
-                    {!g.available && <span className="text-2xs text-crimson font-label uppercase">No disponible</span>}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          {filteredGames.map((g) => (
+            <div key={g.id} className="surface-parchment p-4 flex flex-col gap-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start gap-3 min-w-0">
+                  <div className="relative size-11 shrink-0 bg-parchment-dark/40 border border-border flex items-center justify-center overflow-hidden">
+                    {g.image_url ? (
+                      <Image src={g.image_url} alt="" fill className="object-cover" sizes="44px" />
+                    ) : (
+                      <Dice5 size={18} className="text-leather-light" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-label text-sm font-bold text-ink">{g.name}</p>
+                    <p className="font-body text-xs text-ink-light">{g.min_players}–{g.max_players} jugadores · {g.playtime_minutes} min</p>
+                    <div className="flex flex-wrap gap-x-2">
+                      {g.beginner_friendly && <span className="text-2xs text-moss-dark font-label uppercase">Para empezar</span>}
+                      {!g.available && <span className="text-2xs text-crimson font-label uppercase">No disponible</span>}
+                    </div>
                   </div>
                 </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button onClick={() => openEdit(g)} className="p-1.5 text-leather-light hover:text-brass transition-colors"><Edit2 size={15} /></button>
+                  <button onClick={() => handleDelete(g.id)} className="p-1.5 text-leather-light hover:text-crimson transition-colors"><Trash2 size={15} /></button>
+                </div>
               </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <button onClick={() => openEdit(g)} className="p-1.5 text-leather-light hover:text-brass transition-colors"><Edit2 size={15} /></button>
-                <button onClick={() => handleDelete(g.id)} className="p-1.5 text-leather-light hover:text-crimson transition-colors"><Trash2 size={15} /></button>
+
+              {g.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {g.tags.map((tag) => (
+                    <span key={tag} className="font-label text-2xs uppercase tracking-wide px-2 py-0.5 rounded-sm bg-leather/10 text-leather">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex flex-col gap-1.5 pt-2 border-t border-border/60">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <FieldStatus ok={Boolean(g.bgg_link)}>Link a BGG</FieldStatus>
+                  {g.bgg_link && (
+                    <a
+                      href={g.bgg_link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-2xs text-brass hover:underline truncate"
+                    >
+                      <ExternalLink size={10} className="shrink-0" />
+                      <span className="truncate">{g.bgg_link}</span>
+                    </a>
+                  )}
+                </div>
+                <div>
+                  <FieldStatus ok={Boolean(g.description)}>Descripción</FieldStatus>
+                  {g.description && <p className="font-body text-xs text-ink-light line-clamp-2 mt-0.5">{g.description}</p>}
+                </div>
+                <div>
+                  <FieldStatus ok={Boolean(g.rules)}>Reglas</FieldStatus>
+                </div>
               </div>
             </div>
           ))}
@@ -200,7 +301,30 @@ export function GamesManager() {
             <input type="checkbox" className="accent-moss size-4" checked={form.available} onChange={(e) => setForm({ ...form, available: e.target.checked })} />
             Disponible (si está destildado, sigue apareciendo en la Ludoteca marcado como no disponible)
           </label>
-          <Input label="Tags (separados por coma)" value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} />
+
+          <div className="flex flex-col gap-1.5">
+            <label className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">Tags</label>
+            {tags.length === 0 ? (
+              <p className="font-body text-xs text-ink-light">
+                Todavía no hay tags predefinidos — cargalos primero en la sección Tags del panel.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto border border-border p-2 bg-parchment/40">
+                {tags.map((t) => (
+                  <button
+                    key={t.id} type="button" onClick={() => toggleFormTag(t.name)}
+                    className={cn(
+                      "font-label text-2xs px-2.5 py-1 border rounded-sm transition-colors",
+                      form.tags.includes(t.name) ? "bg-moss text-parchment border-moss" : "border-border text-ink-light hover:border-brass"
+                    )}
+                  >
+                    {t.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           <Input label="Link de BoardGameGeek (opcional)" type="url" placeholder="https://boardgamegeek.com/boardgame/…" value={form.bgg_link} onChange={(e) => setForm({ ...form, bgg_link: e.target.value })} />
           <div className="flex flex-col gap-1.5">
             <label className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">Imagen</label>

@@ -17,11 +17,18 @@ export async function GET() {
   const admin = createAdminClient();
   const { data, error: dbErr } = await admin
     .from("shg_events")
-    .select("*, venue:shg_venues(id, name)")
+    .select("*, venue:shg_venues(id, name), event_games:shg_event_games(game_id)")
     .order("starts_at", { ascending: false });
 
   if (dbErr) return NextResponse.json({ error: "Error al obtener eventos." }, { status: 500 });
-  return NextResponse.json({ data });
+
+  // Flatten the nested join so the admin card grid can show featured games
+  // without a per-event detail fetch.
+  const withGameIds = (data ?? []).map(({ event_games, ...event }) => ({
+    ...event,
+    game_ids: ((event_games ?? []) as { game_id: string }[]).map((eg) => eg.game_id),
+  }));
+  return NextResponse.json({ data: withGameIds });
 }
 
 // ─── POST /api/admin/events ─────────────────────────────────────────────────

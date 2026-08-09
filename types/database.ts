@@ -48,6 +48,13 @@ export interface ShgVenue {
 /** Venue fields safe to include in a public API response — no `notes`. */
 export type ShgVenuePublic = Omit<ShgVenue, "notes">;
 
+export interface ShgTag {
+  id:         string;
+  name:       string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ShgGame {
   id:                string;
   name:              string;

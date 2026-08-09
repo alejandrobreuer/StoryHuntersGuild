@@ -2,20 +2,24 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { Plus, Edit2, Trash2, Upload, Eye, Receipt } from "lucide-react";
+import { Plus, Edit2, Trash2, Upload, Eye, Receipt, ImageOff } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { FieldStatus } from "@/components/admin/FieldStatus";
 import { formatARS, formatDateTime } from "@/lib/formatting";
 import { toast } from "sonner";
 import type { ShgGame, EventStatus, ShgBookingWithEvent } from "@/types/database";
 
 interface EventRow {
-  id: string; title: string; starts_at: string; capacity: number;
-  price_per_person: number; status: EventStatus; venue: { id: string; name: string } | null;
+  id: string; title: string; slug: string; description: string | null;
+  starts_at: string; ends_at: string | null; capacity: number;
+  price_per_person: number; currency: string; status: EventStatus;
+  cover_image_url: string | null; venue: { id: string; name: string } | null;
+  game_ids: string[];
 }
 
 interface EventDetail {
@@ -189,23 +193,64 @@ export function EventsManager() {
 
       {loading ? (
         <p className="font-body italic text-parchment-dark">Cargando…</p>
+      ) : events.length === 0 ? (
+        <p className="font-body italic text-parchment-dark">Todavía no hay eventos cargados.</p>
       ) : (
-        <div className="flex flex-col gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
           {events.map((e) => (
-            <div key={e.id} className="surface-parchment p-4 flex items-center justify-between gap-3 flex-wrap">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <p className="font-label text-sm font-bold text-ink">{e.title}</p>
-                  <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-leather/10 text-leather">{e.status}</span>
+            <div key={e.id} className="surface-parchment p-4 flex flex-col gap-2.5">
+              {e.cover_image_url ? (
+                <div className="relative w-full aspect-[16/9] overflow-hidden border border-border">
+                  <Image src={e.cover_image_url} alt="" fill className="object-cover" sizes="360px" />
                 </div>
-                <p className="font-body text-xs text-ink-light">
-                  {formatDateTime(e.starts_at)} · {e.venue?.name ?? "—"} · {formatARS(e.price_per_person)}/persona · cupo {e.capacity}
-                </p>
+              ) : (
+                <div className="w-full aspect-[16/9] bg-parchment-dark/40 border border-border flex flex-col items-center justify-center gap-1">
+                  <ImageOff size={18} className="text-leather-light" />
+                  <FieldStatus ok={false}>Sin portada</FieldStatus>
+                </div>
+              )}
+
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                    <p className="font-label text-sm font-bold text-ink">{e.title}</p>
+                    <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-leather/10 text-leather">{e.status}</span>
+                  </div>
+                  <p className="font-body text-2xs text-ink-light/70 truncate">/{e.slug}</p>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button onClick={() => openView(e.id)} className="p-1.5 text-leather-light hover:text-moss-dark transition-colors" title="Ver detalle"><Eye size={15} /></button>
+                  <button onClick={() => openEdit(e.id)} className="p-1.5 text-leather-light hover:text-brass transition-colors" title="Editar"><Edit2 size={15} /></button>
+                  <button onClick={() => handleDelete(e.id)} className="p-1.5 text-leather-light hover:text-crimson transition-colors" title="Eliminar"><Trash2 size={15} /></button>
+                </div>
               </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <button onClick={() => openView(e.id)} className="p-1.5 text-leather-light hover:text-moss-dark transition-colors" title="Ver detalle"><Eye size={15} /></button>
-                <button onClick={() => openEdit(e.id)} className="p-1.5 text-leather-light hover:text-brass transition-colors" title="Editar"><Edit2 size={15} /></button>
-                <button onClick={() => handleDelete(e.id)} className="p-1.5 text-leather-light hover:text-crimson transition-colors" title="Eliminar"><Trash2 size={15} /></button>
+
+              <div className="font-body text-xs text-ink-light flex flex-col gap-1">
+                <p>{formatDateTime(e.starts_at)}</p>
+                <div className="flex items-center gap-1.5">
+                  <FieldStatus ok={e.ends_at ? null : false}>Fin</FieldStatus>
+                  {e.ends_at && <span>{formatDateTime(e.ends_at)}</span>}
+                </div>
+                <p>{e.venue?.name ?? "—"} · cupo {e.capacity} · {formatARS(e.price_per_person)}/persona ({e.currency})</p>
+              </div>
+
+              <div>
+                <FieldStatus ok={e.description ? null : false}>Descripción</FieldStatus>
+                {e.description && <p className="font-body text-xs text-ink-light line-clamp-2 mt-0.5">{e.description}</p>}
+              </div>
+
+              <div>
+                <FieldStatus ok={e.game_ids.length > 0 ? null : false}>Juegos destacados</FieldStatus>
+                {e.game_ids.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {e.game_ids.map((gid) => {
+                      const g = games.find((game) => game.id === gid);
+                      return g ? (
+                        <span key={gid} className="font-label text-2xs px-2 py-0.5 rounded-sm bg-leather/10 text-leather">{g.name}</span>
+                      ) : null;
+                    })}
+                  </div>
+                )}
               </div>
             </div>
           ))}

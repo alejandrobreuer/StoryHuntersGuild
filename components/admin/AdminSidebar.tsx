@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, CalendarDays, MapPin, Dice5, ClipboardCheck, BarChart3, Settings, LogOut } from "lucide-react";
+import { LayoutDashboard, CalendarDays, MapPin, Dice5, Tag, ClipboardCheck, BarChart3, Settings, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
@@ -10,6 +10,7 @@ const LINKS = [
   { href: "/admin/events",   label: "Eventos",    icon: CalendarDays },
   { href: "/admin/venues",   label: "Lugares",    icon: MapPin },
   { href: "/admin/games",    label: "Juegos",     icon: Dice5 },
+  { href: "/admin/tags",     label: "Tags",       icon: Tag },
   { href: "/admin/bookings", label: "Reservas",   icon: ClipboardCheck },
   { href: "/admin/reports",  label: "Reportes",   icon: BarChart3 },
   { href: "/admin/settings", label: "Configuración", icon: Settings },
