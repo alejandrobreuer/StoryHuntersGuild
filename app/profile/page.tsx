@@ -7,6 +7,7 @@ import { getFeatureFlags } from "@/lib/features";
 import { levelProgress } from "@/lib/gamification/progression";
 import { currentRank, nextRank } from "@/lib/gamification/ranks";
 import { PasswordSection } from "@/components/profile/PasswordSection";
+import { DisplayNameEditor } from "@/components/profile/DisplayNameEditor";
 import { QuestLedger, type LedgerQuest } from "@/components/profile/QuestLedger";
 import { formatDate } from "@/lib/formatting";
 import { cn } from "@/lib/utils";
@@ -142,9 +143,7 @@ export default async function ProfilePage() {
             <p className="font-label text-[12px] uppercase tracking-[0.14em] text-[#A6772F] mb-1">
               {showRankTrack && rank ? `Aventurero Rango ${rank.name}` : "Aventurero del Gremio"}
             </p>
-            <h1 className="font-display font-semibold text-2xl sm:text-[32px] text-[#3B2A1E] leading-snug">
-              {user?.name || user?.email || sessionUser.email}
-            </h1>
+            <DisplayNameEditor currentName={user?.name ?? null} fallback={user?.email ?? sessionUser.email} />
             {user?.created_at && (
               <p className="font-body italic text-[#7A5433] text-[15px] mt-0.5">
                 Miembro del Gremio desde {formatDate(user.created_at)}
