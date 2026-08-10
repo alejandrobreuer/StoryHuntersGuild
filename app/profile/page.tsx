@@ -126,7 +126,10 @@ export default async function ProfilePage() {
     <main className="bg-gradient-to-b from-parchment to-parchment-dark px-6 py-14">
       <div className="max-w-4xl mx-auto">
       {/* ————— Adventurer Card header ————— */}
-      <div className="relative bg-gradient-to-br from-parchment-dark to-parchment-deep border border-brass rounded-md shadow-parchment-lg px-7 py-8 flex flex-col md:flex-row items-center justify-center text-center gap-6">
+      <div className="relative bg-gradient-to-br from-parchment-dark to-parchment-deep border border-brass rounded-md shadow-[0_1px_0_#EFE4CC,0_12px_28px_-14px_rgba(59,42,30,0.45),inset_0_0_0_6px_#EFE4CC] px-7 py-8 flex flex-col md:flex-row items-center justify-center text-center gap-6">
+          <div className="pointer-events-none absolute top-[10px] left-[18px] right-[18px] h-px bg-brass/60" />
+          <div className="pointer-events-none absolute bottom-[10px] left-[18px] right-[18px] h-px bg-brass/60" />
+
           <div className="shrink-0 relative size-20 rounded-full bg-gradient-to-br from-crimson/90 to-crimson border-4 border-parchment shadow-seal flex items-center justify-center -rotate-3 overflow-hidden">
             {rank?.icon_url ? (
               <Image src={rank.icon_url} alt="" fill className="object-cover" sizes="80px" />
@@ -136,14 +139,14 @@ export default async function ProfilePage() {
           </div>
 
           <div className="min-w-0">
-            <p className="font-label text-xs uppercase tracking-widest text-brass mb-1">
+            <p className="font-label text-[12px] uppercase tracking-[0.14em] text-[#A6772F] mb-1">
               {showRankTrack && rank ? `Aventurero Rango ${rank.name}` : "Aventurero del Gremio"}
             </p>
-            <h1 className="font-display text-2xl sm:text-3xl text-ink leading-snug">
+            <h1 className="font-display font-semibold text-2xl sm:text-[32px] text-[#3B2A1E] leading-snug">
               {user?.name || user?.email || sessionUser.email}
             </h1>
             {user?.created_at && (
-              <p className="font-body italic text-leather-light text-sm mt-0.5">
+              <p className="font-body italic text-[#7A5433] text-[15px] mt-0.5">
                 Miembro del Gremio desde {formatDate(user.created_at)}
               </p>
             )}
