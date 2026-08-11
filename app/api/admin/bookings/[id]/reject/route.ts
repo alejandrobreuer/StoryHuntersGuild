@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth/guard";
+import { requirePermission } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { rejectBookingSchema } from "@/lib/validation/bookings";
 import { sendBookingStatusEmail } from "@/lib/email";
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const { user, error } = await requireAdmin();
+  const { user, error } = await requirePermission("bookings");
   if (error) return error;
 
   let body: unknown = {};

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAdmin } from "@/lib/auth/guard";
+import { requirePermission } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET() {
-  const { error } = await requireAdmin();
+  const { error } = await requirePermission("settings");
   if (error) return error;
 
   const admin = createAdminClient();
@@ -18,7 +18,7 @@ const patchSchema = z.object({
 });
 
 export async function PATCH(req: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await requirePermission("settings");
   if (error) return error;
 
   let body: unknown;

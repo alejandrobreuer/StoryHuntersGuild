@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth/guard";
+import { requirePermission } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { questSchema } from "@/lib/validation/quests";
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const { error } = await requireAdmin();
+  const { error } = await requirePermission("quests");
   if (error) return error;
 
   let body: unknown;
@@ -36,7 +36,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-  const { error } = await requireAdmin();
+  const { error } = await requirePermission("quests");
   if (error) return error;
 
   const admin = createAdminClient();

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth/guard";
+import { requirePermission } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { featureFlagSchema } from "@/lib/validation/feature-flags";
 
 export async function PATCH(req: NextRequest, { params }: { params: { key: string } }) {
-  const { error } = await requireAdmin();
+  const { error } = await requirePermission("feature_flags");
   if (error) return error;
 
   let body: unknown;

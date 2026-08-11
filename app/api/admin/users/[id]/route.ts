@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth/guard";
+import { requirePermission } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { userAdjustSchema } from "@/lib/validation/users";
 
@@ -12,7 +12,7 @@ const SAFE_COLUMNS = "id, email, name, phone, xp, rp, is_subscriber, subscriber_
 // correction and an automatic grant can never race each other.
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const { error } = await requireAdmin();
+  const { error } = await requirePermission("users");
   if (error) return error;
 
   let body: unknown;

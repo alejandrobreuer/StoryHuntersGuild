@@ -4,33 +4,42 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, CalendarDays, MapPin, Dice5, Tag, ClipboardCheck, BarChart3, Settings, LogOut,
-  Users, ScrollText, Medal, Award, ToggleLeft,
+  Users, ScrollText, Medal, Award, ToggleLeft, ShieldCheck, UserCog,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { PermissionKey } from "@/types/database";
 
-const LINKS = [
+const LINKS: { href: string; label: string; icon: typeof LayoutDashboard; perm?: PermissionKey }[] = [
   { href: "/admin",              label: "Dashboard",  icon: LayoutDashboard },
-  { href: "/admin/events",       label: "Eventos",    icon: CalendarDays },
-  { href: "/admin/venues",       label: "Lugares",    icon: MapPin },
-  { href: "/admin/games",        label: "Juegos",     icon: Dice5 },
-  { href: "/admin/tags",         label: "Tags",       icon: Tag },
-  { href: "/admin/users",        label: "Usuarios",   icon: Users },
-  { href: "/admin/quests",       label: "Misiones",   icon: ScrollText },
-  { href: "/admin/ranks",        label: "Rangos",     icon: Medal },
-  { href: "/admin/badges",       label: "Insignias",  icon: Award },
-  { href: "/admin/feature-flags", label: "Funciones", icon: ToggleLeft },
-  { href: "/admin/bookings",     label: "Reservas",   icon: ClipboardCheck },
-  { href: "/admin/reports",      label: "Reportes",   icon: BarChart3 },
-  { href: "/admin/settings",     label: "Configuración", icon: Settings },
+  { href: "/admin/events",       label: "Eventos",    icon: CalendarDays,   perm: "events" },
+  { href: "/admin/venues",       label: "Lugares",    icon: MapPin,         perm: "venues" },
+  { href: "/admin/games",        label: "Juegos",     icon: Dice5,          perm: "games" },
+  { href: "/admin/tags",         label: "Tags",       icon: Tag,            perm: "tags" },
+  { href: "/admin/users",        label: "Usuarios",   icon: Users,          perm: "users" },
+  { href: "/admin/quests",       label: "Misiones",   icon: ScrollText,     perm: "quests" },
+  { href: "/admin/ranks",        label: "Rangos",     icon: Medal,          perm: "ranks" },
+  { href: "/admin/badges",       label: "Insignias",  icon: Award,          perm: "badges" },
+  { href: "/admin/feature-flags", label: "Funciones", icon: ToggleLeft,     perm: "feature_flags" },
+  { href: "/admin/bookings",     label: "Reservas",   icon: ClipboardCheck, perm: "bookings" },
+  { href: "/admin/reports",      label: "Reportes",   icon: BarChart3,      perm: "reports" },
+  { href: "/admin/settings",     label: "Configuración", icon: Settings,    perm: "settings" },
+  { href: "/admin/roles",        label: "Roles",      icon: ShieldCheck,    perm: "roles" },
+  { href: "/admin/admins",       label: "Administradores", icon: UserCog,   perm: "roles" },
 ];
 
-export function AdminSidebar() {
+interface AdminSidebarProps {
+  permissions: Record<PermissionKey, boolean>;
+}
+
+export function AdminSidebar({ permissions }: AdminSidebarProps) {
   const pathname = usePathname();
 
   async function handleLogout() {
     await fetch("/api/auth/sign-out", { method: "POST" });
     window.location.href = "/admin/login";
   }
+
+  const links = LINKS.filter((l) => !l.perm || permissions[l.perm]);
 
   return (
     <aside className="w-56 shrink-0 bg-[#1c1810] border-r border-brass/20 min-h-screen flex flex-col p-3">
@@ -39,7 +48,7 @@ export function AdminSidebar() {
         <span className="block font-label text-2xs uppercase tracking-widest text-parchment-dark">Admin</span>
       </div>
       <nav className="flex flex-col gap-1 flex-1">
-        {LINKS.map(({ href, label, icon: Icon }) => {
+        {links.map(({ href, label, icon: Icon }) => {
           const active = href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
           return (
             <Link

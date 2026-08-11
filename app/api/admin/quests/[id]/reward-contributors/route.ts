@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth/guard";
+import { requirePermission } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // ─── POST /api/admin/quests/[id]/reward-contributors ────────────────────────
@@ -10,7 +10,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // skipped via the (quest_id, user_id) uniqueness on shg_quest_rewards.
 
 export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
-  const { user: adminUser, error } = await requireAdmin();
+  const { user: adminUser, error } = await requirePermission("quests");
   if (error) return error;
 
   const admin = createAdminClient();

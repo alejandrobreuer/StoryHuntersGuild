@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth/guard";
+import { requirePermission } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // ─── GET /api/admin/quests/[id]/completions ─────────────────────────────────
@@ -7,7 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // who's actually been rewarded, each joined with basic user info.
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  const { error } = await requireAdmin();
+  const { error } = await requirePermission("quests");
   if (error) return error;
 
   const admin = createAdminClient();

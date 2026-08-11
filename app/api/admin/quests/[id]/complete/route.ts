@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth/guard";
+import { requirePermission } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { questCompleteSchema } from "@/lib/validation/quests";
 
@@ -11,7 +11,7 @@ import { questCompleteSchema } from "@/lib/validation/quests";
 // else only runs once that succeeds.
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const { user: adminUser, error } = await requireAdmin();
+  const { user: adminUser, error } = await requirePermission("quests");
   if (error) return error;
 
   let body: unknown;

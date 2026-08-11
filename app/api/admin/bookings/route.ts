@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth/guard";
+import { requirePermission } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // ─── GET /api/admin/bookings?eventId=&status= ──────────────────────────────
 
 export async function GET(req: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await requirePermission("bookings");
   if (error) return error;
 
   const eventId = req.nextUrl.searchParams.get("eventId");

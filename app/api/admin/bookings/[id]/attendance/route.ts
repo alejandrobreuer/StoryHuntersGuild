@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth/guard";
+import { requirePermission } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { attendanceSchema } from "@/lib/validation/bookings";
 import { getFeatureFlags } from "@/lib/features";
@@ -16,7 +16,7 @@ import { getFeatureFlags } from "@/lib/features";
 // no-op — no double-award from a redundant click.
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const { error } = await requireAdmin();
+  const { error } = await requirePermission("bookings");
   if (error) return error;
 
   let body: unknown;

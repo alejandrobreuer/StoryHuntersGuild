@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth/guard";
+import { requirePermission } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { gameSchema } from "@/lib/validation/games";
 
@@ -9,7 +9,7 @@ function slugify(name: string): string {
 }
 
 export async function GET() {
-  const { error } = await requireAdmin();
+  const { error } = await requirePermission("games");
   if (error) return error;
 
   const admin = createAdminClient();
@@ -19,7 +19,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const { error } = await requireAdmin();
+  const { error } = await requirePermission("games");
   if (error) return error;
 
   let body: unknown;

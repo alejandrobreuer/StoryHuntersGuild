@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth/guard";
+import { requirePermission } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // ─── GET /api/admin/reports/popular-games ──────────────────────────────────
 // Games ranked by SUM(guest_count) of approved bookings on events featuring them.
 
 export async function GET() {
-  const { error } = await requireAdmin();
+  const { error } = await requirePermission("reports");
   if (error) return error;
 
   const admin = createAdminClient();

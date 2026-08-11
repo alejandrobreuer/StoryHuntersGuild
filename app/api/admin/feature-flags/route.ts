@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth/guard";
+import { requirePermission } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET() {
-  const { error } = await requireAdmin();
+  const { error } = await requirePermission("feature_flags");
   if (error) return error;
 
   const admin = createAdminClient();

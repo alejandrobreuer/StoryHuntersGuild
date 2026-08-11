@@ -43,6 +43,7 @@ export default async function ProfilePage() {
     { data: activeQuests },
     { data: myCompletions },
     { data: attendedBookings },
+    { data: staffAccount },
   ] = await Promise.all([
     admin
       .from("shg_users")
@@ -72,7 +73,14 @@ export default async function ProfilePage() {
       ? admin.from("shg_quest_completions").select("quest_id, contribution_amount").eq("user_id", sessionUser.id)
       : Promise.resolve({ data: [] }),
     admin.from("shg_bookings").select("id").eq("user_id", sessionUser.id).eq("attended", true),
+    admin
+      .from("shg_admin_users")
+      .select("is_active, role:shg_security_roles(name)")
+      .eq("email", sessionUser.email)
+      .maybeSingle(),
   ]);
+
+  const staffRole = staffAccount?.is_active ? one(staffAccount.role)?.name ?? null : null;
 
   const xp = user?.xp ?? 0;
   const rp = user?.rp ?? 0;
@@ -147,6 +155,13 @@ export default async function ProfilePage() {
             {user?.created_at && (
               <p className="font-body italic text-[#7A5433] text-[15px] mt-0.5">
                 Miembro del Gremio desde {formatDate(user.created_at)}
+              </p>
+            )}
+            {staffRole && (
+              <p className="mt-1.5">
+                <span className="font-label text-2xs uppercase tracking-wide px-2 py-0.5 rounded-sm bg-brass/15 text-brass">
+                  Personal del gremio · {staffRole}
+                </span>
               </p>
             )}
           </div>

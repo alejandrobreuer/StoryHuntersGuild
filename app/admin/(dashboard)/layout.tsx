@@ -8,7 +8,7 @@ export default async function AdminDashboardLayout({ children }: { children: Rea
 
   return (
     <div className="flex min-h-screen bg-[#261f13]">
-      <AdminSidebar />
+      <AdminSidebar permissions={admin.permissions} />
       <main className="flex-1 min-w-0 p-6 sm:p-8">{children}</main>
     </div>
   );

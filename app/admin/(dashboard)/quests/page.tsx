@@ -1,5 +1,7 @@
+import { requireAdminPagePermission } from "@/lib/auth/guard";
 import { QuestsManager } from "@/components/admin/QuestsManager";
 
-export default function AdminQuestsPage() {
+export default async function AdminQuestsPage() {
+  await requireAdminPagePermission("quests");
   return <QuestsManager />;
 }

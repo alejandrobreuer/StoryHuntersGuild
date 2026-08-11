@@ -25,18 +25,19 @@ export async function GET(req: NextRequest) {
   if (consumed.purpose === "admin") {
     const { data: adminUser } = await admin
       .from("shg_admin_users")
-      .select("id, email, role, is_active")
+      .select("id, email, is_active, role:shg_security_roles(can_access_admin)")
       .eq("email", consumed.email)
       .maybeSingle();
 
-    if (!adminUser || !adminUser.is_active) {
+    const role = adminUser ? (Array.isArray(adminUser.role) ? adminUser.role[0] : adminUser.role) : null;
+    if (!adminUser || !adminUser.is_active || !role?.can_access_admin) {
       return NextResponse.redirect(`${appUrl}/admin/login?error=not_admin`);
     }
 
     await admin.from("shg_admin_users").update({ last_login_at: new Date().toISOString() }).eq("id", adminUser.id);
 
     const sessionToken = await signAdminSession({
-      sub: adminUser.id, email: adminUser.email, role: adminUser.role, kind: "admin",
+      sub: adminUser.id, email: adminUser.email, kind: "admin",
     });
     cookies().set(ADMIN_SESSION_COOKIE, sessionToken, {
       httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 12,

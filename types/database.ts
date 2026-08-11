@@ -7,7 +7,6 @@ export type EventStatus    = "draft" | "published" | "cancelled";
 export type BookingStatus  = "pending" | "approved" | "rejected" | "cancelled";
 export type GameComplexity = "light" | "medium" | "heavy";
 export type MagicLinkPurpose = "public" | "admin";
-export type AdminRole      = "admin" | "owner";
 export type EventType      = "cooperative" | "competitive" | "tournament" | "release" | "guilds_choice";
 export type QuestType      = "individual" | "party" | "community" | "event";
 export type QuestStatus    = "draft" | "active" | "archived";
@@ -39,10 +38,39 @@ export interface ShgAdminUser {
   id:            string;
   email:         string;
   name:          string;
-  role:          AdminRole;
+  role_id:       string;
   is_active:     boolean;
   created_at:    string;
   last_login_at: string | null;
+}
+
+// One flag per admin-panel section, plus the master "can enter the panel
+// at all" switch. Keep in sync with shg_security_roles' perm_* columns.
+export type PermissionKey =
+  | "events" | "venues" | "games" | "tags" | "users" | "quests"
+  | "ranks" | "badges" | "feature_flags" | "bookings" | "reports"
+  | "settings" | "roles";
+
+export interface ShgSecurityRole {
+  id:                 string;
+  name:               string;
+  description:        string | null;
+  can_access_admin:   boolean;
+  perm_events:        boolean;
+  perm_venues:        boolean;
+  perm_games:         boolean;
+  perm_tags:          boolean;
+  perm_users:         boolean;
+  perm_quests:        boolean;
+  perm_ranks:         boolean;
+  perm_badges:        boolean;
+  perm_feature_flags: boolean;
+  perm_bookings:      boolean;
+  perm_reports:       boolean;
+  perm_settings:      boolean;
+  perm_roles:         boolean;
+  created_at:         string;
+  updated_at:         string;
 }
 
 // ─── Catalog ────────────────────────────────────────────────────────────────
@@ -234,6 +262,5 @@ export interface ShgSessionPayload {
 export interface ShgAdminSessionPayload {
   sub:   string;   // shg_admin_users.id
   email: string;
-  role:  AdminRole;
   kind:  "admin";
 }

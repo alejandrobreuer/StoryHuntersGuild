@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth/guard";
+import { requirePermission } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // Explicit column list — never select("*") here, so password_hash and the
@@ -7,7 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 const SAFE_COLUMNS = "id, email, name, phone, xp, rp, is_subscriber, subscriber_since, created_at, last_login_at";
 
 export async function GET() {
-  const { error } = await requireAdmin();
+  const { error } = await requirePermission("users");
   if (error) return error;
 
   const admin = createAdminClient();
