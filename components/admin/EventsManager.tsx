@@ -20,23 +20,24 @@ interface EventRow {
   starts_at: string; ends_at: string | null; capacity: number;
   price_per_person: number; currency: string; status: EventStatus;
   cover_image_url: string | null; venue: { id: string; name: string } | null;
-  game_ids: string[]; event_type: EventType | null; reward_rp: number;
+  game_ids: string[]; quest_ids: string[]; event_type: EventType | null; reward_rp: number;
 }
 
 interface EventDetail {
   id: string; title: string; description: string | null;
   starts_at: string; ends_at: string | null; capacity: number;
   price_per_person: number; status: EventStatus; cover_image_url: string | null;
-  venue: { id: string; name: string } | null; game_ids: string[];
+  venue: { id: string; name: string } | null; game_ids: string[]; quest_ids: string[];
   event_type: EventType | null; reward_rp: number;
 }
 
 interface VenueOption { id: string; name: string; }
+interface QuestOption { id: string; title: string; type: string; }
 
 const EMPTY = {
   title: "", description: "", venue_id: "", starts_at: "", ends_at: "",
   capacity: 10, price_per_person: 0, status: "draft" as EventStatus,
-  cover_image_url: "", game_ids: [] as string[],
+  cover_image_url: "", game_ids: [] as string[], quest_ids: [] as string[],
   event_type: "" as EventType | "", reward_rp: 0,
 };
 
@@ -44,6 +45,7 @@ export function EventsManager() {
   const [events, setEvents] = React.useState<EventRow[]>([]);
   const [venues, setVenues] = React.useState<VenueOption[]>([]);
   const [games, setGames]   = React.useState<ShgGame[]>([]);
+  const [quests, setQuests] = React.useState<QuestOption[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [modalOpen, setModalOpen] = React.useState(false);
@@ -59,12 +61,13 @@ export function EventsManager() {
 
   const load = React.useCallback(async () => {
     setLoading(true);
-    const [eventsRes, venuesRes, gamesRes] = await Promise.all([
-      fetch("/api/admin/events"), fetch("/api/admin/venues"), fetch("/api/admin/games"),
+    const [eventsRes, venuesRes, gamesRes, questsRes] = await Promise.all([
+      fetch("/api/admin/events"), fetch("/api/admin/venues"), fetch("/api/admin/games"), fetch("/api/admin/quests"),
     ]);
     setEvents((await eventsRes.json()).data ?? []);
     setVenues((await venuesRes.json()).data ?? []);
     setGames((await gamesRes.json()).data ?? []);
+    setQuests((await questsRes.json()).data ?? []);
     setLoading(false);
   }, []);
 
@@ -86,7 +89,7 @@ export function EventsManager() {
       starts_at: e.starts_at ? e.starts_at.slice(0, 16) : "",
       ends_at: e.ends_at ? e.ends_at.slice(0, 16) : "",
       capacity: e.capacity, price_per_person: e.price_per_person, status: e.status,
-      cover_image_url: e.cover_image_url ?? "", game_ids: e.game_ids ?? [],
+      cover_image_url: e.cover_image_url ?? "", game_ids: e.game_ids ?? [], quest_ids: e.quest_ids ?? [],
       event_type: e.event_type ?? "", reward_rp: e.reward_rp ?? 0,
     });
     setModalOpen(true);
@@ -152,6 +155,13 @@ export function EventsManager() {
     setForm((f) => ({
       ...f,
       game_ids: f.game_ids.includes(id) ? f.game_ids.filter((g) => g !== id) : [...f.game_ids, id],
+    }));
+  }
+
+  function toggleQuest(id: string) {
+    setForm((f) => ({
+      ...f,
+      quest_ids: f.quest_ids.includes(id) ? f.quest_ids.filter((q) => q !== id) : [...f.quest_ids, id],
     }));
   }
 
@@ -264,6 +274,20 @@ export function EventsManager() {
                   </div>
                 )}
               </div>
+
+              <div>
+                <FieldStatus ok={e.quest_ids.length > 0 ? null : false}>Misiones asignadas</FieldStatus>
+                {e.quest_ids.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {e.quest_ids.map((qid) => {
+                      const q = quests.find((quest) => quest.id === qid);
+                      return q ? (
+                        <span key={qid} className="font-label text-2xs px-2 py-0.5 rounded-sm bg-brass/10 text-brass">{q.title}</span>
+                      ) : null;
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -340,6 +364,27 @@ export function EventsManager() {
             </div>
           </div>
 
+          <div className="flex flex-col gap-1.5">
+            <label className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">Misiones disponibles</label>
+            <p className="font-body text-2xs text-ink-light -mt-1">Elegí qué misiones del panel de Misiones están disponibles para este evento.</p>
+            {quests.length === 0 ? (
+              <p className="font-body text-xs italic text-ink-light">Todavía no hay misiones cargadas.</p>
+            ) : (
+              <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto border border-border p-2 bg-parchment/40">
+                {quests.map((q) => (
+                  <button
+                    key={q.id} type="button" onClick={() => toggleQuest(q.id)}
+                    className={`font-label text-2xs px-2.5 py-1 border rounded-sm transition-colors ${
+                      form.quest_ids.includes(q.id) ? "bg-brass text-ink border-brass" : "border-border text-ink-light hover:border-brass"
+                    }`}
+                  >
+                    {q.title}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           <Button type="submit" loading={saving} className="mt-2">Guardar</Button>
         </form>
       </Modal>
@@ -394,6 +439,20 @@ export function EventsManager() {
                     const g = games.find((game) => game.id === gid);
                     return g ? (
                       <span key={gid} className="font-label text-xs px-2.5 py-1 rounded-sm bg-leather/10 text-leather">{g.name}</span>
+                    ) : null;
+                  })}
+                </div>
+              </div>
+            )}
+
+            {viewingEvent.quest_ids.length > 0 && (
+              <div>
+                <h3 className="font-label text-xs font-semibold uppercase tracking-widest text-leather-light mb-2">Misiones disponibles</h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {viewingEvent.quest_ids.map((qid) => {
+                    const q = quests.find((quest) => quest.id === qid);
+                    return q ? (
+                      <span key={qid} className="font-label text-xs px-2.5 py-1 rounded-sm bg-brass/10 text-brass">{q.title}</span>
                     ) : null;
                   })}
                 </div>

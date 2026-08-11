@@ -17,18 +17,19 @@ export async function GET() {
   const admin = createAdminClient();
   const { data, error: dbErr } = await admin
     .from("shg_events")
-    .select("*, venue:shg_venues(id, name), event_games:shg_event_games(game_id)")
+    .select("*, venue:shg_venues(id, name), event_games:shg_event_games(game_id), event_quests:shg_quest_events(quest_id)")
     .order("starts_at", { ascending: false });
 
   if (dbErr) return NextResponse.json({ error: "Error al obtener eventos." }, { status: 500 });
 
-  // Flatten the nested join so the admin card grid can show featured games
-  // without a per-event detail fetch.
-  const withGameIds = (data ?? []).map(({ event_games, ...event }) => ({
+  // Flatten the nested joins so the admin card grid can show featured games
+  // and assigned missions without a per-event detail fetch.
+  const withIds = (data ?? []).map(({ event_games, event_quests, ...event }) => ({
     ...event,
     game_ids: ((event_games ?? []) as { game_id: string }[]).map((eg) => eg.game_id),
+    quest_ids: ((event_quests ?? []) as { quest_id: string }[]).map((eq) => eq.quest_id),
   }));
-  return NextResponse.json({ data: withGameIds });
+  return NextResponse.json({ data: withIds });
 }
 
 // ─── POST /api/admin/events ─────────────────────────────────────────────────
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Datos inválidos." }, { status: 422 });
   }
 
-  const { game_ids, cover_image_url, ...fields } = parsed.data;
+  const { game_ids, quest_ids, cover_image_url, ...fields } = parsed.data;
   const admin = createAdminClient();
 
   const { data: event, error: insertError } = await admin
@@ -61,6 +62,9 @@ export async function POST(req: NextRequest) {
 
   if (game_ids.length > 0) {
     await admin.from("shg_event_games").insert(game_ids.map((game_id) => ({ event_id: event.id, game_id })));
+  }
+  if (quest_ids.length > 0) {
+    await admin.from("shg_quest_events").insert(quest_ids.map((quest_id) => ({ event_id: event.id, quest_id })));
   }
 
   return NextResponse.json({ data: event }, { status: 201 });

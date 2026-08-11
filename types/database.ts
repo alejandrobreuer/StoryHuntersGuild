@@ -9,6 +9,7 @@ export type GameComplexity = "light" | "medium" | "heavy";
 export type EventType      = "cooperative" | "competitive" | "tournament" | "release" | "guilds_choice";
 export type QuestType      = "individual" | "party" | "community" | "event";
 export type QuestStatus    = "draft" | "active" | "archived";
+export type QuestDifficulty = "low" | "medium" | "high";
 export type FeatureFlagKey = "progression" | "quests" | "ranks" | "subscriptions" | "event_rewards";
 
 // ─── Identity ───────────────────────────────────────────────────────────────
@@ -211,20 +212,27 @@ export interface ShgUserBadge {
 }
 
 export interface ShgQuest {
-  id:         string;
-  title:      string;
-  narrative:  string | null;
-  type:       QuestType;
-  status:     QuestStatus;
-  reward_xp:  number;
-  reward_rp:  number;
-  badge_id:   string | null;
-  goal_count: number | null;
-  starts_at:  string | null;
-  ends_at:    string | null;
-  event_id:   string | null;
-  created_at: string;
-  updated_at: string;
+  id:                         string;
+  title:                      string;
+  narrative:                  string | null;
+  type:                       QuestType;
+  status:                     QuestStatus;
+  difficulty:                 QuestDifficulty;
+  reward_xp:                  number;
+  reward_rp:                  number;
+  badge_id:                   string | null;
+  game_id:                    string | null;
+  max_completions_per_event:  number;
+  goal_count:                 number | null;
+  starts_at:                  string | null;
+  ends_at:                    string | null;
+  created_at:                 string;
+  updated_at:                 string;
+}
+
+export interface ShgQuestEvent {
+  quest_id: string;
+  event_id: string;
 }
 
 export interface ShgQuestCompletion {
@@ -232,6 +240,7 @@ export interface ShgQuestCompletion {
   quest_id:            string;
   user_id:             string;
   contribution_amount: number;
+  event_id:            string | null;
   logged_by:           string | null;
   created_at:          string;
 }

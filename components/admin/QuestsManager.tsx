@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { Plus, Edit2, Trash2, ChevronDown, ChevronUp, ScrollText } from "lucide-react";
+import { Plus, Edit2, Trash2, ChevronDown, ChevronUp, ScrollText, Dice5 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
@@ -10,15 +10,18 @@ import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import type { ShgQuest, ShgBadge, ShgUserPublic, QuestType, QuestStatus } from "@/types/database";
+import { DIFFICULTY_LABELS } from "@/lib/gamification/questDifficulty";
+import type { ShgQuest, ShgBadge, ShgGame, ShgUserPublic, QuestType, QuestStatus, QuestDifficulty } from "@/types/database";
 
 interface QuestRow extends ShgQuest {
   badge: { id: string; name: string; icon: string | null; icon_url: string | null } | null;
+  game: { id: string; name: string; image_url: string | null } | null;
+  events: { id: string; title: string }[];
 }
-interface EventOption { id: string; title: string; }
 interface CompletionRow {
-  id: string; user_id: string; contribution_amount: number; created_at: string;
+  id: string; user_id: string; contribution_amount: number; event_id: string | null; created_at: string;
   user: { id: string; email: string; name: string | null } | null;
+  event: { id: string; title: string } | null;
 }
 interface RewardRow {
   user_id: string; awarded_xp: number; awarded_rp: number; awarded_at: string;
@@ -29,10 +32,16 @@ const TYPE_LABELS: Record<QuestType, string> = {
   individual: "Individual", party: "Grupo", community: "Comunitaria", event: "Evento",
 };
 const STATUS_LABELS: Record<QuestStatus, string> = { draft: "Borrador", active: "Activa", archived: "Archivada" };
+const DIFFICULTY_STYLES: Record<QuestDifficulty, string> = {
+  low: "bg-moss/15 text-moss-dark",
+  medium: "bg-brass/15 text-brass",
+  high: "bg-crimson/15 text-crimson",
+};
 
 const EMPTY = {
   title: "", narrative: "", type: "individual" as QuestType, status: "draft" as QuestStatus,
-  reward_xp: 10, reward_rp: 0, badge_id: "", goal_count: "", starts_at: "", ends_at: "", event_id: "",
+  difficulty: "medium" as QuestDifficulty, reward_xp: 10, reward_rp: 0, badge_id: "", game_id: "",
+  max_completions_per_event: "0", goal_count: "", starts_at: "", ends_at: "",
 };
 
 function userLabel(u: { email: string; name: string | null }): string {
@@ -43,6 +52,7 @@ function QuestDetail({ quest, users }: { quest: QuestRow; users: ShgUserPublic[]
   const [completions, setCompletions] = React.useState<CompletionRow[] | null>(null);
   const [rewards, setRewards] = React.useState<RewardRow[] | null>(null);
   const [selectedUserId, setSelectedUserId] = React.useState("");
+  const [selectedEventId, setSelectedEventId] = React.useState("");
   const [amount, setAmount] = React.useState(1);
   const [busy, setBusy] = React.useState(false);
 
@@ -55,6 +65,12 @@ function QuestDetail({ quest, users }: { quest: QuestRow; users: ShgUserPublic[]
 
   React.useEffect(() => { load(); }, [load]);
 
+  const usedForEvent = React.useMemo(
+    () => (completions ?? []).filter((c) => c.event_id === selectedEventId).length,
+    [completions, selectedEventId]
+  );
+  const capReached = selectedEventId !== "" && quest.max_completions_per_event > 0 && usedForEvent >= quest.max_completions_per_event;
+
   async function markComplete() {
     if (!selectedUserId) { toast.error("Elegí un usuario."); return; }
     setBusy(true);
@@ -62,7 +78,7 @@ function QuestDetail({ quest, users }: { quest: QuestRow; users: ShgUserPublic[]
       const res = await fetch(`/api/admin/quests/${quest.id}/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: selectedUserId }),
+        body: JSON.stringify({ userId: selectedUserId, eventId: selectedEventId || null }),
       });
       const json = await res.json();
       if (!res.ok) { toast.error(json.error ?? "Error."); return; }
@@ -81,7 +97,7 @@ function QuestDetail({ quest, users }: { quest: QuestRow; users: ShgUserPublic[]
       const res = await fetch(`/api/admin/quests/${quest.id}/contribute`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: selectedUserId, amount }),
+        body: JSON.stringify({ userId: selectedUserId, amount, eventId: selectedEventId || null }),
       });
       const json = await res.json();
       if (!res.ok) { toast.error(json.error ?? "Error."); return; }
@@ -117,6 +133,26 @@ function QuestDetail({ quest, users }: { quest: QuestRow; users: ShgUserPublic[]
 
   return (
     <div className="flex flex-col gap-4 pt-3 border-t border-border">
+      {quest.events.length > 0 && (
+        <div>
+          <Select
+            label="Evento"
+            value={selectedEventId}
+            onChange={(e) => setSelectedEventId(e.target.value)}
+          >
+            <option value="">General (sin evento específico)</option>
+            {quest.events.map((ev) => <option key={ev.id} value={ev.id}>{ev.title}</option>)}
+          </Select>
+          {selectedEventId && (
+            <p className={cn("font-body text-2xs mt-1", capReached ? "text-crimson" : "text-ink-light")}>
+              {quest.max_completions_per_event > 0
+                ? `${usedForEvent} / ${quest.max_completions_per_event} usos en este evento${capReached ? " — límite alcanzado" : ""}`
+                : `${usedForEvent} uso(s) registrados en este evento · sin límite`}
+            </p>
+          )}
+        </div>
+      )}
+
       {quest.type === "community" ? (
         <>
           <div>
@@ -138,7 +174,7 @@ function QuestDetail({ quest, users }: { quest: QuestRow; users: ShgUserPublic[]
               {users.map((u) => <option key={u.id} value={u.id}>{userLabel(u)}</option>)}
             </Select>
             <Input wrapperClassName="w-24" label="Cantidad" type="number" min={1} value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
-            <Button size="sm" onClick={logContribution} loading={busy}>Registrar</Button>
+            <Button size="sm" onClick={logContribution} loading={busy} disabled={capReached}>Registrar</Button>
           </div>
 
           <Button size="sm" variant="secondary" onClick={rewardContributors} loading={busy} disabled={totalContributions === 0}>
@@ -151,7 +187,7 @@ function QuestDetail({ quest, users }: { quest: QuestRow; users: ShgUserPublic[]
               <div className="flex flex-col gap-1 max-h-40 overflow-y-auto">
                 {completions.map((c) => (
                   <div key={c.id} className="font-body text-xs text-ink-light flex items-center justify-between">
-                    <span>{c.user ? userLabel(c.user) : "—"}</span>
+                    <span>{c.user ? userLabel(c.user) : "—"}{c.event ? ` · ${c.event.title}` : ""}</span>
                     <span>+{c.contribution_amount} {rewardedIds.has(c.user_id) && "· recompensado"}</span>
                   </div>
                 ))}
@@ -166,7 +202,7 @@ function QuestDetail({ quest, users }: { quest: QuestRow; users: ShgUserPublic[]
               <option value="">Elegí un usuario…</option>
               {users.map((u) => <option key={u.id} value={u.id}>{userLabel(u)}</option>)}
             </Select>
-            <Button size="sm" onClick={markComplete} loading={busy}>Marcar completada</Button>
+            <Button size="sm" onClick={markComplete} loading={busy} disabled={capReached}>Marcar completada</Button>
           </div>
 
           {rewards.length > 0 && (
@@ -190,8 +226,8 @@ function QuestDetail({ quest, users }: { quest: QuestRow; users: ShgUserPublic[]
 export function QuestsManager() {
   const [quests, setQuests] = React.useState<QuestRow[]>([]);
   const [badges, setBadges] = React.useState<ShgBadge[]>([]);
+  const [games, setGames] = React.useState<ShgGame[]>([]);
   const [users, setUsers] = React.useState<ShgUserPublic[]>([]);
-  const [events, setEvents] = React.useState<EventOption[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [editing, setEditing] = React.useState<QuestRow | null>(null);
   const [modalOpen, setModalOpen] = React.useState(false);
@@ -202,13 +238,13 @@ export function QuestsManager() {
 
   const load = React.useCallback(async () => {
     setLoading(true);
-    const [questsRes, badgesRes, usersRes, eventsRes] = await Promise.all([
-      fetch("/api/admin/quests"), fetch("/api/admin/badges"), fetch("/api/admin/users"), fetch("/api/admin/events"),
+    const [questsRes, badgesRes, usersRes, gamesRes] = await Promise.all([
+      fetch("/api/admin/quests"), fetch("/api/admin/badges"), fetch("/api/admin/users"), fetch("/api/admin/games"),
     ]);
     setQuests((await questsRes.json()).data ?? []);
     setBadges((await badgesRes.json()).data ?? []);
     setUsers((await usersRes.json()).data ?? []);
-    setEvents((await eventsRes.json()).data ?? []);
+    setGames((await gamesRes.json()).data ?? []);
     setLoading(false);
   }, []);
 
@@ -224,11 +260,12 @@ export function QuestsManager() {
     setEditing(q);
     setForm({
       title: q.title, narrative: q.narrative ?? "", type: q.type, status: q.status,
-      reward_xp: q.reward_xp, reward_rp: q.reward_rp, badge_id: q.badge_id ?? "",
+      difficulty: q.difficulty, reward_xp: q.reward_xp, reward_rp: q.reward_rp,
+      badge_id: q.badge_id ?? "", game_id: q.game_id ?? "",
+      max_completions_per_event: String(q.max_completions_per_event),
       goal_count: q.goal_count ? String(q.goal_count) : "",
       starts_at: q.starts_at ? q.starts_at.slice(0, 16) : "",
       ends_at: q.ends_at ? q.ends_at.slice(0, 16) : "",
-      event_id: q.event_id ?? "",
     });
     setModalOpen(true);
   }
@@ -240,10 +277,11 @@ export function QuestsManager() {
       const payload = {
         ...form,
         badge_id: form.badge_id || null,
+        game_id: form.game_id || null,
+        max_completions_per_event: Number(form.max_completions_per_event) || 0,
         goal_count: form.goal_count ? Number(form.goal_count) : null,
         starts_at: form.starts_at ? new Date(form.starts_at).toISOString() : null,
         ends_at: form.ends_at ? new Date(form.ends_at).toISOString() : null,
-        event_id: form.event_id || null,
       };
       const res = await fetch(editing ? `/api/admin/quests/${editing.id}` : "/api/admin/quests", {
         method: editing ? "PATCH" : "POST",
@@ -268,6 +306,7 @@ export function QuestsManager() {
   }
 
   const filtered = typeFilter === "all" ? quests : quests.filter((q) => q.type === typeFilter);
+  const selectedGame = games.find((g) => g.id === form.game_id) ?? null;
 
   return (
     <div>
@@ -315,6 +354,9 @@ export function QuestsManager() {
                       <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-leather/10 text-leather">
                         {TYPE_LABELS[q.type]}
                       </span>
+                      <span className={cn("font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm", DIFFICULTY_STYLES[q.difficulty])}>
+                        {DIFFICULTY_LABELS[q.difficulty]}
+                      </span>
                       <span className={cn(
                         "font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm",
                         q.status === "active" ? "bg-moss/15 text-moss-dark" : q.status === "archived" ? "bg-crimson/15 text-crimson" : "bg-brass/15 text-brass"
@@ -325,7 +367,27 @@ export function QuestsManager() {
                     {q.narrative && <p className="font-body text-xs text-ink-light line-clamp-2">{q.narrative}</p>}
                     <p className="font-body text-2xs text-ink-light mt-0.5">
                       +{q.reward_xp} XP · +{q.reward_rp} RP{q.badge ? ` · insignia "${q.badge.name}"` : ""}
+                      {q.max_completions_per_event > 0 ? ` · máx. ${q.max_completions_per_event}/evento` : ""}
                     </p>
+                    <div className="flex items-center gap-2 flex-wrap mt-1">
+                      {q.game && (
+                        <span className="inline-flex items-center gap-1.5 font-label text-2xs px-1.5 py-0.5 rounded-sm bg-leather/10 text-leather">
+                          <span className="relative size-4 shrink-0 rounded-sm overflow-hidden bg-parchment-dark/40">
+                            {q.game.image_url ? (
+                              <Image src={q.game.image_url} alt="" fill className="object-cover" sizes="16px" />
+                            ) : (
+                              <Dice5 size={10} className="absolute inset-0 m-auto text-leather-light" />
+                            )}
+                          </span>
+                          {q.game.name}
+                        </span>
+                      )}
+                      {q.events.length > 0 && (
+                        <span className="font-label text-2xs px-1.5 py-0.5 rounded-sm bg-brass/10 text-brass">
+                          Disponible en {q.events.length} evento{q.events.length !== 1 ? "s" : ""}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
@@ -347,7 +409,7 @@ export function QuestsManager() {
           <Input label="Título" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
           <Textarea label="Narrativa (opcional)" rows={2} value={form.narrative} onChange={(e) => setForm({ ...form, narrative: e.target.value })} />
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <Select label="Tipo" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as QuestType })}>
               {(["individual", "party", "community", "event"] as const).map((t) => (
                 <option key={t} value={t}>{TYPE_LABELS[t]}</option>
@@ -356,6 +418,11 @@ export function QuestsManager() {
             <Select label="Estado" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as QuestStatus })}>
               {(["draft", "active", "archived"] as const).map((s) => (
                 <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+              ))}
+            </Select>
+            <Select label="Dificultad" value={form.difficulty} onChange={(e) => setForm({ ...form, difficulty: e.target.value as QuestDifficulty })}>
+              {(["low", "medium", "high"] as const).map((d) => (
+                <option key={d} value={d}>{DIFFICULTY_LABELS[d]}</option>
               ))}
             </Select>
           </div>
@@ -370,6 +437,23 @@ export function QuestsManager() {
             {badges.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </Select>
 
+          <div className="flex flex-col gap-1.5">
+            <label className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">Juego relacionado (opcional)</label>
+            <div className="flex items-center gap-3">
+              <div className="relative size-11 shrink-0 rounded-sm bg-parchment-dark/40 border border-brass/30 flex items-center justify-center overflow-hidden">
+                {selectedGame?.image_url ? (
+                  <Image src={selectedGame.image_url} alt="" fill className="object-cover" sizes="44px" />
+                ) : (
+                  <Dice5 size={16} className="text-leather-light" />
+                )}
+              </div>
+              <Select wrapperClassName="flex-1" value={form.game_id} onChange={(e) => setForm({ ...form, game_id: e.target.value })}>
+                <option value="">Ninguno</option>
+                {games.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+              </Select>
+            </div>
+          </div>
+
           {form.type === "community" && (
             <Input
               label="Meta de contribuciones"
@@ -381,12 +465,14 @@ export function QuestsManager() {
             />
           )}
 
-          {form.type === "event" && (
-            <Select label="Evento vinculado (opcional)" value={form.event_id} onChange={(e) => setForm({ ...form, event_id: e.target.value })}>
-              <option value="">Ninguno</option>
-              {events.map((ev) => <option key={ev.id} value={ev.id}>{ev.title}</option>)}
-            </Select>
-          )}
+          <Input
+            label="Límite de veces por evento"
+            type="number"
+            min={0}
+            value={form.max_completions_per_event}
+            onChange={(e) => setForm({ ...form, max_completions_per_event: e.target.value })}
+            helperText="0 = ilimitado. Se aplica cuando esta misión está asignada a un evento (desde el editor del evento)."
+          />
 
           <div className="grid grid-cols-2 gap-3">
             <Input label="Inicio (opcional)" type="datetime-local" value={form.starts_at} onChange={(e) => setForm({ ...form, starts_at: e.target.value })} />

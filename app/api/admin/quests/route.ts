@@ -10,11 +10,21 @@ export async function GET() {
   const admin = createAdminClient();
   const { data, error: dbErr } = await admin
     .from("shg_quests")
-    .select("*, badge:shg_badges(id, name, icon, icon_url)")
+    .select("*, badge:shg_badges(id, name, icon, icon_url), game:shg_games(id, name, image_url), quest_events:shg_quest_events(event:shg_events(id, title))")
     .order("created_at", { ascending: false });
 
   if (dbErr) return NextResponse.json({ error: "Error al obtener las misiones." }, { status: 500 });
-  return NextResponse.json({ data });
+
+  // Flatten the linked-events join so the admin list doesn't need a
+  // per-quest detail fetch to know which events a mission is assigned to.
+  const withEvents = (data ?? []).map(({ quest_events, ...quest }) => ({
+    ...quest,
+    events: ((quest_events ?? []) as { event: { id: string; title: string } | { id: string; title: string }[] | null }[])
+      .map((qe) => (Array.isArray(qe.event) ? qe.event[0] : qe.event))
+      .filter((e): e is { id: string; title: string } => Boolean(e)),
+  }));
+
+  return NextResponse.json({ data: withEvents });
 }
 
 export async function POST(req: NextRequest) {
@@ -36,10 +46,10 @@ export async function POST(req: NextRequest) {
     .insert({
       ...parsed.data,
       badge_id: parsed.data.badge_id || null,
+      game_id: parsed.data.game_id || null,
       goal_count: parsed.data.goal_count || null,
       starts_at: parsed.data.starts_at || null,
       ends_at: parsed.data.ends_at || null,
-      event_id: parsed.data.event_id || null,
     })
     .select()
     .single();

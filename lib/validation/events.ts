@@ -11,6 +11,7 @@ export const eventSchema = z.object({
   status:            z.enum(["draft", "published", "cancelled"]).default("draft"),
   cover_image_url:   z.string().url().nullable().optional().or(z.literal("")),
   game_ids:          z.array(z.string().uuid()).max(50).default([]),
+  quest_ids:         z.array(z.string().uuid()).max(50).default([]),
   event_type:        z.enum(["cooperative", "competitive", "tournament", "release", "guilds_choice"]).nullable().optional(),
   reward_rp:         z.number().int().min(0).max(1000).default(0),
 });

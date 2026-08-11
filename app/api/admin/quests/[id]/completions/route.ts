@@ -14,7 +14,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const [{ data: completions, error: completionsErr }, { data: rewards, error: rewardsErr }] = await Promise.all([
     admin
       .from("shg_quest_completions")
-      .select("id, user_id, contribution_amount, created_at, user:shg_users(id, email, name)")
+      .select("id, user_id, contribution_amount, event_id, created_at, user:shg_users(id, email, name), event:shg_events(id, title)")
       .eq("quest_id", params.id)
       .order("created_at", { ascending: false }),
     admin

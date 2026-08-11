@@ -8,7 +8,10 @@ import { questCompleteSchema } from "@/lib/validation/quests";
 // grants the reward immediately. The unique (quest_id, user_id) constraint on
 // shg_quest_rewards is what makes double-completion a clean no-op instead of
 // double-awarding XP/RP — so the reward insert happens first, and everything
-// else only runs once that succeeds.
+// else only runs once that succeeds. If eventId is given and the quest has a
+// max_completions_per_event > 0, this also caps how many completions can be
+// logged for that (quest, event) pair, counting existing rows regardless of
+// who logged them.
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const { user: adminUser, error } = await requirePermission("quests");
@@ -27,7 +30,18 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const { data: quest } = await admin.from("shg_quests").select("*").eq("id", params.id).maybeSingle();
   if (!quest) return NextResponse.json({ error: "Misión no encontrada." }, { status: 404 });
 
-  const { userId } = parsed.data;
+  const { userId, eventId } = parsed.data;
+
+  if (eventId && quest.max_completions_per_event > 0) {
+    const { count } = await admin
+      .from("shg_quest_completions")
+      .select("id", { count: "exact", head: true })
+      .eq("quest_id", params.id)
+      .eq("event_id", eventId);
+    if ((count ?? 0) >= quest.max_completions_per_event) {
+      return NextResponse.json({ error: "Esta misión ya alcanzó el límite de veces para este evento." }, { status: 422 });
+    }
+  }
 
   const { error: rewardError } = await admin.from("shg_quest_rewards").insert({
     quest_id: params.id,
@@ -46,7 +60,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   await admin
     .from("shg_quest_completions")
-    .insert({ quest_id: params.id, user_id: userId, contribution_amount: 1, logged_by: adminUser.id });
+    .insert({ quest_id: params.id, user_id: userId, contribution_amount: 1, event_id: eventId || null, logged_by: adminUser.id });
 
   await admin.rpc("shg_award_user", { p_user_id: userId, p_xp: quest.reward_xp, p_rp: quest.reward_rp });
 
