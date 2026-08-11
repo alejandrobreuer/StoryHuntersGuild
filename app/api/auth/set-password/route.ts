@@ -5,12 +5,10 @@ import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // ─── POST /api/auth/set-password ────────────────────────────────────────────
-// Requires an existing session — safe to skip email re-verification here
-// because getting a session already proves email ownership (via magic link
-// or a prior password sign-in). If the account already has a password,
-// the current one must be confirmed first (defense-in-depth against a
-// stale/shared session); a magic-link-only account setting its first
-// password doesn't need one.
+// Requires an existing session. If the account already has a password, the
+// current one must be confirmed first (defense-in-depth against a stale/
+// shared session); an account with no password yet (set by staff, see
+// /admin/users) doesn't need one for this first change.
 
 export async function POST(req: NextRequest) {
   const { user, error } = await requireSessionUser();

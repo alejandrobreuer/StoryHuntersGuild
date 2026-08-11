@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { hashPassword } from "@/lib/auth/password";
 import { createAdminUserSchema } from "@/lib/validation/admins";
 
 export async function GET() {
@@ -17,9 +18,9 @@ export async function GET() {
   return NextResponse.json({ data });
 }
 
-// ─── POST /api/admin/admins ─────────────────────────────────────────────────
-// Creates the account row only — same self-serve model as every other admin,
-// they sign in themselves via /admin/login's magic link once added.
+// ─── POST /api/admin/admins ──────────────────────────────────────────────────
+// Creates the account with the password you set here — tell the new admin
+// that password out of band (there's no magic-link/email step anymore).
 
 export async function POST(req: NextRequest) {
   const { error } = await requirePermission("roles");
@@ -35,9 +36,10 @@ export async function POST(req: NextRequest) {
   }
 
   const admin = createAdminClient();
+  const password_hash = await hashPassword(parsed.data.password);
   const { data, error: insertError } = await admin
     .from("shg_admin_users")
-    .insert({ email: parsed.data.email.trim().toLowerCase(), name: parsed.data.name, role_id: parsed.data.role_id })
+    .insert({ email: parsed.data.email.trim().toLowerCase(), name: parsed.data.name, role_id: parsed.data.role_id, password_hash })
     .select("id, email, name, is_active, created_at, last_login_at, role:shg_security_roles(id, name)")
     .single();
 

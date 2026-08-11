@@ -19,8 +19,7 @@ export function PasswordSection({ hasPassword }: { hasPassword: boolean }) {
       <Modal open={open} onClose={() => setOpen(false)} title={hasPassword ? "Cambiar contraseña" : "Crear una contraseña"}>
         {!hasPassword && (
           <p className="font-body text-xs text-ink-light mb-3">
-            Tu cuenta todavía usa solo el enlace mágico para entrar. Podés crear una contraseña para
-            iniciar sesión más rápido la próxima vez.
+            Todavía no tenés una contraseña configurada. Creá una para poder iniciar sesión.
           </p>
         )}
         <PasswordForm hasPassword={hasPassword} />

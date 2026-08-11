@@ -1,8 +1,8 @@
 import crypto from "crypto";
 
-// Salted scrypt KDF for public-user passwords — no new dependency needed,
-// `crypto` is already used for magic-link token hashing (lib/auth/magic-link.ts).
-// Stored as "saltHex:hashHex" in shg_users.password_hash.
+// Salted scrypt KDF for user/admin passwords — no new dependency needed,
+// Node's built-in `crypto` covers it. Used for both shg_users.password_hash
+// and shg_admin_users.password_hash. Stored as "saltHex:hashHex".
 
 const SALT_BYTES = 16;
 const KEY_LENGTH = 64;

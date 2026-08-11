@@ -1,7 +1,6 @@
 import { Resend } from "resend";
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://guild.cardstash.ar";
-const FROM    = "Story Hunters Guild <guild@cardstash.ar>";
+const FROM = "Story Hunters Guild <guild@cardstash.ar>";
 
 function wrapHtml(title: string, bodyHtml: string): string {
   return `<!DOCTYPE html>
@@ -52,23 +51,6 @@ async function send(to: string, subject: string, bodyHtml: string): Promise<void
   } catch (err) {
     console.error("[email] send failed:", err);
   }
-}
-
-export async function sendMagicLinkEmail(email: string, token: string, purpose: "public" | "admin"): Promise<void> {
-  const path = purpose === "admin" ? "/auth/verify" : "/auth/verify";
-  const link = `${APP_URL}${path}?token=${encodeURIComponent(token)}`;
-  const subject = purpose === "admin" ? "Tu enlace de acceso — Panel de administración" : "Tu enlace de acceso — Story Hunters Guild";
-
-  await send(email, subject, `
-    <p style="margin:0 0 8px;font-size:18px;font-weight:600;color:#2b1d0e;">Entrá con un click</p>
-    <p style="margin:0 0 24px;font-size:14px;color:#4a3520;line-height:1.6;">
-      Este enlace es válido por ${purpose === "admin" ? "10" : "15"} minutos y solo puede usarse una vez.
-      Si vos no lo pediste, podés ignorar este correo.
-    </p>
-    <a href="${link}" style="display:inline-block;background:#8b3a0f;color:#f2e8d5;font-size:14px;font-weight:600;text-decoration:none;padding:12px 24px;border-radius:4px;">
-      Entrar →
-    </a>
-  `);
 }
 
 export async function sendBookingConfirmationEmail(params: {

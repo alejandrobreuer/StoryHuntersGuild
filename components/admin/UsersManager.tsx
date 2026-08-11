@@ -19,6 +19,8 @@ export function UsersManager() {
   const [adjustXp, setAdjustXp] = React.useState("");
   const [adjustRp, setAdjustRp] = React.useState("");
   const [saving, setSaving] = React.useState(false);
+  const [newPassword, setNewPassword] = React.useState("");
+  const [resetting, setResetting] = React.useState(false);
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -40,6 +42,7 @@ export function UsersManager() {
     setSelected(u);
     setAdjustXp("");
     setAdjustRp("");
+    setNewPassword("");
   }
 
   async function toggleSubscriber(u: ShgUserPublic) {
@@ -78,6 +81,27 @@ export function UsersManager() {
       toast.success("Ajuste aplicado.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function resetPassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (!selected) return;
+    if (newPassword.trim().length < 8) { toast.error("La contraseña debe tener al menos 8 caracteres."); return; }
+
+    setResetting(true);
+    try {
+      const res = await fetch(`/api/admin/users/${selected.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resetPassword: newPassword }),
+      });
+      const json = await res.json();
+      if (!res.ok) { toast.error(json.error ?? "Error al restablecer."); return; }
+      setNewPassword("");
+      toast.success("Contraseña restablecida. Comunicásela al usuario por otro medio.");
+    } finally {
+      setResetting(false);
     }
   }
 
@@ -162,6 +186,25 @@ export function UsersManager() {
                 <Input label="Ajustar RP" type="number" placeholder="ej: 2 o -2" value={adjustRp} onChange={(e) => setAdjustRp(e.target.value)} />
               </div>
               <Button type="submit" size="sm" loading={saving}>Aplicar ajuste</Button>
+            </form>
+
+            <form onSubmit={resetPassword} className="flex flex-col gap-3 border-t border-border pt-4">
+              <p className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">
+                Restablecer contraseña
+              </p>
+              <p className="font-body text-xs text-ink-light -mt-1">
+                No hay recuperación por email — elegí una contraseña temporal y comunicásela al usuario
+                por otro medio.
+              </p>
+              <Input
+                label="Nueva contraseña"
+                type="text"
+                minLength={8}
+                placeholder="Mínimo 8 caracteres"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+              <Button type="submit" size="sm" variant="secondary" loading={resetting}>Restablecer</Button>
             </form>
           </div>
         )}

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Plus, UserCog } from "lucide-react";
+import { Plus, UserCog, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -24,7 +24,7 @@ function one<T>(v: T | T[] | null): T | null {
   return Array.isArray(v) ? (v[0] ?? null) : v;
 }
 
-const EMPTY = { email: "", name: "", role_id: "" };
+const EMPTY = { email: "", name: "", role_id: "", password: "", confirmPassword: "" };
 
 export function AdminsManager() {
   const [admins, setAdmins] = React.useState<AdminRow[]>([]);
@@ -34,6 +34,9 @@ export function AdminsManager() {
   const [form, setForm] = React.useState(EMPTY);
   const [saving, setSaving] = React.useState(false);
   const [busyId, setBusyId] = React.useState<string | null>(null);
+  const [resetTarget, setResetTarget] = React.useState<AdminRow | null>(null);
+  const [resetValue, setResetValue] = React.useState("");
+  const [resetting, setResetting] = React.useState(false);
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -48,22 +51,26 @@ export function AdminsManager() {
   React.useEffect(() => { load(); }, [load]);
 
   function openNew() {
-    setForm({ email: "", name: "", role_id: roles[0]?.id ?? "" });
+    setForm({ ...EMPTY, role_id: roles[0]?.id ?? "" });
     setModalOpen(true);
   }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
+    if (form.password !== form.confirmPassword) {
+      toast.error("Las contraseñas no coinciden.");
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch("/api/admin/admins", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ email: form.email, name: form.name, role_id: form.role_id, password: form.password }),
       });
       const json = await res.json();
       if (!res.ok) { toast.error(json.error ?? "Error al crear."); return; }
-      toast.success("Administrador creado. Ya puede entrar con su email desde /admin/login.");
+      toast.success("Administrador creado. Comunicále el email y la contraseña por otro medio.");
       setModalOpen(false);
       load();
     } finally {
@@ -105,6 +112,28 @@ export function AdminsManager() {
     }
   }
 
+  async function handleResetPassword(e: React.FormEvent) {
+    e.preventDefault();
+    if (!resetTarget) return;
+    if (resetValue.trim().length < 8) { toast.error("La contraseña debe tener al menos 8 caracteres."); return; }
+
+    setResetting(true);
+    try {
+      const res = await fetch(`/api/admin/admins/${resetTarget.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resetPassword: resetValue }),
+      });
+      const json = await res.json();
+      if (!res.ok) { toast.error(json.error ?? "Error al restablecer."); return; }
+      toast.success("Contraseña restablecida. Comunicásela por otro medio.");
+      setResetTarget(null);
+      setResetValue("");
+    } finally {
+      setResetting(false);
+    }
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
@@ -112,9 +141,9 @@ export function AdminsManager() {
         <Button size="sm" onClick={openNew} disabled={roles.length === 0}><Plus size={14} className="mr-1" />Nuevo administrador</Button>
       </div>
       <p className="font-body text-sm text-parchment-dark mb-6">
-        Cada cuenta entra con su email desde /admin/login (enlace mágico, sin contraseña). Asignale un
-        rol para definir a qué puede acceder — administrá los roles desde{" "}
-        <a href="/admin/roles" className="underline">Roles</a>.
+        Cada cuenta entra con su email y contraseña desde /admin/login — no hay recuperación por email,
+        así que restablecé la contraseña vos mismo si alguien la olvida. Asignale un rol para definir a
+        qué puede acceder — administrá los roles desde <a href="/admin/roles" className="underline">Roles</a>.
       </p>
 
       {loading ? (
@@ -153,6 +182,14 @@ export function AdminsManager() {
                   >
                     {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
                   </Select>
+                  <button
+                    type="button"
+                    onClick={() => { setResetTarget(a); setResetValue(""); }}
+                    className="p-1.5 text-leather-light hover:text-brass transition-colors"
+                    aria-label="Restablecer contraseña"
+                  >
+                    <KeyRound size={15} />
+                  </button>
                   <Button size="sm" variant={a.is_active ? "danger" : "secondary"} disabled={busyId === a.id} onClick={() => toggleActive(a)}>
                     {a.is_active ? "Desactivar" : "Reactivar"}
                   </Button>
@@ -171,7 +208,39 @@ export function AdminsManager() {
             <option value="">Elegí un rol…</option>
             {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
           </Select>
+          <Input
+            label="Contraseña"
+            type="text"
+            required
+            minLength={8}
+            placeholder="Mínimo 8 caracteres"
+            value={form.password}
+            onChange={(e) => setForm({ ...form, password: e.target.value })}
+          />
+          <Input
+            label="Confirmar contraseña"
+            type="text"
+            required
+            minLength={8}
+            value={form.confirmPassword}
+            onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+          />
           <Button type="submit" loading={saving} className="mt-2">Crear</Button>
+        </form>
+      </Modal>
+
+      <Modal open={Boolean(resetTarget)} onClose={() => setResetTarget(null)} title={`Restablecer contraseña — ${resetTarget?.name ?? ""}`}>
+        <form onSubmit={handleResetPassword} className="flex flex-col gap-3">
+          <Input
+            label="Nueva contraseña"
+            type="text"
+            required
+            minLength={8}
+            placeholder="Mínimo 8 caracteres"
+            value={resetValue}
+            onChange={(e) => setResetValue(e.target.value)}
+          />
+          <Button type="submit" loading={resetting} className="mt-1">Restablecer</Button>
         </form>
       </Modal>
     </div>

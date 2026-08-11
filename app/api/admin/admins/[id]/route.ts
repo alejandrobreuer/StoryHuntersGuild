@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { hashPassword } from "@/lib/auth/password";
 import { updateAdminUserSchema } from "@/lib/validation/admins";
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
@@ -20,10 +21,18 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ error: "No podés desactivar tu propia cuenta." }, { status: 422 });
   }
 
+  const { resetPassword, ...fields } = parsed.data;
+  const patch: Record<string, unknown> = { ...fields };
+  if (resetPassword) {
+    patch.password_hash = await hashPassword(resetPassword);
+    patch.failed_login_attempts = 0;
+    patch.locked_until = null;
+  }
+
   const admin = createAdminClient();
   const { data, error: updateError } = await admin
     .from("shg_admin_users")
-    .update(parsed.data)
+    .update(patch)
     .eq("id", params.id)
     .select("id, email, name, is_active, created_at, last_login_at, role:shg_security_roles(id, name)")
     .single();

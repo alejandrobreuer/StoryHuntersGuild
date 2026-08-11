@@ -1,9 +1,5 @@
 import { z } from "zod";
 
-export const requestMagicLinkSchema = z.object({
-  email: z.string().email("Email inválido."),
-});
-
 export const signUpSchema = z.object({
   email:    z.string().email("Email inválido."),
   password: z.string().min(8, "La contraseña debe tener al menos 8 caracteres.").max(100),

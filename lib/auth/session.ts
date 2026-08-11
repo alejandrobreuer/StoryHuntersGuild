@@ -48,10 +48,17 @@ export const SESSION_COOKIE       = "shg_session";
 export const ADMIN_SESSION_COOKIE = "shg_admin_session";
 
 /** Sets the public session cookie — same flags/maxAge every call site must
- * agree on, so this is the one place that owns them (used by /auth/verify,
- * sign-up, and sign-in). */
+ * agree on, so this is the one place that owns them (used by sign-up and
+ * sign-in). */
 export function setPublicSessionCookie(token: string): void {
   cookies().set(SESSION_COOKIE, token, {
     httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 30,
+  });
+}
+
+/** Sets the admin session cookie — maxAge matches signAdminSession's 12h expiry. */
+export function setAdminSessionCookie(token: string): void {
+  cookies().set(ADMIN_SESSION_COOKIE, token, {
+    httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 12,
   });
 }

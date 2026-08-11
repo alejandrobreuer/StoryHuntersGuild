@@ -4,7 +4,7 @@ import { hashPassword } from "@/lib/auth/password";
 import { signPublicSession, setPublicSessionCookie } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const ALREADY_EXISTS = "Ya existe una cuenta con ese email. Iniciá sesión o usá un enlace mágico.";
+const ALREADY_EXISTS = "Ya existe una cuenta con ese email. Iniciá sesión.";
 
 // ─── POST /api/auth/sign-up ─────────────────────────────────────────────────
 // Only ever creates a brand-new shg_users row — never attaches a password to

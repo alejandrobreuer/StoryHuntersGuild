@@ -6,7 +6,6 @@
 export type EventStatus    = "draft" | "published" | "cancelled";
 export type BookingStatus  = "pending" | "approved" | "rejected" | "cancelled";
 export type GameComplexity = "light" | "medium" | "heavy";
-export type MagicLinkPurpose = "public" | "admin";
 export type EventType      = "cooperative" | "competitive" | "tournament" | "release" | "guilds_choice";
 export type QuestType      = "individual" | "party" | "community" | "event";
 export type QuestStatus    = "draft" | "active" | "archived";
@@ -35,13 +34,16 @@ export interface ShgUser {
 export type ShgUserPublic = Omit<ShgUser, "password_hash" | "failed_login_attempts" | "locked_until">;
 
 export interface ShgAdminUser {
-  id:            string;
-  email:         string;
-  name:          string;
-  role_id:       string;
-  is_active:     boolean;
-  created_at:    string;
-  last_login_at: string | null;
+  id:                    string;
+  email:                 string;
+  name:                  string;
+  role_id:               string;
+  password_hash:         string | null;
+  failed_login_attempts: number;
+  locked_until:          string | null;
+  is_active:             boolean;
+  created_at:            string;
+  last_login_at:         string | null;
 }
 
 // One flag per admin-panel section, plus the master "can enter the panel
