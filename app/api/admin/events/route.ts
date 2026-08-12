@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { eventSchema } from "@/lib/validation/events";
+import { validateEventQuestLinks } from "@/lib/quests/validateEventQuestLinks";
 
 function slugify(title: string): string {
   return title.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
@@ -49,6 +50,9 @@ export async function POST(req: NextRequest) {
 
   const { game_ids, quest_ids, cover_image_url, ...fields } = parsed.data;
   const admin = createAdminClient();
+
+  const linkError = await validateEventQuestLinks(admin, quest_ids);
+  if (linkError) return NextResponse.json({ error: linkError }, { status: 422 });
 
   const { data: event, error: insertError } = await admin
     .from("shg_events")

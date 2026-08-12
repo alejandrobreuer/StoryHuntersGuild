@@ -4,14 +4,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { questCompleteSchema } from "@/lib/validation/quests";
 
 // ─── POST /api/admin/quests/[id]/complete ───────────────────────────────────
-// For individual/party/event quests: one action both logs the completion and
-// grants the reward immediately. The unique (quest_id, user_id) constraint on
-// shg_quest_rewards is what makes double-completion a clean no-op instead of
-// double-awarding XP/RP — so the reward insert happens first, and everything
-// else only runs once that succeeds. If eventId is given and the quest has a
-// max_completions_per_event > 0, this also caps how many completions can be
-// logged for that (quest, event) pair, counting existing rows regardless of
-// who logged them.
+// Confirms a mission for Individual, Event, or Guild types (Group missions
+// use groups/[groupId]/complete instead). One action logs the completion,
+// grants the reward, and records history. The (quest_id, user_id) uniqueness
+// on shg_quest_rewards — enforced by the shg_quest_rewards_guard trigger —
+// makes a second completion a clean 409 for every type except Guild, which
+// is explicitly repeatable: each confirm grants a fresh reward and clears
+// the pending self-submission so the player can submit again.
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const { user: adminUser, error } = await requirePermission("quests");
@@ -29,6 +28,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const admin = createAdminClient();
   const { data: quest } = await admin.from("shg_quests").select("*").eq("id", params.id).maybeSingle();
   if (!quest) return NextResponse.json({ error: "Misión no encontrada." }, { status: 404 });
+  if (quest.type === "group") {
+    return NextResponse.json({ error: "Las misiones de grupo se confirman desde su grupo." }, { status: 400 });
+  }
 
   const { userId, eventId } = parsed.data;
 
@@ -68,6 +70,26 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     await admin
       .from("shg_user_badges")
       .upsert({ user_id: userId, badge_id: quest.badge_id }, { onConflict: "user_id,badge_id", ignoreDuplicates: true });
+  }
+
+  const [{ data: userRow }, { data: eventRow }] = await Promise.all([
+    admin.from("shg_users").select("name, email").eq("id", userId).maybeSingle(),
+    eventId ? admin.from("shg_events").select("title").eq("id", eventId).maybeSingle() : Promise.resolve({ data: null }),
+  ]);
+
+  await admin.from("shg_quest_history").insert({
+    quest_id: params.id, quest_title: quest.title, quest_type: quest.type,
+    event_id: eventId || null, event_title: eventRow?.title ?? null,
+    user_id: userId, user_label: userRow?.name || userRow?.email || "Aventurero",
+    outcome: "completed", awarded_xp: quest.reward_xp, awarded_rp: quest.reward_rp,
+  });
+
+  if (quest.type === "guild") {
+    // Clear the pending self-submission so the player can turn in again.
+    await admin
+      .from("shg_quest_activations")
+      .delete()
+      .eq("quest_id", params.id).is("event_id", null).eq("user_id", userId).eq("status", "turned_in");
   }
 
   return NextResponse.json({ ok: true });

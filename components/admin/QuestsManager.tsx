@@ -11,12 +11,13 @@ import { Modal } from "@/components/ui/Modal";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { DIFFICULTY_LABELS } from "@/lib/gamification/questDifficulty";
-import type { ShgQuest, ShgBadge, ShgGame, ShgUserPublic, QuestType, QuestStatus, QuestDifficulty } from "@/types/database";
+import type { ShgQuest, ShgBadge, ShgGame, ShgUserPublic, QuestType, QuestStatus, QuestDifficulty, QuestEventStatus, QuestGroupStatus } from "@/types/database";
 
+interface EventLink { id: string; title: string; status: QuestEventStatus; closed_at: string | null }
 interface QuestRow extends ShgQuest {
   badge: { id: string; name: string; icon: string | null; icon_url: string | null } | null;
   game: { id: string; name: string; image_url: string | null } | null;
-  events: { id: string; title: string }[];
+  events: EventLink[];
 }
 interface CompletionRow {
   id: string; user_id: string; contribution_amount: number; event_id: string | null; created_at: string;
@@ -24,16 +25,25 @@ interface CompletionRow {
   event: { id: string; title: string } | null;
 }
 interface RewardRow {
-  user_id: string; awarded_xp: number; awarded_rp: number; awarded_at: string;
+  id: string; user_id: string; awarded_xp: number; awarded_rp: number; awarded_at: string;
   user: { id: string; email: string; name: string | null } | null;
 }
 interface ActivationRow {
-  event_id: string; user_id: string; status: "active" | "turned_in"; turned_in_at: string | null;
+  id: string; event_id: string | null; user_id: string; status: "active" | "turned_in" | "rejected"; turned_in_at: string | null;
   user: { id: string; email: string; name: string | null } | null;
+}
+interface GroupMemberRow {
+  user_id: string;
+  user: { id: string; email: string; name: string | null } | null;
+}
+interface GroupRow {
+  id: string; event_id: string; status: QuestGroupStatus;
+  started_at: string | null; turned_in_at: string | null; closed_at: string | null;
+  members: GroupMemberRow[];
 }
 
 const TYPE_LABELS: Record<QuestType, string> = {
-  individual: "Individual", party: "Grupo", community: "Comunitaria", event: "Evento",
+  individual: "Individual", group: "Grupo", event: "Evento", guild: "Misión de Gremio",
 };
 const STATUS_LABELS: Record<QuestStatus, string> = { draft: "Borrador", active: "Activa", archived: "Archivada" };
 const DIFFICULTY_STYLES: Record<QuestDifficulty, string> = {
@@ -41,14 +51,22 @@ const DIFFICULTY_STYLES: Record<QuestDifficulty, string> = {
   medium: "bg-brass/15 text-brass",
   high: "bg-crimson/15 text-crimson",
 };
+const EVENT_STATUS_LABELS: Record<QuestEventStatus, string> = { open: "En curso", achieved: "Lograda", failed: "No lograda" };
+const EVENT_STATUS_STYLES: Record<QuestEventStatus, string> = {
+  open: "bg-brass/15 text-brass", achieved: "bg-moss/15 text-moss-dark", failed: "bg-crimson/15 text-crimson",
+};
+const GROUP_STATUS_LABELS: Record<QuestGroupStatus, string> = {
+  forming: "Formándose", started: "En curso", turned_in: "Esperando confirmación", completed: "Completado", rejected: "Rechazado",
+};
 
 const EMPTY = {
   title: "", narrative: "", type: "individual" as QuestType, status: "draft" as QuestStatus,
   difficulty: "medium" as QuestDifficulty, reward_xp: 10, reward_rp: 0, badge_id: "", game_id: "",
-  max_completions_per_event: "0", goal_count: "", starts_at: "", ends_at: "",
+  max_completions_per_event: "0", max_participants: "", required_turn_ins: "", goal_count: "", starts_at: "", ends_at: "",
 };
 
-function userLabel(u: { email: string; name: string | null }): string {
+function userLabel(u: { email: string; name: string | null } | null): string {
+  if (!u) return "—";
   return u.name ? `${u.name} (${u.email})` : u.email;
 }
 
@@ -56,9 +74,9 @@ function QuestDetail({ quest, users }: { quest: QuestRow; users: ShgUserPublic[]
   const [completions, setCompletions] = React.useState<CompletionRow[] | null>(null);
   const [rewards, setRewards] = React.useState<RewardRow[] | null>(null);
   const [activations, setActivations] = React.useState<ActivationRow[] | null>(null);
+  const [groups, setGroups] = React.useState<GroupRow[] | null>(null);
   const [selectedUserId, setSelectedUserId] = React.useState("");
   const [selectedEventId, setSelectedEventId] = React.useState("");
-  const [amount, setAmount] = React.useState(1);
   const [busy, setBusy] = React.useState(false);
 
   const load = React.useCallback(async () => {
@@ -67,6 +85,7 @@ function QuestDetail({ quest, users }: { quest: QuestRow; users: ShgUserPublic[]
     setCompletions(json.data?.completions ?? []);
     setRewards(json.data?.rewards ?? []);
     setActivations(json.data?.activations ?? []);
+    setGroups(json.data?.groups ?? []);
   }, [quest.id]);
 
   React.useEffect(() => { load(); }, [load]);
@@ -77,19 +96,25 @@ function QuestDetail({ quest, users }: { quest: QuestRow; users: ShgUserPublic[]
   );
   const capReached = selectedEventId !== "" && quest.max_completions_per_event > 0 && usedForEvent >= quest.max_completions_per_event;
 
-  const rewardedUserIds = React.useMemo(() => new Set((rewards ?? []).map((r) => r.user_id)), [rewards]);
-  const pendingTurnIns = React.useMemo(
-    () => (activations ?? []).filter((a) => a.status === "turned_in" && a.event_id === selectedEventId && !rewardedUserIds.has(a.user_id)),
-    [activations, selectedEventId, rewardedUserIds]
+  const pendingTurnIns = React.useMemo(() => {
+    if (quest.type === "guild") {
+      return (activations ?? []).filter((a) => a.status === "turned_in" && a.event_id === null);
+    }
+    return (activations ?? []).filter((a) => a.status === "turned_in" && a.event_id === selectedEventId);
+  }, [activations, selectedEventId, quest.type]);
+
+  const turnedInCountForEvent = React.useMemo(
+    () => (activations ?? []).filter((a) => a.status === "turned_in" && a.event_id === selectedEventId).length,
+    [activations, selectedEventId]
   );
 
-  async function confirmTurnIn(userId: string) {
+  async function confirm(userId: string, eventId: string | null) {
     setBusy(true);
     try {
       const res = await fetch(`/api/admin/quests/${quest.id}/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, eventId: selectedEventId || null }),
+        body: JSON.stringify({ userId, eventId }),
       });
       const json = await res.json();
       if (!res.ok) { toast.error(json.error ?? "Error."); return; }
@@ -100,142 +125,165 @@ function QuestDetail({ quest, users }: { quest: QuestRow; users: ShgUserPublic[]
     }
   }
 
+  async function reject(userId: string, eventId: string | null) {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/quests/${quest.id}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, eventId }),
+      });
+      const json = await res.json();
+      if (!res.ok) { toast.error(json.error ?? "Error."); return; }
+      toast.success("Entrega rechazada — el jugador puede volver a intentarlo.");
+      load();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function markComplete() {
     if (!selectedUserId) { toast.error("Elegí un usuario."); return; }
+    await confirm(selectedUserId, quest.type === "guild" ? null : (selectedEventId || null));
+    setSelectedUserId("");
+  }
+
+  async function confirmGroup(groupId: string) {
     setBusy(true);
     try {
-      const res = await fetch(`/api/admin/quests/${quest.id}/complete`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: selectedUserId, eventId: selectedEventId || null }),
-      });
+      const res = await fetch(`/api/admin/quests/${quest.id}/groups/${groupId}/complete`, { method: "POST" });
       const json = await res.json();
       if (!res.ok) { toast.error(json.error ?? "Error."); return; }
-      toast.success("Misión completada y recompensa otorgada.");
-      setSelectedUserId("");
+      toast.success("Grupo confirmado — recompensa otorgada a todos los integrantes.");
       load();
     } finally {
       setBusy(false);
     }
   }
 
-  async function logContribution() {
-    if (!selectedUserId) { toast.error("Elegí un usuario."); return; }
+  async function rejectGroup(groupId: string) {
     setBusy(true);
     try {
-      const res = await fetch(`/api/admin/quests/${quest.id}/contribute`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: selectedUserId, amount, eventId: selectedEventId || null }),
-      });
+      const res = await fetch(`/api/admin/quests/${quest.id}/groups/${groupId}/reject`, { method: "POST" });
       const json = await res.json();
       if (!res.ok) { toast.error(json.error ?? "Error."); return; }
-      toast.success("Contribución registrada.");
-      setSelectedUserId("");
-      setAmount(1);
+      toast.success("Grupo rechazado — los integrantes pueden volver a intentarlo.");
       load();
     } finally {
       setBusy(false);
     }
   }
 
-  async function rewardContributors() {
-    setBusy(true);
-    try {
-      const res = await fetch(`/api/admin/quests/${quest.id}/reward-contributors`, { method: "POST" });
-      const json = await res.json();
-      if (!res.ok) { toast.error(json.error ?? "Error."); return; }
-      toast.success(`Se recompensó a ${json.data.rewardedCount} contribuyente(s).`);
-      load();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  if (!completions || !rewards || !activations) {
+  if (!completions || !rewards || !activations || !groups) {
     return <p className="font-body text-xs italic text-ink-light">Cargando…</p>;
   }
 
-  const totalContributions = completions.reduce((sum, c) => sum + c.contribution_amount, 0);
-  const rewardedIds = new Set(rewards.map((r) => r.user_id));
-  const pendingCount = new Set(completions.map((c) => c.user_id)).size - rewardedIds.size;
+  const eventLink = quest.events.find((e) => e.id === selectedEventId) ?? null;
+  const groupsForEvent = groups.filter((g) => g.event_id === selectedEventId);
 
   return (
     <div className="flex flex-col gap-4 pt-3 border-t border-border">
-      {quest.events.length > 0 && (
+      {quest.type !== "guild" && quest.events.length > 0 && (
         <div>
           <Select
             label="Evento"
             value={selectedEventId}
             onChange={(e) => setSelectedEventId(e.target.value)}
           >
-            <option value="">General (sin evento específico)</option>
+            <option value="">Elegí un evento…</option>
             {quest.events.map((ev) => <option key={ev.id} value={ev.id}>{ev.title}</option>)}
           </Select>
-          {selectedEventId && (
+          {selectedEventId && quest.type !== "event" && (
             <p className={cn("font-body text-2xs mt-1", capReached ? "text-crimson" : "text-ink-light")}>
               {quest.max_completions_per_event > 0
                 ? `${usedForEvent} / ${quest.max_completions_per_event} usos en este evento${capReached ? " — límite alcanzado" : ""}`
                 : `${usedForEvent} uso(s) registrados en este evento · sin límite`}
             </p>
           )}
+          {selectedEventId && quest.type === "event" && eventLink && (
+            <div className="mt-1.5">
+              <div className="flex items-center justify-between font-label text-2xs uppercase tracking-widest text-leather-light mb-1">
+                <span>Entregas</span>
+                <span>{turnedInCountForEvent} / {quest.required_turn_ins ?? "—"}</span>
+              </div>
+              <div className="h-2 w-full bg-parchment-dark/40 overflow-hidden rounded-full mb-1.5">
+                <div
+                  className="h-full bg-brass transition-all"
+                  style={{ width: `${quest.required_turn_ins ? Math.min(100, (turnedInCountForEvent / quest.required_turn_ins) * 100) : 0}%` }}
+                />
+              </div>
+              <span className={cn("font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm", EVENT_STATUS_STYLES[eventLink.status])}>
+                {EVENT_STATUS_LABELS[eventLink.status]}
+              </span>
+            </div>
+          )}
         </div>
       )}
 
-      {quest.type === "community" ? (
+      {quest.type === "guild" && (
+        <div>
+          <div className="flex items-center justify-between font-label text-2xs uppercase tracking-widest text-leather-light mb-1">
+            <span>Progreso</span>
+            <span>{completions.length} / {quest.goal_count ?? "—"}</span>
+          </div>
+          <div className="h-2 w-full bg-parchment-dark/40 overflow-hidden rounded-full">
+            <div
+              className="h-full bg-moss transition-all"
+              style={{ width: `${quest.goal_count ? Math.min(100, (completions.length / quest.goal_count) * 100) : 0}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {quest.type === "group" ? (
         <>
-          <div>
-            <div className="flex items-center justify-between font-label text-2xs uppercase tracking-widest text-leather-light mb-1">
-              <span>Progreso</span>
-              <span>{totalContributions} / {quest.goal_count ?? "—"}</span>
-            </div>
-            <div className="h-2 w-full bg-parchment-dark/40 overflow-hidden rounded-full">
-              <div
-                className="h-full bg-moss transition-all"
-                style={{ width: `${quest.goal_count ? Math.min(100, (totalContributions / quest.goal_count) * 100) : 0}%` }}
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-end gap-2">
-            <Select wrapperClassName="flex-1 min-w-[180px]" label="Registrar contribución de" value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)}>
-              <option value="">Elegí un usuario…</option>
-              {users.map((u) => <option key={u.id} value={u.id}>{userLabel(u)}</option>)}
-            </Select>
-            <Input wrapperClassName="w-24" label="Cantidad" type="number" min={1} value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
-            <Button size="sm" onClick={logContribution} loading={busy} disabled={capReached}>Registrar</Button>
-          </div>
-
-          <Button size="sm" variant="secondary" onClick={rewardContributors} loading={busy} disabled={totalContributions === 0}>
-            Recompensar contribuyentes {pendingCount > 0 ? `(${pendingCount} pendientes)` : ""}
-          </Button>
-
-          {completions.length > 0 && (
+          {selectedEventId && groupsForEvent.length > 0 && (
             <div>
-              <p className="font-label text-2xs uppercase tracking-widest text-leather-light mb-1.5">Contribuciones</p>
-              <div className="flex flex-col gap-1 max-h-40 overflow-y-auto">
-                {completions.map((c) => (
-                  <div key={c.id} className="font-body text-xs text-ink-light flex items-center justify-between">
-                    <span>{c.user ? userLabel(c.user) : "—"}{c.event ? ` · ${c.event.title}` : ""}</span>
-                    <span>+{c.contribution_amount} {rewardedIds.has(c.user_id) && "· recompensado"}</span>
+              <p className="font-label text-2xs uppercase tracking-widest text-leather-light mb-1.5">Grupos para este evento</p>
+              <div className="flex flex-col gap-2">
+                {groupsForEvent.map((g) => (
+                  <div key={g.id} className="border border-border rounded-sm px-2.5 py-2 bg-parchment-card/40">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="font-body text-xs text-ink-light">
+                        {g.members.map((m) => userLabel(m.user)).join(", ") || "Sin integrantes"}
+                      </span>
+                      <span className={cn(
+                        "font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm shrink-0",
+                        g.status === "turned_in" ? "bg-crimson/15 text-crimson" : g.status === "completed" ? "bg-moss/15 text-moss-dark" : g.status === "rejected" ? "bg-ink/10 text-ink-light" : "bg-brass/15 text-brass"
+                      )}>
+                        {GROUP_STATUS_LABELS[g.status]}
+                      </span>
+                    </div>
+                    {g.status === "turned_in" && (
+                      <div className="flex gap-1.5 mt-1">
+                        <Button size="sm" variant="secondary" onClick={() => confirmGroup(g.id)} loading={busy}>Confirmar</Button>
+                        <Button size="sm" variant="ghost" onClick={() => rejectGroup(g.id)} loading={busy}>Rechazar</Button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
             </div>
           )}
+          {selectedEventId && groupsForEvent.length === 0 && (
+            <p className="font-body text-xs italic text-ink-light">Todavía no se formó ningún grupo para este evento.</p>
+          )}
         </>
       ) : (
         <>
-          {selectedEventId && pendingTurnIns.length > 0 && (
+          {pendingTurnIns.length > 0 && (quest.type === "guild" || selectedEventId) && (
             <div>
               <p className="font-label text-2xs uppercase tracking-widest text-crimson mb-1.5">
                 Entregas pendientes de confirmar ({pendingTurnIns.length})
               </p>
               <div className="flex flex-col gap-1.5">
                 {pendingTurnIns.map((a) => (
-                  <div key={a.user_id} className="flex items-center justify-between gap-2 font-body text-xs text-ink-light bg-crimson/5 border border-crimson/20 px-2.5 py-1.5 rounded-sm">
-                    <span>{a.user ? userLabel(a.user) : "—"}</span>
-                    <Button size="sm" variant="secondary" onClick={() => confirmTurnIn(a.user_id)} loading={busy} disabled={capReached}>Confirmar</Button>
+                  <div key={a.id} className="flex items-center justify-between gap-2 font-body text-xs text-ink-light bg-crimson/5 border border-crimson/20 px-2.5 py-1.5 rounded-sm">
+                    <span>{userLabel(a.user)}</span>
+                    <div className="flex gap-1.5 shrink-0">
+                      <Button size="sm" variant="secondary" onClick={() => confirm(a.user_id, a.event_id)} loading={busy} disabled={capReached}>Confirmar</Button>
+                      <Button size="sm" variant="ghost" onClick={() => reject(a.user_id, a.event_id)} loading={busy}>Rechazar</Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -255,8 +303,8 @@ function QuestDetail({ quest, users }: { quest: QuestRow; users: ShgUserPublic[]
               <p className="font-label text-2xs uppercase tracking-widest text-leather-light mb-1.5">Completada por</p>
               <div className="flex flex-col gap-1 max-h-40 overflow-y-auto">
                 {rewards.map((r) => (
-                  <div key={r.user_id} className="font-body text-xs text-ink-light">
-                    {r.user ? userLabel(r.user) : "—"} — +{r.awarded_xp} XP, +{r.awarded_rp} RP
+                  <div key={r.id} className="font-body text-xs text-ink-light">
+                    {userLabel(r.user)} — +{r.awarded_xp} XP, +{r.awarded_rp} RP
                   </div>
                 ))}
               </div>
@@ -308,6 +356,8 @@ export function QuestsManager() {
       difficulty: q.difficulty, reward_xp: q.reward_xp, reward_rp: q.reward_rp,
       badge_id: q.badge_id ?? "", game_id: q.game_id ?? "",
       max_completions_per_event: String(q.max_completions_per_event),
+      max_participants: q.max_participants ? String(q.max_participants) : "",
+      required_turn_ins: q.required_turn_ins ? String(q.required_turn_ins) : "",
       goal_count: q.goal_count ? String(q.goal_count) : "",
       starts_at: q.starts_at ? q.starts_at.slice(0, 16) : "",
       ends_at: q.ends_at ? q.ends_at.slice(0, 16) : "",
@@ -324,6 +374,8 @@ export function QuestsManager() {
         badge_id: form.badge_id || null,
         game_id: form.game_id || null,
         max_completions_per_event: Number(form.max_completions_per_event) || 0,
+        max_participants: form.max_participants ? Number(form.max_participants) : null,
+        required_turn_ins: form.required_turn_ins ? Number(form.required_turn_ins) : null,
         goal_count: form.goal_count ? Number(form.goal_count) : null,
         starts_at: form.starts_at ? new Date(form.starts_at).toISOString() : null,
         ends_at: form.ends_at ? new Date(form.ends_at).toISOString() : null,
@@ -361,7 +413,7 @@ export function QuestsManager() {
       </div>
 
       <div className="mb-4 flex flex-wrap gap-1.5">
-        {(["all", "individual", "party", "community", "event"] as const).map((t) => (
+        {(["all", "individual", "group", "event", "guild"] as const).map((t) => (
           <button
             key={t}
             type="button"
@@ -412,6 +464,8 @@ export function QuestsManager() {
                     {q.narrative && <p className="font-body text-xs text-ink-light line-clamp-2">{q.narrative}</p>}
                     <p className="font-body text-2xs text-ink-light mt-0.5">
                       +{q.reward_xp} XP · +{q.reward_rp} RP{q.badge ? ` · insignia "${q.badge.name}"` : ""}
+                      {q.type === "group" && q.max_participants ? ` · hasta ${q.max_participants} integrantes` : ""}
+                      {q.type === "event" && q.required_turn_ins ? ` · ${q.required_turn_ins} entregas para lograrla` : ""}
                       {q.max_completions_per_event > 0 ? ` · máx. ${q.max_completions_per_event}/evento` : ""}
                     </p>
                     <div className="flex items-center gap-2 flex-wrap mt-1">
@@ -456,7 +510,7 @@ export function QuestsManager() {
 
           <div className="grid grid-cols-3 gap-3">
             <Select label="Tipo" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as QuestType })}>
-              {(["individual", "party", "community", "event"] as const).map((t) => (
+              {(["individual", "group", "event", "guild"] as const).map((t) => (
                 <option key={t} value={t}>{TYPE_LABELS[t]}</option>
               ))}
             </Select>
@@ -465,11 +519,13 @@ export function QuestsManager() {
                 <option key={s} value={s}>{STATUS_LABELS[s]}</option>
               ))}
             </Select>
-            <Select label="Dificultad" value={form.difficulty} onChange={(e) => setForm({ ...form, difficulty: e.target.value as QuestDifficulty })}>
-              {(["low", "medium", "high"] as const).map((d) => (
-                <option key={d} value={d}>{DIFFICULTY_LABELS[d]}</option>
-              ))}
-            </Select>
+            {form.type !== "guild" && (
+              <Select label="Dificultad" value={form.difficulty} onChange={(e) => setForm({ ...form, difficulty: e.target.value as QuestDifficulty })}>
+                {(["low", "medium", "high"] as const).map((d) => (
+                  <option key={d} value={d}>{DIFFICULTY_LABELS[d]}</option>
+                ))}
+              </Select>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -482,24 +538,50 @@ export function QuestsManager() {
             {badges.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </Select>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">Juego relacionado (opcional)</label>
-            <div className="flex items-center gap-3">
-              <div className="relative size-11 shrink-0 rounded-sm bg-parchment-dark/40 border border-brass/30 flex items-center justify-center overflow-hidden">
-                {selectedGame?.image_url ? (
-                  <Image src={selectedGame.image_url} alt="" fill className="object-cover" sizes="44px" />
-                ) : (
-                  <Dice5 size={16} className="text-leather-light" />
-                )}
+          {form.type !== "guild" && (
+            <div className="flex flex-col gap-1.5">
+              <label className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">Juego relacionado (opcional)</label>
+              <div className="flex items-center gap-3">
+                <div className="relative size-11 shrink-0 rounded-sm bg-parchment-dark/40 border border-brass/30 flex items-center justify-center overflow-hidden">
+                  {selectedGame?.image_url ? (
+                    <Image src={selectedGame.image_url} alt="" fill className="object-cover" sizes="44px" />
+                  ) : (
+                    <Dice5 size={16} className="text-leather-light" />
+                  )}
+                </div>
+                <Select wrapperClassName="flex-1" value={form.game_id} onChange={(e) => setForm({ ...form, game_id: e.target.value })}>
+                  <option value="">Ninguno</option>
+                  {games.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                </Select>
               </div>
-              <Select wrapperClassName="flex-1" value={form.game_id} onChange={(e) => setForm({ ...form, game_id: e.target.value })}>
-                <option value="">Ninguno</option>
-                {games.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-              </Select>
             </div>
-          </div>
+          )}
 
-          {form.type === "community" && (
+          {form.type === "group" && (
+            <Input
+              label="Tamaño máximo del grupo"
+              type="number"
+              min={2}
+              required
+              value={form.max_participants}
+              onChange={(e) => setForm({ ...form, max_participants: e.target.value })}
+              helperText="Cualquier integrante puede iniciar la misión una vez haya al menos 2 en el grupo."
+            />
+          )}
+
+          {form.type === "event" && (
+            <Input
+              label="Entregas necesarias para lograrla"
+              type="number"
+              min={1}
+              required
+              value={form.required_turn_ins}
+              onChange={(e) => setForm({ ...form, required_turn_ins: e.target.value })}
+              helperText="Al alcanzar esta cantidad de entregas, la misión se logra y recompensa a todos automáticamente."
+            />
+          )}
+
+          {form.type === "guild" && (
             <Input
               label="Meta de contribuciones"
               type="number"
@@ -510,19 +592,34 @@ export function QuestsManager() {
             />
           )}
 
-          <Input
-            label="Límite de veces por evento"
-            type="number"
-            min={0}
-            value={form.max_completions_per_event}
-            onChange={(e) => setForm({ ...form, max_completions_per_event: e.target.value })}
-            helperText="0 = ilimitado. Se aplica cuando esta misión está asignada a un evento (desde el editor del evento)."
-          />
+          {form.type !== "guild" && (
+            <Input
+              label="Límite de veces por evento"
+              type="number"
+              min={0}
+              value={form.max_completions_per_event}
+              onChange={(e) => setForm({ ...form, max_completions_per_event: e.target.value })}
+              helperText="0 = ilimitado. Se aplica cuando esta misión está asignada a un evento (desde el editor del evento)."
+            />
+          )}
 
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Inicio (opcional)" type="datetime-local" value={form.starts_at} onChange={(e) => setForm({ ...form, starts_at: e.target.value })} />
-            <Input label="Fin (opcional)" type="datetime-local" value={form.ends_at} onChange={(e) => setForm({ ...form, ends_at: e.target.value })} />
+            <Input
+              label={form.type === "guild" ? "Inicio" : "Inicio (opcional)"}
+              type="datetime-local" required={form.type === "guild"}
+              value={form.starts_at} onChange={(e) => setForm({ ...form, starts_at: e.target.value })}
+            />
+            <Input
+              label={form.type === "guild" ? "Fin" : "Fin (opcional)"}
+              type="datetime-local" required={form.type === "guild"}
+              value={form.ends_at} onChange={(e) => setForm({ ...form, ends_at: e.target.value })}
+            />
           </div>
+          {form.type === "guild" && (
+            <p className="font-body text-2xs text-leather-light -mt-2">
+              La misión de gremio solo aparece en la página de inicio dentro de esta ventana de fechas.
+            </p>
+          )}
 
           <Button type="submit" loading={saving} className="mt-2">Guardar</Button>
         </form>

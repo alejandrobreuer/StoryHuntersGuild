@@ -89,9 +89,9 @@ export default async function ProfilePage() {
   const upcoming = nextRank(rp, ranks ?? []);
 
   // ─── Quest Ledger: active quests + this user's status on each ────────────
-  const communityQuestIds = (activeQuests ?? []).filter((q) => q.type === "community").map((q) => q.id);
-  const { data: guildCompletions } = communityQuestIds.length > 0
-    ? await admin.from("shg_quest_completions").select("quest_id, contribution_amount").in("quest_id", communityQuestIds)
+  const guildQuestIds = (activeQuests ?? []).filter((q) => q.type === "guild").map((q) => q.id);
+  const { data: guildCompletions } = guildQuestIds.length > 0
+    ? await admin.from("shg_quest_completions").select("quest_id, contribution_amount").in("quest_id", guildQuestIds)
     : { data: [] as { quest_id: string; contribution_amount: number }[] };
 
   const rewardedQuestIds = new Set(
@@ -118,8 +118,8 @@ export default async function ProfilePage() {
       reward_xp: q.reward_xp,
       reward_rp: q.reward_rp,
       badge: badge ? { name: badge.name } : null,
-      status: isDone ? "done" : q.type === "community" && mine > 0 ? "in_progress" : "available",
-      community: q.type === "community" ? { mine, guildTotal: guildTotals.get(q.id) ?? 0, goal: q.goal_count } : null,
+      status: isDone ? "done" : q.type === "guild" && mine > 0 ? "in_progress" : "available",
+      guild: q.type === "guild" ? { mine, guildTotal: guildTotals.get(q.id) ?? 0, goal: q.goal_count } : null,
     };
   });
 
@@ -206,7 +206,7 @@ export default async function ProfilePage() {
                 <Crown size={15} className="text-crimson" />
                 <h2 className="font-display text-sm text-ink">Posición en el Gremio</h2>
               </div>
-              <p className="font-body text-xs text-leather-light mb-3">Se gana en Misiones Comunitarias y de Evento.</p>
+              <p className="font-body text-xs text-leather-light mb-3">Se gana en Misiones de Gremio y de Evento.</p>
               <div className="flex justify-between items-baseline mb-1">
                 <span className="font-label text-2xs text-ink">
                   {rank ? rank.name : "Sin rango"}{upcoming ? ` → ${upcoming.name}` : ""}

@@ -7,7 +7,7 @@ export type EventStatus    = "draft" | "published" | "cancelled";
 export type BookingStatus  = "pending" | "approved" | "rejected" | "cancelled";
 export type GameComplexity = "light" | "medium" | "heavy";
 export type EventType      = "cooperative" | "competitive" | "tournament" | "release" | "guilds_choice";
-export type QuestType      = "individual" | "party" | "community" | "event";
+export type QuestType      = "individual" | "group" | "event" | "guild";
 export type QuestStatus    = "draft" | "active" | "archived";
 export type QuestDifficulty = "low" | "medium" | "high";
 export type FeatureFlagKey = "progression" | "quests" | "ranks" | "subscriptions" | "event_rewards";
@@ -226,6 +226,11 @@ export interface ShgQuest {
   badge_id:                   string | null;
   game_id:                    string | null;
   max_completions_per_event:  number;
+  /** Group missions: max members per party instance. */
+  max_participants:           number | null;
+  /** Event missions: turn-ins needed to achieve & close the mission. */
+  required_turn_ins:          number | null;
+  /** Guild missions: target total approved turn-ins for the shared progress bar. */
   goal_count:                 number | null;
   starts_at:                  string | null;
   ends_at:                    string | null;
@@ -233,16 +238,22 @@ export interface ShgQuest {
   updated_at:                 string;
 }
 
+export type QuestEventStatus = "open" | "achieved" | "failed";
+
 export interface ShgQuestEvent {
-  quest_id: string;
-  event_id: string;
+  quest_id:  string;
+  event_id:  string;
+  status:    QuestEventStatus;
+  closed_at: string | null;
 }
 
-export type QuestActivationStatus = "active" | "turned_in";
+export type QuestActivationStatus = "active" | "turned_in" | "rejected";
 
 export interface ShgQuestActivation {
+  id:           string;
   quest_id:     string;
-  event_id:     string;
+  /** Null for Guild missions — they aren't tied to any event. */
+  event_id:     string | null;
   user_id:      string;
   status:       QuestActivationStatus;
   activated_at: string;
@@ -260,12 +271,55 @@ export interface ShgQuestCompletion {
 }
 
 export interface ShgQuestReward {
-  quest_id:   string;
-  user_id:    string;
-  awarded_xp: number;
-  awarded_rp: number;
-  awarded_by: string | null;
-  awarded_at: string;
+  id:            string;
+  quest_id:      string;
+  user_id:       string;
+  completion_id: string | null;
+  group_id:      string | null;
+  awarded_xp:    number;
+  awarded_rp:    number;
+  awarded_by:    string | null;
+  awarded_at:    string;
+}
+
+export type QuestGroupStatus = "forming" | "started" | "turned_in" | "completed" | "rejected";
+
+export interface ShgQuestGroup {
+  id:           string;
+  quest_id:     string;
+  event_id:     string;
+  status:       QuestGroupStatus;
+  started_at:   string | null;
+  turned_in_at: string | null;
+  turned_in_by: string | null;
+  closed_at:    string | null;
+  closed_by:    string | null;
+  created_at:   string;
+}
+
+export interface ShgQuestGroupMember {
+  group_id:  string;
+  user_id:   string;
+  joined_at: string;
+}
+
+export type QuestHistoryOutcome = "completed" | "failed";
+
+export interface ShgQuestHistory {
+  id:                 string;
+  quest_id:           string | null;
+  quest_title:        string;
+  quest_type:         string;
+  event_id:           string | null;
+  event_title:        string | null;
+  user_id:            string | null;
+  user_label:         string;
+  outcome:            QuestHistoryOutcome;
+  group_id:           string | null;
+  other_participants: string[] | null;
+  awarded_xp:         number;
+  awarded_rp:         number;
+  recorded_at:        string;
 }
 
 // ─── Settings ───────────────────────────────────────────────────────────────

@@ -3,8 +3,11 @@ import Image from "next/image";
 import { unstable_noStore as noStore } from "next/cache";
 import { Dice5, Users, Clock } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getSessionUser } from "@/lib/auth/guard";
+import { getFeatureFlags } from "@/lib/features";
 import { Button } from "@/components/ui/Button";
 import { EventCard } from "@/components/events/EventCard";
+import { GuildMissionSection, type GuildMissionData } from "@/components/home/GuildMissionSection";
 import { formatPlayers, formatPlaytime } from "@/lib/formatting";
 import type { ShgEventListItem, ShgGame } from "@/types/database";
 
@@ -23,7 +26,45 @@ export default async function HomePage() {
   noStore();
   const tagline = HERO_TAGLINES[Math.floor(Math.random() * HERO_TAGLINES.length)];
   const admin = createAdminClient();
+  const features = await getFeatureFlags();
+  const sessionUser = await getSessionUser();
   const now = new Date().toISOString();
+
+  const guildMissions: GuildMissionData[] = [];
+  const guildPendingByQuest = new Map<string, boolean>();
+  if (features.quests) {
+    const { data: guildRows } = await admin
+      .from("shg_quests")
+      .select("id, title, narrative, reward_xp, reward_rp, goal_count, badge:shg_badges(name)")
+      .eq("type", "guild").eq("status", "active")
+      .lte("starts_at", now).gte("ends_at", now);
+
+    const guildQuests = (guildRows ?? []) as unknown as {
+      id: string; title: string; narrative: string | null; reward_xp: number; reward_rp: number;
+      goal_count: number | null; badge: { name: string } | { name: string }[] | null;
+    }[];
+
+    if (guildQuests.length > 0) {
+      const ids = guildQuests.map((q) => q.id);
+      const [{ data: completionRows }, { data: pendingRows }] = await Promise.all([
+        admin.from("shg_quest_completions").select("quest_id").in("quest_id", ids),
+        sessionUser
+          ? admin.from("shg_quest_activations").select("quest_id").is("event_id", null).eq("user_id", sessionUser.id).eq("status", "turned_in").in("quest_id", ids)
+          : Promise.resolve({ data: [] as { quest_id: string }[] }),
+      ]);
+      const countByQuest = new Map<string, number>();
+      for (const r of completionRows ?? []) countByQuest.set(r.quest_id, (countByQuest.get(r.quest_id) ?? 0) + 1);
+      for (const r of pendingRows ?? []) guildPendingByQuest.set(r.quest_id, true);
+
+      for (const q of guildQuests) {
+        const badge = Array.isArray(q.badge) ? q.badge[0] : q.badge;
+        guildMissions.push({
+          id: q.id, title: q.title, narrative: q.narrative, rewardXp: q.reward_xp, rewardRp: q.reward_rp,
+          badgeName: badge?.name ?? null, goalCount: q.goal_count ?? 0, totalApproved: countByQuest.get(q.id) ?? 0,
+        });
+      }
+    }
+  }
 
   const [eventsResult, gamesResult] = await Promise.all([
     admin
@@ -77,6 +118,11 @@ export default async function HomePage() {
           <Button asChild size="lg" variant="ghost"><Link href="/games">Explorar ludoteca</Link></Button>
         </div>
       </section>
+
+      {/* ── Guild Missions ───────────────────────────────────────────── */}
+      {guildMissions.map((m) => (
+        <GuildMissionSection key={m.id} mission={m} loggedIn={Boolean(sessionUser)} viewerPending={guildPendingByQuest.get(m.id) ?? false} />
+      ))}
 
       {/* ── Upcoming events strip ────────────────────────────────────── */}
       <section className="bg-gradient-to-b from-parchment to-parchment-dark px-6 py-16">

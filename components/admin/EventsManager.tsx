@@ -48,7 +48,9 @@ function LifecycleBadge({ startedAt, endedAt }: { startedAt: string | null; ende
 }
 
 interface VenueOption { id: string; name: string; }
-interface QuestOption { id: string; title: string; type: string; }
+interface QuestOption { id: string; title: string; type: string; status: string; }
+
+const QUEST_TYPE_SHORT_LABELS: Record<string, string> = { individual: "Individual", group: "Grupo", event: "Evento", guild: "Gremio" };
 
 const EMPTY = {
   title: "", description: "", venue_id: "", starts_at: "", ends_at: "",
@@ -176,10 +178,17 @@ export function EventsManager() {
   }
 
   function toggleQuest(id: string) {
-    setForm((f) => ({
-      ...f,
-      quest_ids: f.quest_ids.includes(id) ? f.quest_ids.filter((q) => q !== id) : [...f.quest_ids, id],
-    }));
+    setForm((f) => {
+      if (f.quest_ids.includes(id)) {
+        return { ...f, quest_ids: f.quest_ids.filter((q) => q !== id) };
+      }
+      const quest = quests.find((q) => q.id === id);
+      if (quest?.type === "event" && f.quest_ids.some((qid) => quests.find((q) => q.id === qid)?.type === "event")) {
+        toast.error("Un evento solo puede tener una misión de evento.");
+        return f;
+      }
+      return { ...f, quest_ids: [...f.quest_ids, id] };
+    });
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -246,6 +255,8 @@ export function EventsManager() {
       setLifecycleBusyId(null);
     }
   }
+
+  const availableQuests = quests.filter((q) => q.status === "active" && q.type !== "guild");
 
   return (
     <div>
@@ -420,25 +431,34 @@ export function EventsManager() {
 
           <div className="flex flex-col gap-1.5 border border-brass/40 bg-brass/5 p-3">
             <label className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">Misiones disponibles en este evento</label>
-            <p className="font-body text-2xs text-ink-light -mt-1">Elegí qué misiones del panel de Misiones están disponibles para este evento — si no elegís ninguna, no se muestra nada en la página pública del evento.</p>
-            {quests.length === 0 ? (
+            <p className="font-body text-2xs text-ink-light -mt-1">
+              Elegí qué misiones activas están disponibles para este evento (solo Individual, Grupo y Evento — las de Gremio viven en la página de inicio). Un evento admite una sola misión de Evento.
+            </p>
+            {availableQuests.length === 0 ? (
               <p className="font-body text-xs italic text-ink-light">
-                No hay misiones para elegir todavía. Creá una desde{" "}
+                No hay misiones activas para elegir todavía. Creá o activá una desde{" "}
                 <a href="/admin/quests" target="_blank" rel="noopener noreferrer" className="underline text-brass">Misiones</a>{" "}
                 y volvé a abrir este formulario.
               </p>
             ) : (
               <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto border border-border p-2 bg-parchment/40">
-                {quests.map((q) => (
-                  <button
-                    key={q.id} type="button" onClick={() => toggleQuest(q.id)}
-                    className={`font-label text-2xs px-2.5 py-1 border rounded-sm transition-colors ${
-                      form.quest_ids.includes(q.id) ? "bg-brass text-ink border-brass" : "border-border text-ink-light hover:border-brass"
-                    }`}
-                  >
-                    {q.title}
-                  </button>
-                ))}
+                {availableQuests.map((q) => {
+                  const disabled = q.type === "event" && !form.quest_ids.includes(q.id) && form.quest_ids.some((qid) => quests.find((qq) => qq.id === qid)?.type === "event");
+                  return (
+                    <button
+                      key={q.id} type="button" onClick={() => toggleQuest(q.id)} disabled={disabled}
+                      className={`font-label text-2xs px-2.5 py-1 border rounded-sm transition-colors ${
+                        form.quest_ids.includes(q.id)
+                          ? "bg-brass text-ink border-brass"
+                          : disabled
+                          ? "border-border text-ink-light/40 cursor-not-allowed"
+                          : "border-border text-ink-light hover:border-brass"
+                      }`}
+                    >
+                      {q.title} <span className="opacity-60">· {QUEST_TYPE_SHORT_LABELS[q.type] ?? q.type}</span>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>

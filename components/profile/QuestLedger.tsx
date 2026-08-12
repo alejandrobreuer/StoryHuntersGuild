@@ -14,14 +14,14 @@ export interface LedgerQuest {
   reward_rp:  number;
   badge:      { name: string } | null;
   status:     "done" | "in_progress" | "available";
-  community:  { mine: number; guildTotal: number; goal: number | null } | null;
+  guild:      { mine: number; guildTotal: number; goal: number | null } | null;
 }
 
 const TAB_CONFIG: { key: QuestType; label: string; icon: typeof ScrollText }[] = [
   { key: "individual", label: "Individual", icon: ScrollText },
-  { key: "party", label: "Grupo", icon: Users },
-  { key: "community", label: "Comunitaria", icon: Compass },
+  { key: "group", label: "Grupo", icon: Users },
   { key: "event", label: "Evento", icon: Star },
+  { key: "guild", label: "Gremio", icon: Compass },
 ];
 
 export function QuestLedger({ quests }: { quests: LedgerQuest[] }) {
@@ -74,16 +74,16 @@ export function QuestLedger({ quests }: { quests: LedgerQuest[] }) {
               <div className="min-w-0 flex-1">
                 <p className="font-body text-sm text-ink">{q.title}</p>
                 {q.narrative && <p className="font-body text-xs text-ink-light italic mt-0.5 line-clamp-1">{q.narrative}</p>}
-                {q.community && (
+                {q.guild && (
                   <div className="flex items-center gap-2 mt-2">
                     <div className="flex-1 max-w-[220px] h-1.5 bg-parchment-dark/50 rounded-full overflow-hidden border border-brass/30">
                       <div
                         className="h-full bg-crimson"
-                        style={{ width: `${q.community.goal ? Math.min(100, (q.community.guildTotal / q.community.goal) * 100) : 0}%` }}
+                        style={{ width: `${q.guild.goal ? Math.min(100, (q.guild.guildTotal / q.guild.goal) * 100) : 0}%` }}
                       />
                     </div>
                     <span className="font-label text-2xs text-leather-light whitespace-nowrap">
-                      Gremio {q.community.guildTotal}/{q.community.goal ?? "—"} · vos: {q.community.mine}
+                      Gremio {q.guild.guildTotal}/{q.guild.goal ?? "—"} · vos: {q.guild.mine}
                     </span>
                   </div>
                 )}

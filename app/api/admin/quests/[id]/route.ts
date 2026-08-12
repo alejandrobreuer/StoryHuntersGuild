@@ -23,6 +23,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       ...parsed.data,
       badge_id: parsed.data.badge_id || null,
       game_id: parsed.data.game_id || null,
+      max_participants: parsed.data.max_participants || null,
+      required_turn_ins: parsed.data.required_turn_ins || null,
       goal_count: parsed.data.goal_count || null,
       starts_at: parsed.data.starts_at || null,
       ends_at: parsed.data.ends_at || null,

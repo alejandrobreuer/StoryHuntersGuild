@@ -7,16 +7,22 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getSessionUser } from "@/lib/auth/guard";
 import { getFeatureFlags } from "@/lib/features";
 import { EVENT_TYPE_LABELS } from "@/lib/gamification/eventTypes";
-import { EventMissionGrid, type MissionItem } from "@/components/events/EventMissionGrid";
+import { EventMissionBanner, type EventMissionData } from "@/components/events/EventMissionBanner";
+import { QuestBoard, type IndividualMissionItem, type GroupMissionItem, type GroupInstance } from "@/components/events/QuestBoard";
 import { Button } from "@/components/ui/Button";
 import { formatARS, formatDateTime, formatTime } from "@/lib/formatting";
-import type { ShgEvent, ShgVenuePublic, ShgGame, QuestDifficulty, QuestType } from "@/types/database";
+import type { ShgEvent, ShgVenuePublic, ShgGame, QuestDifficulty, QuestType, QuestEventStatus, QuestGroupStatus } from "@/types/database";
 
 interface EventQuestRow {
   id: string; title: string; narrative: string | null; difficulty: QuestDifficulty; type: QuestType;
-  reward_xp: number; reward_rp: number; goal_count: number | null; max_completions_per_event: number; status: string;
+  reward_xp: number; reward_rp: number; max_completions_per_event: number;
+  max_participants: number | null; required_turn_ins: number | null; status: string;
   badge: { name: string } | { name: string }[] | null;
   game: { name: string; image_url: string | null } | { name: string; image_url: string | null }[] | null;
+}
+interface EventQuestLinkRow {
+  status: QuestEventStatus; closed_at: string | null;
+  quest: EventQuestRow | EventQuestRow[] | null;
 }
 
 function one<T>(v: T | T[] | null): T | null {
@@ -52,9 +58,11 @@ export default async function EventDetailPage({ params }: { params: { id: string
     features.quests
       ? admin
           .from("shg_quest_events")
-          .select("quest:shg_quests(id, title, narrative, difficulty, type, reward_xp, reward_rp, goal_count, max_completions_per_event, status, badge:shg_badges(name), game:shg_games(name, image_url))")
+          .select(
+            "status, closed_at, quest:shg_quests(id, title, narrative, difficulty, type, reward_xp, reward_rp, max_completions_per_event, max_participants, required_turn_ins, status, badge:shg_badges(name), game:shg_games(name, image_url))"
+          )
           .eq("event_id", params.id)
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [] as EventQuestLinkRow[] }),
   ]);
 
   const remaining = remainingRow?.remaining ?? event.capacity;
@@ -66,35 +74,67 @@ export default async function EventDetailPage({ params }: { params: { id: string
   const hasEnded = Boolean(typedEvent.ended_at);
   const notStarted = !typedEvent.started_at;
 
-  const allMissions = ((eventQuests ?? []).map((r) => one(r.quest)).filter(Boolean) as unknown as EventQuestRow[])
-    .filter((q) => q.status === "active");
-  const communityMissions = allMissions.filter((q) => q.type === "community");
-  const otherMissions = allMissions.filter((q) => q.type !== "community");
+  const allMissions = ((eventQuests ?? []) as EventQuestLinkRow[])
+    .map((r) => {
+      const q = one(r.quest);
+      return q && q.status === "active" ? { ...q, linkStatus: r.status, linkClosedAt: r.closed_at } : null;
+    })
+    .filter((m): m is EventQuestRow & { linkStatus: QuestEventStatus; linkClosedAt: string | null } => Boolean(m));
 
-  const missionIds = allMissions.map((m) => m.id);
+  // An event has at most one Event-type mission (enforced when quest_ids are saved).
+  const eventMission = allMissions.find((m) => m.type === "event") ?? null;
+  const individualMissionRows = allMissions.filter((m) => m.type === "individual");
+  const groupMissionRows = allMissions.filter((m) => m.type === "group");
+
+  const allMissionIds = allMissions.map((m) => m.id);
   const usageByQuest = new Map<string, number>();
-  if (missionIds.length > 0) {
+  if (allMissionIds.length > 0) {
     const { data: usageRows } = await admin
       .from("shg_quest_completions")
       .select("quest_id")
       .eq("event_id", params.id)
-      .in("quest_id", missionIds);
+      .in("quest_id", allMissionIds);
     for (const row of usageRows ?? []) usageByQuest.set(row.quest_id, (usageByQuest.get(row.quest_id) ?? 0) + 1);
   }
 
-  const otherMissionIds = otherMissions.map((m) => m.id);
-  const activationByQuest = new Map<string, "active" | "turned_in">();
+  // Individual + Event missions track state via shg_quest_activations; Group
+  // missions track it via shg_quest_groups/members instead (fetched below).
+  // shg_quest_rewards is checked for every type — it's what "already
+  // completed, grayed out" means regardless of how the mission works.
+  const selfServiceMissionIds = [...individualMissionRows, ...(eventMission ? [eventMission] : [])].map((m) => m.id);
+  const activationByQuest = new Map<string, "active" | "turned_in" | "rejected">();
   const rewardedQuestIds = new Set<string>();
-  if (sessionUser && otherMissionIds.length > 0) {
+  if (sessionUser) {
     const [{ data: activationRows }, { data: rewardRows }] = await Promise.all([
-      admin.from("shg_quest_activations").select("quest_id, status").eq("event_id", params.id).eq("user_id", sessionUser.id).in("quest_id", otherMissionIds),
-      admin.from("shg_quest_rewards").select("quest_id").eq("user_id", sessionUser.id).in("quest_id", otherMissionIds),
+      selfServiceMissionIds.length > 0
+        ? admin.from("shg_quest_activations").select("quest_id, status").eq("event_id", params.id).eq("user_id", sessionUser.id).in("quest_id", selfServiceMissionIds)
+        : Promise.resolve({ data: [] as { quest_id: string; status: string }[] }),
+      allMissionIds.length > 0
+        ? admin.from("shg_quest_rewards").select("quest_id").eq("user_id", sessionUser.id).in("quest_id", allMissionIds)
+        : Promise.resolve({ data: [] as { quest_id: string }[] }),
     ]);
-    for (const row of activationRows ?? []) activationByQuest.set(row.quest_id, row.status);
+    for (const row of activationRows ?? []) activationByQuest.set(row.quest_id, row.status as "active" | "turned_in" | "rejected");
     for (const row of rewardRows ?? []) rewardedQuestIds.add(row.quest_id);
   }
 
-  const missionGridItems: MissionItem[] = otherMissions.map((m) => {
+  let eventMissionData: EventMissionData | null = null;
+  let eventMissionViewerTurnedIn = false;
+  if (eventMission) {
+    const { count } = await admin
+      .from("shg_quest_activations")
+      .select("id", { count: "exact", head: true })
+      .eq("quest_id", eventMission.id).eq("event_id", params.id).eq("status", "turned_in");
+    const badge = one(eventMission.badge);
+    eventMissionData = {
+      id: eventMission.id, title: eventMission.title, narrative: eventMission.narrative,
+      rewardXp: eventMission.reward_xp, rewardRp: eventMission.reward_rp, badgeName: badge?.name ?? null,
+      requiredTurnIns: eventMission.required_turn_ins ?? 0, turnedInCount: count ?? 0,
+      linkStatus: eventMission.linkStatus,
+    };
+    eventMissionViewerTurnedIn = rewardedQuestIds.has(eventMission.id) || activationByQuest.get(eventMission.id) === "turned_in";
+  }
+
+  const individualMissionItems: IndividualMissionItem[] = individualMissionRows.map((m) => {
     const badge = one(m.badge);
     const game = one(m.game);
     const initialState = rewardedQuestIds.has(m.id) ? "completed" : activationByQuest.get(m.id) ?? "available";
@@ -105,12 +145,55 @@ export default async function EventDetailPage({ params }: { params: { id: string
     };
   });
 
+  const groupMissionIds = groupMissionRows.map((m) => m.id);
+  interface RawGroupMember { user_id: string; user: { id: string; email: string; name: string | null } | { id: string; email: string; name: string | null }[] | null }
+  interface RawGroup { id: string; quest_id: string; status: QuestGroupStatus; members: RawGroupMember[] }
+  const groupsByQuest = new Map<string, RawGroup[]>();
+  if (groupMissionIds.length > 0) {
+    const { data: groupRows } = await admin
+      .from("shg_quest_groups")
+      .select("id, quest_id, status, members:shg_quest_group_members(user_id, user:shg_users(id, email, name))")
+      .eq("event_id", params.id)
+      .in("quest_id", groupMissionIds)
+      .in("status", ["forming", "started", "turned_in"]);
+    for (const row of (groupRows ?? []) as unknown as RawGroup[]) {
+      const list = groupsByQuest.get(row.quest_id) ?? [];
+      list.push(row);
+      groupsByQuest.set(row.quest_id, list);
+    }
+  }
+
+  const groupMissionItems: GroupMissionItem[] = groupMissionRows.map((m) => {
+    const badge = one(m.badge);
+    const game = one(m.game);
+    const rawGroups = groupsByQuest.get(m.id) ?? [];
+    const groups: GroupInstance[] = rawGroups.map((g) => ({
+      id: g.id,
+      status: g.status,
+      members: (g.members ?? []).map((mem) => {
+        const u = one(mem.user);
+        return { id: mem.user_id, label: u?.name || u?.email || "Aventurero" };
+      }),
+    }));
+    const viewerGroupId = sessionUser
+      ? groups.find((g) => g.members.some((mem) => mem.id === sessionUser.id))?.id ?? null
+      : null;
+    return {
+      id: m.id, title: m.title, narrative: m.narrative, difficulty: m.difficulty,
+      rewardXp: m.reward_xp, rewardRp: m.reward_rp, badgeName: badge?.name ?? null, game,
+      maxParticipants: m.max_participants ?? 2, groups, viewerGroupId,
+      viewerRewarded: rewardedQuestIds.has(m.id),
+    };
+  });
+
   const eyebrowDate = new Date(typedEvent.starts_at).toLocaleDateString("es-AR", {
     weekday: "long", day: "numeric", month: "long",
   });
   const schedule = typedEvent.ends_at
     ? `${formatTime(typedEvent.starts_at)} a ${formatTime(typedEvent.ends_at)} hs`
     : `${formatTime(typedEvent.starts_at)} hs`;
+
+  const inactiveNote = notStarted ? "Se activa cuando el evento empiece" : "El evento ya finalizó";
 
   return (
     <main className="bg-gradient-to-b from-parchment to-parchment-dark px-6 py-14">
@@ -206,38 +289,21 @@ export default async function EventDetailPage({ params }: { params: { id: string
           </div>
         )}
 
-        {communityMissions.map((m) => {
-          const badge = one(m.badge);
-          const total = usageByQuest.get(m.id) ?? 0;
-          return (
-            <section key={m.id} className="mb-10">
-              <p className="font-label text-xs uppercase tracking-widest text-brass mb-1">Misión del evento</p>
-              <div className="border border-brass rounded-md bg-white/50 p-6">
-                <p className="font-display text-xl text-ink mb-1">{m.title}</p>
-                {m.narrative && <p className="font-body text-sm text-ink-light leading-relaxed mb-4">{m.narrative}</p>}
-                <div className="flex items-center justify-between font-label text-2xs uppercase tracking-widest text-leather-light mb-1">
-                  <span>Ofrendas del gremio</span>
-                  <span><b className="text-crimson text-sm">{total}</b> / {m.goal_count ?? "—"}</span>
-                </div>
-                <div className="h-3.5 w-full bg-parchment-dark/40 rounded-full overflow-hidden border border-brass/30">
-                  <div
-                    className="h-full bg-gradient-to-r from-brass to-crimson transition-all"
-                    style={{ width: `${m.goal_count ? Math.min(100, (total / m.goal_count) * 100) : 0}%` }}
-                  />
-                </div>
-                <p className="font-label text-2xs text-brass mt-3">
-                  +{m.reward_rp} RP para todos los que contribuyan{badge ? ` · insignia "${badge.name}"` : ""}
-                </p>
-              </div>
-            </section>
-          );
-        })}
+        {eventMissionData && (
+          <EventMissionBanner
+            eventId={typedEvent.id}
+            mission={eventMissionData}
+            loggedIn={Boolean(sessionUser)}
+            isLive={isLive}
+            viewerTurnedIn={eventMissionViewerTurnedIn}
+          />
+        )}
 
-        {otherMissions.length > 0 && (
+        {(individualMissionItems.length > 0 || groupMissionItems.length > 0) && (
           <section className="mb-10">
             <p className="font-label text-xs uppercase tracking-widest text-brass mb-1">Misiones disponibles</p>
             <h2 className="font-display text-xl text-ink mb-2 flex items-center gap-2">
-              <ScrollText size={18} className="text-crimson" /> Tablón de misiones del evento
+              <ScrollText size={18} className="text-crimson" /> Tablón de Misiones
             </h2>
             <p className="font-body text-sm text-ink-light mb-4">
               {isLive
@@ -246,13 +312,16 @@ export default async function EventDetailPage({ params }: { params: { id: string
                   ? "Así quedaron las misiones de este evento."
                   : "Se van a poder activar cuando el evento empiece."}
             </p>
-            <EventMissionGrid
-              eventId={typedEvent.id}
-              missions={missionGridItems}
-              loggedIn={Boolean(sessionUser)}
-              isLive={isLive}
-              inactiveNote={notStarted ? "Se activa cuando el evento empiece" : "El evento ya finalizó"}
-            />
+            <div className="surface-wood rounded-md px-4 py-6 sm:px-7">
+              <QuestBoard
+                eventId={typedEvent.id}
+                individualMissions={individualMissionItems}
+                groupMissions={groupMissionItems}
+                loggedIn={Boolean(sessionUser)}
+                isLive={isLive}
+                inactiveNote={inactiveNote}
+              />
+            </div>
           </section>
         )}
       </div>

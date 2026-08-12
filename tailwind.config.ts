@@ -41,6 +41,13 @@ const config: Config = {
           light:   "#d4a843",
           bright:  "#f0c040",
         },
+        wood: {
+          // Quest Board plank surface — distinct from `leather` (UI chrome),
+          // used only for the literal wood-and-pinned-paper mission board.
+          DEFAULT: "#5c4430",
+          dark:    "#3f2f20",
+          light:   "#7a5c3e",
+        },
 
         // Semantic
         background: "#3d3830",
