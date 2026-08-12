@@ -322,8 +322,8 @@ export default async function EventDetailPage({ params }: { params: { id: string
                       ? "Así quedaron las misiones de este evento."
                       : "Se van a poder activar cuando el evento empiece."}
                 </p>
-                <div className="quest-board-frame rounded-md">
-                  <div className="p-8">
+                <div className="quest-board-frame rounded-md overflow-hidden bg-leather">
+                  <div className="quest-board-safe">
                     <QuestBoard
                       eventId={typedEvent.id}
                       individualMissions={individualMissionItems}

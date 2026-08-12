@@ -76,22 +76,20 @@ function QuestPaperCard({
   const angle = PAPER_ANGLES[index % PAPER_ANGLES.length];
   return (
     <div style={{ transform: `rotate(${angle}deg)` }} className="mx-auto w-full max-w-[260px]">
-      {/* Fixed size, not aspect-ratio-driven — the images are square
-       * (1254x1254), so a fixed square box keeps object-contain from
-       * letterboxing (which would throw off the padding below) while
-       * still giving every card the same footprint regardless of how
-       * much text it holds. */}
-      <div className={cn("relative w-full max-w-[260px] h-[340px] mx-auto", className)}>
+      {/* Locked to the parchment art's own 955:1232 ratio (aspect-ratio,
+       * not a fixed height) so the paper never letterboxes or stretches
+       * regardless of how wide the grid column ends up being. */}
+      <div className={cn("relative w-full max-w-[260px] mx-auto", className)} style={{ aspectRatio: "955 / 1232" }}>
         {/* The paper's own torn/burnt edges and corner ornaments (including a
          * wax seal that lands in a different corner per variant) are part of
-         * the art — generous padding keeps text and controls clear of all of
-         * them rather than clipping the image to a rectangle. */}
+         * the art — padding below matches the art's measured margins so
+         * text and controls stay clear of all of them. */}
         <Image src={paperSrc} alt="" fill sizes="260px" className="object-contain pointer-events-none select-none" />
-        <MissionInfoButton type={infoType} className="top-4 right-4" />
+        <MissionInfoButton type={infoType} className="top-[9%] right-[9%]" />
         {/* overflow-hidden + line-clamp on title/narrative instead of a
          * scrollbar — a rotated card with a native scrollbar looks broken,
          * and a graceful truncation reads better in a card grid anyway. */}
-        <div className="absolute inset-0 flex flex-col gap-1.5 px-9 pt-10 pb-12 overflow-hidden">
+        <div className="absolute inset-0 flex flex-col gap-1.5 pt-[15.71%] pr-[15.29%] pb-[12.36%] pl-[15.29%] overflow-hidden">
           {children}
         </div>
       </div>
@@ -186,7 +184,7 @@ export function QuestBoard({ eventId, individualMissions, groupMissions, loggedI
         return (
           <QuestPaperCard key={m.id} index={i} infoType="individual" className={state === "completed" ? "opacity-60" : undefined}>
             <div className="flex items-start justify-between gap-2 flex-wrap pr-7">
-              <p className="font-label text-sm font-semibold text-ink line-clamp-2 shrink-0">{m.title}</p>
+              <p className="font-label text-sm font-semibold text-ink line-clamp-2 min-w-0">{m.title}</p>
               <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-leather/10 text-leather">
                 {DIFFICULTY_LABELS[m.difficulty]}
               </span>
@@ -262,7 +260,7 @@ export function QuestBoard({ eventId, individualMissions, groupMissions, loggedI
             className={m.viewerRewarded ? "opacity-60" : undefined}
           >
             <div className="flex items-start justify-between gap-2 flex-wrap pr-7">
-              <p className="font-label text-sm font-semibold text-ink line-clamp-2 shrink-0">{m.title}</p>
+              <p className="font-label text-sm font-semibold text-ink line-clamp-2 min-w-0">{m.title}</p>
               <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-leather/10 text-leather">
                 {DIFFICULTY_LABELS[m.difficulty]}
               </span>
