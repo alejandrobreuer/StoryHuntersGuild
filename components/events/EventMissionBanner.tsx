@@ -33,6 +33,10 @@ interface EventMissionBannerProps {
 // has to approve each one (see admin complete/route.ts) before it counts
 // toward requiredTurnIns — only once enough are approved does the mission
 // achieve and reward everyone in one batch.
+//
+// Laid out as a short, wide strip (title/reward left, progress middle,
+// action right) rather than a tall stacked card — it shares the page with
+// the Quest Board and shouldn't dominate it.
 export function EventMissionBanner({ eventId, mission, loggedIn, isLive, viewerState }: EventMissionBannerProps) {
   const [state, setState] = React.useState<EventMissionViewerState>(viewerState);
   const [busy, setBusy] = React.useState(false);
@@ -55,65 +59,70 @@ export function EventMissionBanner({ eventId, mission, loggedIn, isLive, viewerS
   }
 
   return (
-    <section className="mb-10">
-      <p className="font-label text-xs uppercase tracking-widest text-brass mb-1.5">Misión del evento</p>
-      <div className="relative border border-brass rounded-md bg-gradient-to-br from-parchment-card to-parchment px-6 py-7 sm:px-9 shadow-parchment-lg overflow-hidden">
-        <div className="absolute inset-y-0 left-0 w-2.5 opacity-40" style={{ backgroundImage: "repeating-linear-gradient(180deg, #A9793A 0 4px, transparent 4px 14px)" }} />
-        <div className="absolute inset-y-0 right-0 w-2.5 opacity-40" style={{ backgroundImage: "repeating-linear-gradient(180deg, #A9793A 0 4px, transparent 4px 14px)" }} />
+    <section className="mb-6">
+      <p className="font-label text-2xs uppercase tracking-widest text-brass mb-1">Misión del evento</p>
+      <div className="relative border border-brass rounded-md bg-gradient-to-br from-parchment-card to-parchment px-4 py-3.5 sm:px-6 shadow-parchment overflow-hidden">
+        <div className="absolute inset-y-0 left-0 w-1.5 opacity-40" style={{ backgroundImage: "repeating-linear-gradient(180deg, #A9793A 0 4px, transparent 4px 14px)" }} />
+        <div className="absolute inset-y-0 right-0 w-1.5 opacity-40" style={{ backgroundImage: "repeating-linear-gradient(180deg, #A9793A 0 4px, transparent 4px 14px)" }} />
 
-        <h2 className="font-display text-2xl text-ink mb-2">{mission.title}</h2>
-        {mission.narrative && (
-          <p className="font-body text-sm text-ink-light leading-relaxed mb-5 max-w-2xl">{mission.narrative}</p>
-        )}
+        <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-5">
+          <div className="flex-1 min-w-0">
+            <h2 className="font-display text-lg text-ink leading-tight mb-0.5">{mission.title}</h2>
+            {mission.narrative && (
+              <p className="font-body text-xs text-ink-light leading-snug line-clamp-2 mb-1">{mission.narrative}</p>
+            )}
+            <p className="font-label text-2xs text-brass">
+              +{mission.rewardXp} XP · +{mission.rewardRp} RP{mission.badgeName ? ` · insignia "${mission.badgeName}"` : ""}
+            </p>
+          </div>
 
-        <div className="flex items-center justify-between font-label text-2xs uppercase tracking-widest text-leather-light mb-1.5">
-          <span>Entregas aprobadas</span>
-          <span><b className="text-crimson text-sm">{mission.confirmedCount}</b> / {mission.requiredTurnIns}</span>
-        </div>
-        <ProgressBar value={mission.confirmedCount} max={mission.requiredTurnIns} className="border border-brass/30" />
+          <div className="md:w-52 shrink-0">
+            <div className="flex items-center justify-between font-label text-2xs uppercase tracking-widest text-leather-light mb-1">
+              <span>Entregas</span>
+              <span><b className="text-crimson">{mission.confirmedCount}</b> / {mission.requiredTurnIns}</span>
+            </div>
+            <ProgressBar value={mission.confirmedCount} max={mission.requiredTurnIns} trackClassName="h-2 border border-brass/30" />
+          </div>
 
-        <div className="mt-5 flex items-center justify-between flex-wrap gap-3">
-          <p className="font-label text-2xs text-brass">
-            +{mission.rewardXp} XP · +{mission.rewardRp} RP para todos los que entreguen{mission.badgeName ? ` · insignia "${mission.badgeName}"` : ""}
-          </p>
-
-          {mission.linkStatus === "achieved" ? (
-            <span className="font-label text-xs uppercase tracking-wide px-3 py-1.5 rounded-sm border border-moss bg-moss/10 text-moss-dark">
-              ¡Misión lograda!
-            </span>
-          ) : mission.linkStatus === "failed" ? (
-            <span className="font-label text-xs uppercase tracking-wide px-3 py-1.5 rounded-sm border border-border text-ink-light">
-              No se logró a tiempo
-            </span>
-          ) : state === "confirmed" ? (
-            <span className="font-label text-xs uppercase tracking-wide px-3 py-1.5 rounded-sm border border-moss bg-moss/10 text-moss-dark">
-              ¡Aprobada! Esperando que el gremio alcance la meta.
-            </span>
-          ) : state === "turned_in" ? (
-            <span className="font-label text-xs uppercase tracking-wide px-3 py-1.5 rounded-sm border border-brass/40 bg-brass/5 text-brass">
-              Pendiente de aprobación del administrador
-            </span>
-          ) : !isLive ? (
-            <span className="font-label text-xs uppercase tracking-wide px-3 py-1.5 rounded-sm border border-border text-ink-light">
-              Se activa cuando el evento empiece
-            </span>
-          ) : !loggedIn ? (
-            <Link
-              href={`/sign-in?next=/events/${eventId}`}
-              className="font-label text-xs uppercase tracking-wide px-4 py-1.5 rounded-sm border border-crimson text-crimson no-underline hover:bg-crimson/10 transition-colors"
-            >
-              Iniciá sesión para entregar
-            </Link>
-          ) : (
-            <button
-              type="button"
-              onClick={turnIn}
-              disabled={busy}
-              className="font-label text-xs uppercase tracking-wide px-5 py-1.5 rounded-sm border border-crimson bg-crimson text-crimson-foreground hover:bg-crimson/90 transition-colors disabled:opacity-50"
-            >
-              Entregar
-            </button>
-          )}
+          <div className="shrink-0">
+            {mission.linkStatus === "achieved" ? (
+              <span className="font-label text-2xs uppercase tracking-wide px-3 py-1.5 rounded-sm border border-moss bg-moss/10 text-moss-dark whitespace-nowrap">
+                ¡Lograda!
+              </span>
+            ) : mission.linkStatus === "failed" ? (
+              <span className="font-label text-2xs uppercase tracking-wide px-3 py-1.5 rounded-sm border border-border text-ink-light whitespace-nowrap">
+                No lograda
+              </span>
+            ) : state === "confirmed" ? (
+              <span className="font-label text-2xs uppercase tracking-wide px-3 py-1.5 rounded-sm border border-moss bg-moss/10 text-moss-dark whitespace-nowrap">
+                ¡Aprobada!
+              </span>
+            ) : state === "turned_in" ? (
+              <span className="font-label text-2xs uppercase tracking-wide px-3 py-1.5 rounded-sm border border-brass/40 bg-brass/5 text-brass whitespace-nowrap">
+                Pendiente de aprobación
+              </span>
+            ) : !isLive ? (
+              <span className="font-label text-2xs uppercase tracking-wide px-3 py-1.5 rounded-sm border border-border text-ink-light whitespace-nowrap">
+                Se activa al empezar
+              </span>
+            ) : !loggedIn ? (
+              <Link
+                href={`/sign-in?next=/events/${eventId}`}
+                className="font-label text-2xs uppercase tracking-wide px-3.5 py-1.5 rounded-sm border border-crimson text-crimson no-underline hover:bg-crimson/10 transition-colors whitespace-nowrap"
+              >
+                Iniciá sesión
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={turnIn}
+                disabled={busy}
+                className="font-label text-2xs uppercase tracking-wide px-4 py-1.5 rounded-sm border border-crimson bg-crimson text-crimson-foreground hover:bg-crimson/90 transition-colors disabled:opacity-50 whitespace-nowrap"
+              >
+                Entregar
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </section>

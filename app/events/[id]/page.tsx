@@ -202,133 +202,140 @@ export default async function EventDetailPage({ params }: { params: { id: string
 
   return (
     <main className="bg-gradient-to-b from-parchment to-parchment-dark px-6 py-14">
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         {typedEvent.cover_image_url && (
-          <div className="relative w-full aspect-[16/7] mb-8 overflow-hidden border border-brass/30 rounded-md">
-            <Image src={typedEvent.cover_image_url} alt="" fill className="object-cover" sizes="800px" />
+          <div className="relative w-full aspect-[21/6] mb-8 overflow-hidden border border-brass/30 rounded-md">
+            <Image src={typedEvent.cover_image_url} alt="" fill className="object-cover" sizes="1152px" />
           </div>
         )}
 
-        {/* ————— Hero ————— */}
-        <div className="text-center mb-10">
-          <div className="flex items-center justify-center gap-2 flex-wrap mb-2">
-            <span className="font-label text-xs uppercase tracking-[0.14em] text-brass">
-              Evento · {eyebrowDate}
-            </span>
-            {isLive && (
-              <span className="inline-flex items-center gap-1 font-label text-2xs uppercase tracking-widest px-2.5 py-1 rounded-full bg-crimson text-crimson-foreground">
-                <Radio size={11} className="animate-pulse" /> En vivo ahora
-              </span>
-            )}
-            {hasEnded && (
-              <span className="font-label text-2xs uppercase tracking-widest px-2.5 py-1 rounded-full bg-leather/15 text-leather">
-                Finalizado
-              </span>
-            )}
-          </div>
-
-          <h1 className="font-display text-3xl sm:text-4xl text-ink leading-tight mb-3">{typedEvent.title}</h1>
-
-          {typedEvent.description && (
-            <p className="font-body text-base text-ink-light max-w-xl mx-auto leading-relaxed mb-5">
-              {typedEvent.description}
-            </p>
-          )}
-
-          <div className="flex flex-wrap justify-center gap-x-6 gap-y-1.5 font-label text-xs uppercase tracking-wide text-ink-light">
-            <span>Sede: <b className="text-ink font-semibold">{venue.name}{venue.city ? `, ${venue.city}` : ""}</b></span>
-            <span>Horario: <b className="text-ink font-semibold">{schedule}</b></span>
-            {games.length > 0 && (
-              <span>Juegos destacados: <b className="text-ink font-semibold">{games.map((g) => g.name).join(", ")}</b></span>
-            )}
-          </div>
-
-          {(venue.map_url || venue.instagram_url) && (
-            <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-1 mt-2">
-              {venue.map_url && (
-                <a href={venue.map_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-label uppercase tracking-widest text-ink-light hover:text-crimson transition-colors">
-                  <ExternalLink size={12} /> Ver en el mapa
-                </a>
-              )}
-              {venue.instagram_url && (
-                <a href={venue.instagram_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-label uppercase tracking-widest text-ink-light hover:text-crimson transition-colors">
-                  <AtSign size={12} /> Instagram
-                </a>
-              )}
-            </div>
-          )}
-
-          {features.event_rewards && (typedEvent.event_type || typedEvent.reward_rp > 0) && (
-            <div className="flex flex-wrap justify-center gap-1.5 mt-4">
-              {typedEvent.event_type && (
-                <span className="font-label text-2xs uppercase tracking-wide px-2 py-0.5 rounded-sm bg-brass/15 text-brass">
-                  {EVENT_TYPE_LABELS[typedEvent.event_type]}
-                </span>
-              )}
-              {typedEvent.reward_rp > 0 && (
-                <span className="font-label text-2xs uppercase tracking-wide px-2 py-0.5 rounded-sm bg-moss/15 text-moss-dark">
-                  +{typedEvent.reward_rp} RP por asistir
-                </span>
-              )}
-            </div>
-          )}
-
-          {notStarted && (
-            <div className="inline-flex items-center gap-2 mt-5 border border-brass rounded-full px-4 py-1.5 font-label text-xs uppercase tracking-wide text-crimson bg-white/50">
-              <Ticket size={14} /> {remaining} / {typedEvent.capacity} cupos disponibles
-            </div>
-          )}
-        </div>
-
-        {notStarted && (
-          <div className="border border-brass/40 bg-white/40 rounded-md p-5 flex items-center justify-between flex-wrap gap-4 mb-10">
+        <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-8 items-start">
+          {/* ————— Left panel: event info (secondary to the missions) ————— */}
+          <aside className="lg:sticky lg:top-6 flex flex-col gap-4">
             <div>
-              <p className="font-label text-2xs uppercase tracking-widest text-leather-light">Precio por persona</p>
-              <p className="font-display text-2xl font-semibold text-brass">{formatARS(typedEvent.price_per_person)}</p>
+              <div className="flex items-center gap-2 flex-wrap mb-2">
+                <span className="font-label text-2xs uppercase tracking-[0.12em] text-brass">
+                  Evento · {eyebrowDate}
+                </span>
+              </div>
+              {(isLive || hasEnded) && (
+                <div className="mb-2">
+                  {isLive && (
+                    <span className="inline-flex items-center gap-1 font-label text-2xs uppercase tracking-widest px-2.5 py-1 rounded-full bg-crimson text-crimson-foreground">
+                      <Radio size={11} className="animate-pulse" /> En vivo ahora
+                    </span>
+                  )}
+                  {hasEnded && (
+                    <span className="font-label text-2xs uppercase tracking-widest px-2.5 py-1 rounded-full bg-leather/15 text-leather">
+                      Finalizado
+                    </span>
+                  )}
+                </div>
+              )}
+              <h1 className="font-display text-2xl text-ink leading-tight mb-2">{typedEvent.title}</h1>
+              {typedEvent.description && (
+                <p className="font-body text-sm text-ink-light leading-relaxed">{typedEvent.description}</p>
+              )}
             </div>
-            {remaining > 0 ? (
-              <Button asChild size="lg"><Link href={`/events/${typedEvent.id}/book`}>Reservar un lugar</Link></Button>
-            ) : (
-              <Button size="lg" disabled>Sin cupo</Button>
+
+            <div className="flex flex-col gap-1 font-label text-2xs uppercase tracking-wide text-ink-light">
+              <span>Sede: <b className="text-ink font-semibold">{venue.name}{venue.city ? `, ${venue.city}` : ""}</b></span>
+              <span>Horario: <b className="text-ink font-semibold">{schedule}</b></span>
+              {games.length > 0 && (
+                <span>Juegos: <b className="text-ink font-semibold">{games.map((g) => g.name).join(", ")}</b></span>
+              )}
+            </div>
+
+            {(venue.map_url || venue.instagram_url) && (
+              <div className="flex flex-col gap-1">
+                {venue.map_url && (
+                  <a href={venue.map_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-2xs font-label uppercase tracking-widest text-ink-light hover:text-crimson transition-colors">
+                    <ExternalLink size={11} /> Ver en el mapa
+                  </a>
+                )}
+                {venue.instagram_url && (
+                  <a href={venue.instagram_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-2xs font-label uppercase tracking-widest text-ink-light hover:text-crimson transition-colors">
+                    <AtSign size={11} /> Instagram
+                  </a>
+                )}
+              </div>
             )}
-          </div>
-        )}
 
-        {eventMissionData && (
-          <EventMissionBanner
-            eventId={typedEvent.id}
-            mission={eventMissionData}
-            loggedIn={Boolean(sessionUser)}
-            isLive={isLive}
-            viewerState={eventMissionViewerState}
-          />
-        )}
+            {features.event_rewards && (typedEvent.event_type || typedEvent.reward_rp > 0) && (
+              <div className="flex flex-wrap gap-1.5">
+                {typedEvent.event_type && (
+                  <span className="font-label text-2xs uppercase tracking-wide px-2 py-0.5 rounded-sm bg-brass/15 text-brass">
+                    {EVENT_TYPE_LABELS[typedEvent.event_type]}
+                  </span>
+                )}
+                {typedEvent.reward_rp > 0 && (
+                  <span className="font-label text-2xs uppercase tracking-wide px-2 py-0.5 rounded-sm bg-moss/15 text-moss-dark">
+                    +{typedEvent.reward_rp} RP por asistir
+                  </span>
+                )}
+              </div>
+            )}
 
-        {(individualMissionItems.length > 0 || groupMissionItems.length > 0) && (
-          <section className="mb-10">
-            <p className="font-label text-xs uppercase tracking-widest text-brass mb-1">Misiones disponibles</p>
-            <h2 className="font-display text-xl text-ink mb-2 flex items-center gap-2">
-              <ScrollText size={18} className="text-crimson" /> Tablón de Misiones
-            </h2>
-            <p className="font-body text-sm text-ink-light mb-4">
-              {isLive
-                ? "Activá las que te interesen y jugalas durante el evento. Cuando la completes, avisale a un Asistente del Gremio."
-                : hasEnded
-                  ? "Así quedaron las misiones de este evento."
-                  : "Se van a poder activar cuando el evento empiece."}
-            </p>
-            <div className="surface-wood rounded-md px-4 py-6 sm:px-7">
-              <QuestBoard
+            {notStarted && (
+              <div className="inline-flex items-center gap-2 self-start border border-brass rounded-full px-3 py-1 font-label text-2xs uppercase tracking-wide text-crimson bg-white/50">
+                <Ticket size={12} /> {remaining} / {typedEvent.capacity} cupos
+              </div>
+            )}
+
+            {notStarted && (
+              <div className="border border-brass/40 bg-white/40 rounded-md p-4 flex flex-col gap-2.5">
+                <div>
+                  <p className="font-label text-2xs uppercase tracking-widest text-leather-light">Precio por persona</p>
+                  <p className="font-display text-xl font-semibold text-brass">{formatARS(typedEvent.price_per_person)}</p>
+                </div>
+                {remaining > 0 ? (
+                  <Button asChild className="w-full"><Link href={`/events/${typedEvent.id}/book`}>Reservar un lugar</Link></Button>
+                ) : (
+                  <Button className="w-full" disabled>Sin cupo</Button>
+                )}
+              </div>
+            )}
+          </aside>
+
+          {/* ————— Main: missions take the lead ————— */}
+          <div className="min-w-0">
+            {eventMissionData && (
+              <EventMissionBanner
                 eventId={typedEvent.id}
-                individualMissions={individualMissionItems}
-                groupMissions={groupMissionItems}
+                mission={eventMissionData}
                 loggedIn={Boolean(sessionUser)}
                 isLive={isLive}
-                inactiveNote={inactiveNote}
+                viewerState={eventMissionViewerState}
               />
-            </div>
-          </section>
-        )}
+            )}
+
+            {(individualMissionItems.length > 0 || groupMissionItems.length > 0) && (
+              <section>
+                <p className="font-label text-xs uppercase tracking-widest text-brass mb-1">Misiones disponibles</p>
+                <h2 className="font-display text-xl text-ink mb-2 flex items-center gap-2">
+                  <ScrollText size={18} className="text-crimson" /> Tablón de Misiones
+                </h2>
+                <p className="font-body text-sm text-ink-light mb-4">
+                  {isLive
+                    ? "Activá las que te interesen y jugalas durante el evento. Cuando la completes, avisale a un Asistente del Gremio."
+                    : hasEnded
+                      ? "Así quedaron las misiones de este evento."
+                      : "Se van a poder activar cuando el evento empiece."}
+                </p>
+                <div className="surface-wood rounded-md px-4 py-6 sm:px-7">
+                  <QuestBoard
+                    eventId={typedEvent.id}
+                    individualMissions={individualMissionItems}
+                    groupMissions={groupMissionItems}
+                    loggedIn={Boolean(sessionUser)}
+                    isLive={isLive}
+                    inactiveNote={inactiveNote}
+                  />
+                </div>
+              </section>
+            )}
+          </div>
+        </div>
       </div>
     </main>
   );

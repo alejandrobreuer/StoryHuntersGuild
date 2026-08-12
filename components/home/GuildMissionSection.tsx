@@ -27,16 +27,29 @@ interface GuildMissionSectionProps {
 // A high-contrast strip pinned between the nav and the hero — meant to read
 // as an urgent guild-wide call to action, not another content section.
 // Clicking anywhere on it (besides the action control) opens a modal with
-// the full story. Guild Missions are repeatable: once a Guild Attendant
-// confirms a turn-in, the player can submit again, so there's no "already
-// completed" grayed state here, just a "pending" note while one's in flight.
+// the full story; hitting "Entregar" opens that same modal in a confirm
+// step instead of firing the request right away. Guild Missions are
+// repeatable: once a Guild Attendant confirms a turn-in, the player can
+// submit again, so there's no "already completed" grayed state here, just
+// a "pending" note while one's in flight.
 export function GuildMissionSection({ mission, loggedIn, viewerPending }: GuildMissionSectionProps) {
   const [pending, setPending] = React.useState(viewerPending);
   const [busy, setBusy] = React.useState(false);
   const [detailsOpen, setDetailsOpen] = React.useState(false);
+  const [confirming, setConfirming] = React.useState(false);
 
-  async function turnIn(e: React.SyntheticEvent) {
+  function openConfirm(e: React.SyntheticEvent) {
     e.stopPropagation();
+    setConfirming(true);
+    setDetailsOpen(true);
+  }
+
+  function closeModal() {
+    setDetailsOpen(false);
+    setConfirming(false);
+  }
+
+  async function turnIn() {
     setBusy(true);
     try {
       const res = await fetch(`/api/quests/${mission.id}/guild-turn-in`, { method: "POST" });
@@ -44,6 +57,7 @@ export function GuildMissionSection({ mission, loggedIn, viewerPending }: GuildM
       if (!res.ok) { toast.error(json.error ?? "No se pudo entregar la misión."); return; }
       setPending(true);
       toast.success("¡Entregada! Un Asistente del Gremio la va a confirmar pronto.");
+      closeModal();
     } finally {
       setBusy(false);
     }
@@ -73,9 +87,8 @@ export function GuildMissionSection({ mission, loggedIn, viewerPending }: GuildM
     return (
       <button
         type="button"
-        onClick={turnIn}
-        disabled={busy}
-        className={`font-label ${text} uppercase tracking-wide ${pad} rounded-full bg-brass-bright text-ink hover:bg-brass transition-colors disabled:opacity-50`}
+        onClick={openConfirm}
+        className={`font-label ${text} uppercase tracking-wide ${pad} rounded-full bg-brass-bright text-ink hover:bg-brass transition-colors`}
       >
         Entregar
       </button>
@@ -125,7 +138,7 @@ export function GuildMissionSection({ mission, loggedIn, viewerPending }: GuildM
         </div>
       </div>
 
-      <Modal open={detailsOpen} onClose={() => setDetailsOpen(false)} title={mission.title} className="max-w-lg">
+      <Modal open={detailsOpen} onClose={closeModal} title={mission.title} className="max-w-lg">
         <div className="flex flex-col gap-4">
           <p className="font-label text-2xs uppercase tracking-widest text-brass">Misión de Gremio</p>
 
@@ -145,7 +158,32 @@ export function GuildMissionSection({ mission, loggedIn, viewerPending }: GuildM
             +{mission.rewardXp} XP · +{mission.rewardRp} RP para todos los que entreguen{mission.badgeName ? ` · insignia "${mission.badgeName}"` : ""}
           </p>
 
-          <div>{action("md")}</div>
+          {confirming ? (
+            <div className="border-t border-border pt-4 flex flex-col gap-3">
+              <p className="font-body text-sm text-ink">
+                ¿Confirmás que completaste esta misión y querés entregarla para su aprobación?
+              </p>
+              <div className="flex gap-2 justify-end">
+                <button
+                  type="button"
+                  onClick={() => setConfirming(false)}
+                  className="font-label text-2xs uppercase tracking-wide px-4 py-1.5 rounded-full border border-border text-ink-light hover:border-crimson hover:text-crimson transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={turnIn}
+                  disabled={busy}
+                  className="font-label text-2xs uppercase tracking-wide px-4 py-1.5 rounded-full bg-crimson text-crimson-foreground hover:bg-crimson/90 transition-colors disabled:opacity-50"
+                >
+                  Confirmar entrega
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div>{action("md")}</div>
+          )}
         </div>
       </Modal>
     </>
