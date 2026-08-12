@@ -52,7 +52,7 @@ export interface ShgAdminUser {
 export type PermissionKey =
   | "events" | "venues" | "games" | "tags" | "users" | "quests"
   | "ranks" | "badges" | "feature_flags" | "bookings" | "reports"
-  | "settings" | "roles";
+  | "settings" | "roles" | "turn_ins";
 
 export interface ShgSecurityRole {
   id:                 string;
@@ -72,6 +72,7 @@ export interface ShgSecurityRole {
   perm_reports:       boolean;
   perm_settings:      boolean;
   perm_roles:         boolean;
+  perm_turn_ins:      boolean;
   created_at:         string;
   updated_at:         string;
 }
@@ -247,7 +248,7 @@ export interface ShgQuestEvent {
   closed_at: string | null;
 }
 
-export type QuestActivationStatus = "active" | "turned_in" | "rejected";
+export type QuestActivationStatus = "active" | "turned_in" | "rejected" | "confirmed";
 
 export interface ShgQuestActivation {
   id:           string;

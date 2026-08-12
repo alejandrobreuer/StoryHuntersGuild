@@ -3,28 +3,24 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, CalendarDays, MapPin, Dice5, Tag, ClipboardCheck, BarChart3, Settings, LogOut,
-  Users, ScrollText, Medal, Award, ToggleLeft, ShieldCheck, UserCog,
+  LayoutDashboard, CalendarDays, MapPin, Dice5, ClipboardCheck, BadgeCheck, BarChart3, Settings, LogOut,
+  Users, ScrollText, UserCog,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PermissionKey } from "@/types/database";
 
-const LINKS: { href: string; label: string; icon: typeof LayoutDashboard; perm?: PermissionKey }[] = [
-  { href: "/admin",              label: "Dashboard",  icon: LayoutDashboard },
-  { href: "/admin/events",       label: "Eventos",    icon: CalendarDays,   perm: "events" },
-  { href: "/admin/venues",       label: "Lugares",    icon: MapPin,         perm: "venues" },
-  { href: "/admin/games",        label: "Juegos",     icon: Dice5,          perm: "games" },
-  { href: "/admin/tags",         label: "Tags",       icon: Tag,            perm: "tags" },
-  { href: "/admin/users",        label: "Usuarios",   icon: Users,          perm: "users" },
-  { href: "/admin/quests",       label: "Misiones",   icon: ScrollText,     perm: "quests" },
-  { href: "/admin/ranks",        label: "Rangos",     icon: Medal,          perm: "ranks" },
-  { href: "/admin/badges",       label: "Insignias",  icon: Award,          perm: "badges" },
-  { href: "/admin/feature-flags", label: "Funciones", icon: ToggleLeft,     perm: "feature_flags" },
-  { href: "/admin/bookings",     label: "Reservas",   icon: ClipboardCheck, perm: "bookings" },
-  { href: "/admin/reports",      label: "Reportes",   icon: BarChart3,      perm: "reports" },
-  { href: "/admin/settings",     label: "Configuración", icon: Settings,    perm: "settings" },
-  { href: "/admin/roles",        label: "Roles",      icon: ShieldCheck,    perm: "roles" },
-  { href: "/admin/admins",       label: "Administradores", icon: UserCog,   perm: "roles" },
+const LINKS: { href: string; label: string; icon: typeof LayoutDashboard; perm?: PermissionKey | PermissionKey[] }[] = [
+  { href: "/admin",           label: "Dashboard",              icon: LayoutDashboard },
+  { href: "/admin/events",    label: "Eventos",                icon: CalendarDays,   perm: "events" },
+  { href: "/admin/games",     label: "Juegos",                 icon: Dice5,          perm: "games" },
+  { href: "/admin/venues",    label: "Lugares",                icon: MapPin,         perm: "venues" },
+  { href: "/admin/users",     label: "Usuarios",               icon: Users,          perm: "users" },
+  { href: "/admin/quests",    label: "Misiones",               icon: ScrollText,     perm: "quests" },
+  { href: "/admin/bookings",  label: "Reservas",               icon: ClipboardCheck, perm: "bookings" },
+  { href: "/admin/turn-ins",  label: "Aprobaciones de entregas", icon: BadgeCheck,   perm: ["quests", "turn_ins"] },
+  { href: "/admin/reports",   label: "Reportes",               icon: BarChart3,      perm: "reports" },
+  { href: "/admin/settings",  label: "Configuración",          icon: Settings,       perm: ["settings", "ranks", "badges", "tags", "feature_flags", "roles"] },
+  { href: "/admin/admins",    label: "Administradores",        icon: UserCog,        perm: "roles" },
 ];
 
 interface AdminSidebarProps {
@@ -39,7 +35,11 @@ export function AdminSidebar({ permissions }: AdminSidebarProps) {
     window.location.href = "/admin/login";
   }
 
-  const links = LINKS.filter((l) => !l.perm || permissions[l.perm]);
+  const links = LINKS.filter((l) => {
+    if (!l.perm) return true;
+    const keys = Array.isArray(l.perm) ? l.perm : [l.perm];
+    return keys.some((key) => permissions[key]);
+  });
 
   return (
     <aside className="w-56 shrink-0 bg-[#1c1810] border-r border-brass/20 min-h-screen flex flex-col p-3">

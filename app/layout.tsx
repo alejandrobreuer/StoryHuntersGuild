@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 import { SiteChromeGuard } from "@/components/layout/SiteChromeGuard";
 import { getSessionUser, getAdminUser } from "@/lib/auth/guard";
 import { getFeatureFlags } from "@/lib/features";
+import { createAdminClient } from "@/lib/supabase/admin";
 import "./globals.css";
 
 const cinzel = Cinzel({
@@ -34,14 +35,37 @@ export const metadata: Metadata = {
     "Eventos de juegos de mesa para todos — reservá tu lugar en la próxima aventura del grupo.",
 };
 
+// At most one event is ever live at a time — if the session user has a
+// confirmed booking for it, Nav gets a "jump to your event" pill.
+async function getMyLiveEvent(userId: string | undefined): Promise<{ id: string; title: string } | null> {
+  if (!userId) return null;
+  const admin = createAdminClient();
+  const { data: liveEvent } = await admin
+    .from("shg_events")
+    .select("id, title")
+    .not("started_at", "is", null)
+    .is("ended_at", null)
+    .limit(1)
+    .maybeSingle();
+  if (!liveEvent) return null;
+
+  const { data: booking } = await admin
+    .from("shg_bookings")
+    .select("id")
+    .eq("event_id", liveEvent.id).eq("user_id", userId).eq("status", "approved")
+    .maybeSingle();
+  return booking ? liveEvent : null;
+}
+
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const [sessionUser, adminUser, features] = await Promise.all([getSessionUser(), getAdminUser(), getFeatureFlags()]);
+  const myLiveEvent = await getMyLiveEvent(sessionUser?.id);
   return (
     <html lang="es" className={`${cinzel.variable} ${crimson.variable} ${oswald.variable}`}>
       <body className="antialiased">
-        <SiteChromeGuard sessionUser={sessionUser} isAdmin={!!adminUser} questsEnabled={features.quests}>
+        <SiteChromeGuard sessionUser={sessionUser} isAdmin={!!adminUser} questsEnabled={features.quests} myLiveEvent={myLiveEvent}>
           {children}
         </SiteChromeGuard>
         <Toaster

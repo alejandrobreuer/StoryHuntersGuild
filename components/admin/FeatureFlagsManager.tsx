@@ -39,8 +39,7 @@ export function FeatureFlagsManager() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="font-display text-2xl text-parchment">Funciones</h1>
-        <p className="font-body text-sm text-parchment-dark mt-1">
+        <p className="font-body text-sm text-parchment-dark">
           Activá o desactivá cada sistema del gremio (progresión, misiones, rangos, suscripciones,
           recompensas de eventos) sin tocar código — útil para ocultar algo rápido si algo no anda bien.
         </p>

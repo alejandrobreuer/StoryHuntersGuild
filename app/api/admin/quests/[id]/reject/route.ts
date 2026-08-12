@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission } from "@/lib/auth/guard";
+import { requirePermissionAny } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { questRejectSchema } from "@/lib/validation/quests";
 
@@ -10,7 +10,7 @@ import { questRejectSchema } from "@/lib/validation/quests";
 // This is the only path that produces a "failed" outcome for these types.
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const { error } = await requirePermission("quests");
+  const { error } = await requirePermissionAny(["quests", "turn_ins"]);
   if (error) return error;
 
   let body: unknown;

@@ -7,14 +7,14 @@ import { questActivationSchema } from "@/lib/validation/quests";
 // Self-service, for Individual and Event missions only (Group missions turn
 // in via /group/turn-in, Guild missions via /guild-turn-in).
 //
-// Individual: just flags the activation "turned_in" — a Guild Attendant
-// still confirms it via /api/admin/quests/[id]/complete.
+// Individual and Event missions both work the same way here: this just
+// flags the activation "turned_in" — a Guild Attendant still reviews it via
+// /api/admin/quests/[id]/complete (which, for Event missions, is also where
+// the shared achieve-at-threshold check now happens, since only
+// admin-approved turn-ins count toward required_turn_ins).
 //
 // Event missions have no activate step (assigned to everyone by default) —
-// turning in directly creates the "turned_in" record. If this turn-in makes
-// the mission hit its required_turn_ins threshold, it's auto-achieved right
-// here: every participant who turned in gets rewarded immediately, no admin
-// step needed (see the locked-in "auto-closes at threshold" decision).
+// turning in directly creates the "turned_in" record.
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const { user, error } = await requireSessionUser();
@@ -33,9 +33,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const { eventId } = parsed.data;
 
   const [{ data: quest }, { data: link }, { data: event }] = await Promise.all([
-    admin.from("shg_quests").select("id, status, type, title, reward_xp, reward_rp, badge_id, required_turn_ins").eq("id", params.id).maybeSingle(),
+    admin.from("shg_quests").select("id, status, type").eq("id", params.id).maybeSingle(),
     admin.from("shg_quest_events").select("quest_id, status").eq("quest_id", params.id).eq("event_id", eventId).maybeSingle(),
-    admin.from("shg_events").select("id, title, started_at, ended_at").eq("id", eventId).maybeSingle(),
+    admin.from("shg_events").select("id, started_at, ended_at").eq("id", eventId).maybeSingle(),
   ]);
 
   if (!quest || quest.status !== "active") return NextResponse.json({ error: "Misión no disponible." }, { status: 404 });
@@ -54,6 +54,15 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     .from("shg_quest_rewards").select("id").eq("quest_id", params.id).eq("user_id", user.id).maybeSingle();
   if (reward) return NextResponse.json({ error: "Ya completaste esta misión." }, { status: 422 });
 
+  // For Event missions, an admin may have already approved (confirmed) this
+  // turn-in — don't let a re-submit regress it back to pending review.
+  if (quest.type === "event") {
+    const { data: existing } = await admin
+      .from("shg_quest_activations").select("status")
+      .eq("quest_id", params.id).eq("event_id", eventId).eq("user_id", user.id).maybeSingle();
+    if (existing?.status === "confirmed") return NextResponse.json({ ok: true });
+  }
+
   const { error: upsertError } = await admin
     .from("shg_quest_activations")
     .upsert(
@@ -62,71 +71,5 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     );
 
   if (upsertError) return NextResponse.json({ error: "No se pudo entregar la misión." }, { status: 500 });
-
-  if (quest.type === "event") {
-    await maybeAchieveEventMission(admin, {
-      questId: params.id,
-      eventId,
-      title: quest.title,
-      eventTitle: event.title,
-      rewardXp: quest.reward_xp,
-      rewardRp: quest.reward_rp,
-      badgeId: quest.badge_id,
-      requiredTurnIns: quest.required_turn_ins ?? 0,
-    });
-  }
-
   return NextResponse.json({ ok: true });
-}
-
-async function maybeAchieveEventMission(
-  admin: ReturnType<typeof createAdminClient>,
-  opts: {
-    questId: string; eventId: string; title: string; eventTitle: string;
-    rewardXp: number; rewardRp: number; badgeId: string | null; requiredTurnIns: number;
-  }
-) {
-  const { count } = await admin
-    .from("shg_quest_activations")
-    .select("id", { count: "exact", head: true })
-    .eq("quest_id", opts.questId).eq("event_id", opts.eventId).eq("status", "turned_in");
-
-  if (!count || count < opts.requiredTurnIns) return;
-
-  // Claim the achievement — only proceed if it's still open, so a burst of
-  // simultaneous turn-ins can't double-reward everyone.
-  const { data: claimed } = await admin
-    .from("shg_quest_events")
-    .update({ status: "achieved", closed_at: new Date().toISOString() })
-    .eq("quest_id", opts.questId).eq("event_id", opts.eventId).eq("status", "open")
-    .select("quest_id")
-    .maybeSingle();
-  if (!claimed) return;
-
-  const { data: participants } = await admin
-    .from("shg_quest_activations")
-    .select("user_id, user:shg_users(id, email, name)")
-    .eq("quest_id", opts.questId).eq("event_id", opts.eventId).eq("status", "turned_in");
-
-  for (const p of participants ?? []) {
-    const userRow = Array.isArray(p.user) ? p.user[0] : p.user;
-    const { error: rewardError } = await admin.from("shg_quest_rewards").insert({
-      quest_id: opts.questId, user_id: p.user_id, awarded_xp: opts.rewardXp, awarded_rp: opts.rewardRp,
-    });
-    if (rewardError) continue; // already rewarded somehow — skip, don't double-grant
-
-    await admin.rpc("shg_award_user", { p_user_id: p.user_id, p_xp: opts.rewardXp, p_rp: opts.rewardRp });
-    if (opts.badgeId) {
-      await admin.from("shg_user_badges").upsert(
-        { user_id: p.user_id, badge_id: opts.badgeId },
-        { onConflict: "user_id,badge_id", ignoreDuplicates: true }
-      );
-    }
-    await admin.from("shg_quest_history").insert({
-      quest_id: opts.questId, quest_title: opts.title, quest_type: "event",
-      event_id: opts.eventId, event_title: opts.eventTitle,
-      user_id: p.user_id, user_label: userRow?.name || userRow?.email || "Aventurero",
-      outcome: "completed", awarded_xp: opts.rewardXp, awarded_rp: opts.rewardRp,
-    });
-  }
 }

@@ -175,7 +175,7 @@ export function QuestBoard({ eventId, individualMissions, groupMissions, loggedI
                 </p>
               ) : !isLive ? (
                 <p className="text-center font-label text-xs uppercase tracking-wide px-3 py-2 border border-border text-ink-light">
-                  {state === "turned_in" ? "Entregada — esperando confirmación" : state === "active" ? "En curso" : inactiveNote}
+                  {state === "turned_in" ? "Pendiente de aprobación del administrador" : state === "active" ? "En curso" : inactiveNote}
                 </p>
               ) : !loggedIn ? (
                 <Link
@@ -186,7 +186,7 @@ export function QuestBoard({ eventId, individualMissions, groupMissions, loggedI
                 </Link>
               ) : state === "turned_in" ? (
                 <p className="text-center font-label text-xs uppercase tracking-wide px-3 py-2 border border-brass/40 bg-brass/5 text-brass">
-                  Entregada — esperando confirmación
+                  Pendiente de aprobación del administrador
                 </p>
               ) : state === "active" ? (
                 <button

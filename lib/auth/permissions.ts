@@ -1,6 +1,6 @@
 import type { PermissionKey, ShgSecurityRole } from "@/types/database";
 
-// Single source of truth for the 13 admin-panel sections a role can be
+// Single source of truth for the admin-panel sections a role can be
 // granted/denied — sidebar order, labels, and the shg_security_roles
 // column each maps to. Add a new admin feature here (+ its perm_* column
 // in a migration) and the roles UI, sidebar filtering, and route guards
@@ -12,6 +12,7 @@ export const PERMISSIONS = [
   { key: "tags",          column: "perm_tags",          label: "Tags" },
   { key: "users",         column: "perm_users",         label: "Usuarios" },
   { key: "quests",        column: "perm_quests",        label: "Misiones" },
+  { key: "turn_ins",      column: "perm_turn_ins",      label: "Aprobaciones de entregas" },
   { key: "ranks",         column: "perm_ranks",         label: "Rangos" },
   { key: "badges",        column: "perm_badges",        label: "Insignias" },
   { key: "feature_flags", column: "perm_feature_flags", label: "Funciones" },

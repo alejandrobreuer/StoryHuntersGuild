@@ -29,7 +29,7 @@ interface RewardRow {
   user: { id: string; email: string; name: string | null } | null;
 }
 interface ActivationRow {
-  id: string; event_id: string | null; user_id: string; status: "active" | "turned_in" | "rejected"; turned_in_at: string | null;
+  id: string; event_id: string | null; user_id: string; status: "active" | "turned_in" | "rejected" | "confirmed"; turned_in_at: string | null;
   user: { id: string; email: string; name: string | null } | null;
 }
 interface GroupMemberRow {
@@ -96,15 +96,8 @@ function QuestDetail({ quest, users }: { quest: QuestRow; users: ShgUserPublic[]
   );
   const capReached = selectedEventId !== "" && quest.max_completions_per_event > 0 && usedForEvent >= quest.max_completions_per_event;
 
-  const pendingTurnIns = React.useMemo(() => {
-    if (quest.type === "guild") {
-      return (activations ?? []).filter((a) => a.status === "turned_in" && a.event_id === null);
-    }
-    return (activations ?? []).filter((a) => a.status === "turned_in" && a.event_id === selectedEventId);
-  }, [activations, selectedEventId, quest.type]);
-
-  const turnedInCountForEvent = React.useMemo(
-    () => (activations ?? []).filter((a) => a.status === "turned_in" && a.event_id === selectedEventId).length,
+  const confirmedCountForEvent = React.useMemo(
+    () => (activations ?? []).filter((a) => a.status === "confirmed" && a.event_id === selectedEventId).length,
     [activations, selectedEventId]
   );
 
@@ -125,53 +118,10 @@ function QuestDetail({ quest, users }: { quest: QuestRow; users: ShgUserPublic[]
     }
   }
 
-  async function reject(userId: string, eventId: string | null) {
-    setBusy(true);
-    try {
-      const res = await fetch(`/api/admin/quests/${quest.id}/reject`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, eventId }),
-      });
-      const json = await res.json();
-      if (!res.ok) { toast.error(json.error ?? "Error."); return; }
-      toast.success("Entrega rechazada — el jugador puede volver a intentarlo.");
-      load();
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function markComplete() {
     if (!selectedUserId) { toast.error("Elegí un usuario."); return; }
     await confirm(selectedUserId, quest.type === "guild" ? null : (selectedEventId || null));
     setSelectedUserId("");
-  }
-
-  async function confirmGroup(groupId: string) {
-    setBusy(true);
-    try {
-      const res = await fetch(`/api/admin/quests/${quest.id}/groups/${groupId}/complete`, { method: "POST" });
-      const json = await res.json();
-      if (!res.ok) { toast.error(json.error ?? "Error."); return; }
-      toast.success("Grupo confirmado — recompensa otorgada a todos los integrantes.");
-      load();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function rejectGroup(groupId: string) {
-    setBusy(true);
-    try {
-      const res = await fetch(`/api/admin/quests/${quest.id}/groups/${groupId}/reject`, { method: "POST" });
-      const json = await res.json();
-      if (!res.ok) { toast.error(json.error ?? "Error."); return; }
-      toast.success("Grupo rechazado — los integrantes pueden volver a intentarlo.");
-      load();
-    } finally {
-      setBusy(false);
-    }
   }
 
   if (!completions || !rewards || !activations || !groups) {
@@ -183,6 +133,10 @@ function QuestDetail({ quest, users }: { quest: QuestRow; users: ShgUserPublic[]
 
   return (
     <div className="flex flex-col gap-4 pt-3 border-t border-border">
+      <a href="/admin/turn-ins" className="self-start font-label text-2xs uppercase tracking-wide text-brass underline">
+        Ver entregas pendientes en Aprobaciones de entregas →
+      </a>
+
       {quest.type !== "guild" && quest.events.length > 0 && (
         <div>
           <Select
@@ -203,13 +157,13 @@ function QuestDetail({ quest, users }: { quest: QuestRow; users: ShgUserPublic[]
           {selectedEventId && quest.type === "event" && eventLink && (
             <div className="mt-1.5">
               <div className="flex items-center justify-between font-label text-2xs uppercase tracking-widest text-leather-light mb-1">
-                <span>Entregas</span>
-                <span>{turnedInCountForEvent} / {quest.required_turn_ins ?? "—"}</span>
+                <span>Entregas aprobadas</span>
+                <span>{confirmedCountForEvent} / {quest.required_turn_ins ?? "—"}</span>
               </div>
               <div className="h-2 w-full bg-parchment-dark/40 overflow-hidden rounded-full mb-1.5">
                 <div
                   className="h-full bg-brass transition-all"
-                  style={{ width: `${quest.required_turn_ins ? Math.min(100, (turnedInCountForEvent / quest.required_turn_ins) * 100) : 0}%` }}
+                  style={{ width: `${quest.required_turn_ins ? Math.min(100, (confirmedCountForEvent / quest.required_turn_ins) * 100) : 0}%` }}
                 />
               </div>
               <span className={cn("font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm", EVENT_STATUS_STYLES[eventLink.status])}>
@@ -254,12 +208,6 @@ function QuestDetail({ quest, users }: { quest: QuestRow; users: ShgUserPublic[]
                         {GROUP_STATUS_LABELS[g.status]}
                       </span>
                     </div>
-                    {g.status === "turned_in" && (
-                      <div className="flex gap-1.5 mt-1">
-                        <Button size="sm" variant="secondary" onClick={() => confirmGroup(g.id)} loading={busy}>Confirmar</Button>
-                        <Button size="sm" variant="ghost" onClick={() => rejectGroup(g.id)} loading={busy}>Rechazar</Button>
-                      </div>
-                    )}
                   </div>
                 ))}
               </div>
@@ -271,25 +219,6 @@ function QuestDetail({ quest, users }: { quest: QuestRow; users: ShgUserPublic[]
         </>
       ) : (
         <>
-          {pendingTurnIns.length > 0 && (quest.type === "guild" || selectedEventId) && (
-            <div>
-              <p className="font-label text-2xs uppercase tracking-widest text-crimson mb-1.5">
-                Entregas pendientes de confirmar ({pendingTurnIns.length})
-              </p>
-              <div className="flex flex-col gap-1.5">
-                {pendingTurnIns.map((a) => (
-                  <div key={a.id} className="flex items-center justify-between gap-2 font-body text-xs text-ink-light bg-crimson/5 border border-crimson/20 px-2.5 py-1.5 rounded-sm">
-                    <span>{userLabel(a.user)}</span>
-                    <div className="flex gap-1.5 shrink-0">
-                      <Button size="sm" variant="secondary" onClick={() => confirm(a.user_id, a.event_id)} loading={busy} disabled={capReached}>Confirmar</Button>
-                      <Button size="sm" variant="ghost" onClick={() => reject(a.user_id, a.event_id)} loading={busy}>Rechazar</Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           <div className="flex flex-wrap items-end gap-2">
             <Select wrapperClassName="flex-1 min-w-[180px]" label="Completar para" value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)}>
               <option value="">Elegí un usuario…</option>

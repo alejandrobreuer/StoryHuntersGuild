@@ -143,7 +143,7 @@ export function AdminsManager() {
       <p className="font-body text-sm text-parchment-dark mb-6">
         Cada cuenta entra con su email y contraseña desde /admin/login — no hay recuperación por email,
         así que restablecé la contraseña vos mismo si alguien la olvida. Asignale un rol para definir a
-        qué puede acceder — administrá los roles desde <a href="/admin/roles" className="underline">Roles</a>.
+        qué puede acceder — administrá los roles desde <a href="/admin/settings" className="underline">Configuración → Roles</a>.
       </p>
 
       {loading ? (

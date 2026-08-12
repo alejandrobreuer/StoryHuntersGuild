@@ -39,7 +39,6 @@ export function SettingsForm() {
 
   return (
     <div>
-      <h1 className="font-display text-2xl text-parchment mb-6">Configuración</h1>
       <form onSubmit={handleSave} className="surface-parchment p-6 flex flex-col gap-4 max-w-lg">
         <Textarea
           label="Datos de transferencia bancaria"

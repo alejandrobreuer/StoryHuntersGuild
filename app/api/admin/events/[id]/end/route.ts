@@ -53,7 +53,7 @@ async function failUnachievedEventMission(admin: ReturnType<typeof createAdminCl
   const { data: participants } = await admin
     .from("shg_quest_activations")
     .select("user_id, user:shg_users(id, email, name)")
-    .eq("quest_id", link.quest_id).eq("event_id", eventId).eq("status", "turned_in");
+    .eq("quest_id", link.quest_id).eq("event_id", eventId).in("status", ["turned_in", "confirmed"]);
 
   for (const p of participants ?? []) {
     const userRow = Array.isArray(p.user) ? p.user[0] : p.user;

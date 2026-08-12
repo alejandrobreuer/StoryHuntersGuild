@@ -1,7 +1,7 @@
-import { requireAdminPagePermission } from "@/lib/auth/guard";
-import { SettingsForm } from "@/components/admin/SettingsForm";
+import { requireAdminPagePermissionAny } from "@/lib/auth/guard";
+import { SettingsTabs } from "@/components/admin/SettingsTabs";
 
 export default async function AdminSettingsPage() {
-  await requireAdminPagePermission("settings");
-  return <SettingsForm />;
+  const admin = await requireAdminPagePermissionAny(["settings", "ranks", "badges", "tags", "feature_flags", "roles"]);
+  return <SettingsTabs permissions={admin.permissions} />;
 }

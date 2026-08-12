@@ -10,6 +10,7 @@ export const roleSchema = z.object({
   perm_tags:          z.boolean(),
   perm_users:         z.boolean(),
   perm_quests:        z.boolean(),
+  perm_turn_ins:      z.boolean(),
   perm_ranks:         z.boolean(),
   perm_badges:        z.boolean(),
   perm_feature_flags: z.boolean(),

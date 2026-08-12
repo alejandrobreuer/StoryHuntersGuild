@@ -13,14 +13,14 @@ import type { ShgSecurityRole } from "@/types/database";
 type RoleForm = Pick<
   ShgSecurityRole,
   "name" | "description" | "can_access_admin" | "perm_events" | "perm_venues" | "perm_games" |
-  "perm_tags" | "perm_users" | "perm_quests" | "perm_ranks" | "perm_badges" | "perm_feature_flags" |
-  "perm_bookings" | "perm_reports" | "perm_settings" | "perm_roles"
+  "perm_tags" | "perm_users" | "perm_quests" | "perm_turn_ins" | "perm_ranks" | "perm_badges" |
+  "perm_feature_flags" | "perm_bookings" | "perm_reports" | "perm_settings" | "perm_roles"
 >;
 
 const EMPTY: RoleForm = {
   name: "", description: "", can_access_admin: true,
   perm_events: false, perm_venues: false, perm_games: false, perm_tags: false, perm_users: false,
-  perm_quests: false, perm_ranks: false, perm_badges: false, perm_feature_flags: false,
+  perm_quests: false, perm_turn_ins: false, perm_ranks: false, perm_badges: false, perm_feature_flags: false,
   perm_bookings: false, perm_reports: false, perm_settings: false, perm_roles: false,
 };
 
@@ -68,6 +68,7 @@ export function RolesManager() {
       name: r.name, description: r.description ?? "", can_access_admin: r.can_access_admin,
       perm_events: r.perm_events, perm_venues: r.perm_venues, perm_games: r.perm_games,
       perm_tags: r.perm_tags, perm_users: r.perm_users, perm_quests: r.perm_quests,
+      perm_turn_ins: r.perm_turn_ins,
       perm_ranks: r.perm_ranks, perm_badges: r.perm_badges, perm_feature_flags: r.perm_feature_flags,
       perm_bookings: r.perm_bookings, perm_reports: r.perm_reports, perm_settings: r.perm_settings,
       perm_roles: r.perm_roles,
@@ -106,8 +107,7 @@ export function RolesManager() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-2">
-        <h1 className="font-display text-2xl text-parchment">Roles</h1>
+      <div className="flex items-center justify-end mb-2">
         <Button size="sm" onClick={openNew}><Plus size={14} className="mr-1" />Nuevo rol</Button>
       </div>
       <p className="font-body text-sm text-parchment-dark mb-6">

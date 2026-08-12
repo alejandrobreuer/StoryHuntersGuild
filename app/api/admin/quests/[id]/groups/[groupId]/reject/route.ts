@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requirePermission } from "@/lib/auth/guard";
+import { requirePermissionAny } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // ─── POST /api/admin/quests/[id]/groups/[groupId]/reject ───────────────────
@@ -8,7 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // to join a fresh forming party for the same mission.
 
 export async function POST(_req: Request, { params }: { params: { id: string; groupId: string } }) {
-  const { user: adminUser, error } = await requirePermission("quests");
+  const { user: adminUser, error } = await requirePermissionAny(["quests", "turn_ins"]);
   if (error) return error;
 
   const admin = createAdminClient();

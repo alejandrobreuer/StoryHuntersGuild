@@ -7,7 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getSessionUser } from "@/lib/auth/guard";
 import { getFeatureFlags } from "@/lib/features";
 import { EVENT_TYPE_LABELS } from "@/lib/gamification/eventTypes";
-import { EventMissionBanner, type EventMissionData } from "@/components/events/EventMissionBanner";
+import { EventMissionBanner, type EventMissionData, type EventMissionViewerState } from "@/components/events/EventMissionBanner";
 import { QuestBoard, type IndividualMissionItem, type GroupMissionItem, type GroupInstance } from "@/components/events/QuestBoard";
 import { Button } from "@/components/ui/Button";
 import { formatARS, formatDateTime, formatTime } from "@/lib/formatting";
@@ -102,7 +102,7 @@ export default async function EventDetailPage({ params }: { params: { id: string
   // shg_quest_rewards is checked for every type — it's what "already
   // completed, grayed out" means regardless of how the mission works.
   const selfServiceMissionIds = [...individualMissionRows, ...(eventMission ? [eventMission] : [])].map((m) => m.id);
-  const activationByQuest = new Map<string, "active" | "turned_in" | "rejected">();
+  const activationByQuest = new Map<string, "active" | "turned_in" | "rejected" | "confirmed">();
   const rewardedQuestIds = new Set<string>();
   if (sessionUser) {
     const [{ data: activationRows }, { data: rewardRows }] = await Promise.all([
@@ -113,31 +113,36 @@ export default async function EventDetailPage({ params }: { params: { id: string
         ? admin.from("shg_quest_rewards").select("quest_id").eq("user_id", sessionUser.id).in("quest_id", allMissionIds)
         : Promise.resolve({ data: [] as { quest_id: string }[] }),
     ]);
-    for (const row of activationRows ?? []) activationByQuest.set(row.quest_id, row.status as "active" | "turned_in" | "rejected");
+    for (const row of activationRows ?? []) activationByQuest.set(row.quest_id, row.status as "active" | "turned_in" | "rejected" | "confirmed");
     for (const row of rewardRows ?? []) rewardedQuestIds.add(row.quest_id);
   }
 
   let eventMissionData: EventMissionData | null = null;
-  let eventMissionViewerTurnedIn = false;
+  let eventMissionViewerState: EventMissionViewerState = "none";
   if (eventMission) {
     const { count } = await admin
       .from("shg_quest_activations")
       .select("id", { count: "exact", head: true })
-      .eq("quest_id", eventMission.id).eq("event_id", params.id).eq("status", "turned_in");
+      .eq("quest_id", eventMission.id).eq("event_id", params.id).eq("status", "confirmed");
     const badge = one(eventMission.badge);
     eventMissionData = {
       id: eventMission.id, title: eventMission.title, narrative: eventMission.narrative,
       rewardXp: eventMission.reward_xp, rewardRp: eventMission.reward_rp, badgeName: badge?.name ?? null,
-      requiredTurnIns: eventMission.required_turn_ins ?? 0, turnedInCount: count ?? 0,
+      requiredTurnIns: eventMission.required_turn_ins ?? 0, confirmedCount: count ?? 0,
       linkStatus: eventMission.linkStatus,
     };
-    eventMissionViewerTurnedIn = rewardedQuestIds.has(eventMission.id) || activationByQuest.get(eventMission.id) === "turned_in";
+    const viewerActivation = activationByQuest.get(eventMission.id);
+    eventMissionViewerState = viewerActivation === "confirmed" ? "confirmed" : viewerActivation === "turned_in" ? "turned_in" : "none";
   }
 
   const individualMissionItems: IndividualMissionItem[] = individualMissionRows.map((m) => {
     const badge = one(m.badge);
     const game = one(m.game);
-    const initialState = rewardedQuestIds.has(m.id) ? "completed" : activationByQuest.get(m.id) ?? "available";
+    // "confirmed" only ever applies to Event missions, never Individual —
+    // narrow it away here rather than widening IndividualMissionItem's type.
+    const rawState = activationByQuest.get(m.id);
+    const individualState = rawState === "confirmed" ? undefined : rawState;
+    const initialState = rewardedQuestIds.has(m.id) ? "completed" : individualState ?? "available";
     return {
       id: m.id, title: m.title, narrative: m.narrative, difficulty: m.difficulty,
       rewardXp: m.reward_xp, rewardRp: m.reward_rp, badgeName: badge?.name ?? null, game,
@@ -295,7 +300,7 @@ export default async function EventDetailPage({ params }: { params: { id: string
             mission={eventMissionData}
             loggedIn={Boolean(sessionUser)}
             isLive={isLive}
-            viewerTurnedIn={eventMissionViewerTurnedIn}
+            viewerState={eventMissionViewerState}
           />
         )}
 

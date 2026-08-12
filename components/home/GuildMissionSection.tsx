@@ -65,7 +65,7 @@ export function GuildMissionSection({ mission, loggedIn, viewerPending }: GuildM
             </p>
             {pending ? (
               <span className="font-label text-xs uppercase tracking-wide px-3 py-1.5 rounded-sm border border-brass/40 bg-brass/5 text-brass">
-                Pendiente de confirmación
+                Pendiente de aprobación del administrador
               </span>
             ) : !loggedIn ? (
               <Link

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { MapPin, Radio } from "lucide-react";
+import { MapPin, Radio, ArrowRight } from "lucide-react";
 import { formatARS, formatDateTime } from "@/lib/formatting";
 import { EVENT_TYPE_LABELS } from "@/lib/gamification/eventTypes";
 import { CapacityBadge } from "@/components/ui/CapacityBadge";
@@ -68,15 +68,23 @@ export function EventCard({ event, showRewards }: EventCardProps) {
             </div>
           )}
         </div>
-        <CapacityBadge remaining={event.remaining} />
+        {!isLive && <CapacityBadge remaining={event.remaining} />}
       </div>
 
-      <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
-        <span className="font-label text-2xs uppercase tracking-widest text-leather-light">Por persona</span>
-        <span className="font-display text-lg font-semibold text-brass">
-          {formatARS(event.price_per_person)}
-        </span>
-      </div>
+      {isLive ? (
+        <div className="mt-4 pt-3 border-t border-border flex items-center justify-center">
+          <span className="inline-flex items-center gap-1.5 font-label text-xs uppercase tracking-widest px-4 py-2 rounded-sm bg-crimson text-crimson-foreground group-hover:bg-crimson/90 transition-colors">
+            Ver evento <ArrowRight size={13} />
+          </span>
+        </div>
+      ) : (
+        <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
+          <span className="font-label text-2xs uppercase tracking-widest text-leather-light">Por persona</span>
+          <span className="font-display text-lg font-semibold text-brass">
+            {formatARS(event.price_per_person)}
+          </span>
+        </div>
+      )}
       </Link>
     </div>
   );

@@ -106,3 +106,27 @@ export async function requireAdminPagePermission(key: PermissionKey): Promise<Ad
   if (!user.permissions[key]) redirect("/admin");
   return user;
 }
+
+/** Same as requirePermission(), but passes if the admin holds ANY of the
+ * given keys — for sections reachable by more than one role (e.g. turn-in
+ * approvals are usable by "quests" admins as well as a narrower "turn_ins"
+ * role, so introducing the new key doesn't lock anyone out). */
+export async function requirePermissionAny(keys: PermissionKey[]): Promise<
+  | { user: AdminSessionUser; error: null }
+  | { user: null; error: NextResponse }
+> {
+  const { user, error } = await requireAdmin();
+  if (error) return { user: null, error };
+  if (!keys.some((key) => user.permissions[key])) {
+    return { user: null, error: NextResponse.json({ error: "No tenés permiso para esta sección." }, { status: 403 }) };
+  }
+  return { user, error: null };
+}
+
+/** Page-level equivalent of requirePermissionAny(). */
+export async function requireAdminPagePermissionAny(keys: PermissionKey[]): Promise<AdminSessionUser> {
+  const user = await getAdminUser();
+  if (!user) redirect("/admin/login");
+  if (!keys.some((key) => user.permissions[key])) redirect("/admin");
+  return user;
+}

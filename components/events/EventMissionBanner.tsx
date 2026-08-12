@@ -14,24 +14,27 @@ export interface EventMissionData {
   rewardRp:        number;
   badgeName:       string | null;
   requiredTurnIns: number;
-  turnedInCount:   number;
+  confirmedCount:  number;
   linkStatus:      QuestEventStatus;
 }
 
+export type EventMissionViewerState = "none" | "turned_in" | "confirmed";
+
 interface EventMissionBannerProps {
-  eventId:        string;
-  mission:        EventMissionData;
-  loggedIn:       boolean;
-  isLive:         boolean;
-  viewerTurnedIn: boolean;
+  eventId:      string;
+  mission:      EventMissionData;
+  loggedIn:     boolean;
+  isLive:       boolean;
+  viewerState:  EventMissionViewerState;
 }
 
 // Everyone at the event is assigned to this by default — no activate step,
-// straight to "Entregar". The shared count auto-achieves (and rewards
-// everyone) the moment it hits requiredTurnIns; see turn-in/route.ts.
-export function EventMissionBanner({ eventId, mission, loggedIn, isLive, viewerTurnedIn }: EventMissionBannerProps) {
-  const [turnedIn, setTurnedIn] = React.useState(viewerTurnedIn);
-  const [count, setCount] = React.useState(mission.turnedInCount);
+// straight to "Entregar". Turning in just marks it pending; an admin still
+// has to approve each one (see admin complete/route.ts) before it counts
+// toward requiredTurnIns — only once enough are approved does the mission
+// achieve and reward everyone in one batch.
+export function EventMissionBanner({ eventId, mission, loggedIn, isLive, viewerState }: EventMissionBannerProps) {
+  const [state, setState] = React.useState<EventMissionViewerState>(viewerState);
   const [busy, setBusy] = React.useState(false);
 
   async function turnIn() {
@@ -44,9 +47,8 @@ export function EventMissionBanner({ eventId, mission, loggedIn, isLive, viewerT
       });
       const json = await res.json();
       if (!res.ok) { toast.error(json.error ?? "No se pudo entregar la misión."); return; }
-      setTurnedIn(true);
-      setCount((c) => c + 1);
-      toast.success("¡Entregada! Sumaste tu ofrenda a la misión del evento.");
+      setState("turned_in");
+      toast.success("¡Entregada! Un Asistente del Gremio la va a aprobar en el lugar.");
     } finally {
       setBusy(false);
     }
@@ -65,10 +67,10 @@ export function EventMissionBanner({ eventId, mission, loggedIn, isLive, viewerT
         )}
 
         <div className="flex items-center justify-between font-label text-2xs uppercase tracking-widest text-leather-light mb-1.5">
-          <span>Entregas del gremio</span>
-          <span><b className="text-crimson text-sm">{count}</b> / {mission.requiredTurnIns}</span>
+          <span>Entregas aprobadas</span>
+          <span><b className="text-crimson text-sm">{mission.confirmedCount}</b> / {mission.requiredTurnIns}</span>
         </div>
-        <ProgressBar value={count} max={mission.requiredTurnIns} className="border border-brass/30" />
+        <ProgressBar value={mission.confirmedCount} max={mission.requiredTurnIns} className="border border-brass/30" />
 
         <div className="mt-5 flex items-center justify-between flex-wrap gap-3">
           <p className="font-label text-2xs text-brass">
@@ -83,9 +85,13 @@ export function EventMissionBanner({ eventId, mission, loggedIn, isLive, viewerT
             <span className="font-label text-xs uppercase tracking-wide px-3 py-1.5 rounded-sm border border-border text-ink-light">
               No se logró a tiempo
             </span>
-          ) : turnedIn ? (
+          ) : state === "confirmed" ? (
+            <span className="font-label text-xs uppercase tracking-wide px-3 py-1.5 rounded-sm border border-moss bg-moss/10 text-moss-dark">
+              ¡Aprobada! Esperando que el gremio alcance la meta.
+            </span>
+          ) : state === "turned_in" ? (
             <span className="font-label text-xs uppercase tracking-wide px-3 py-1.5 rounded-sm border border-brass/40 bg-brass/5 text-brass">
-              ¡Ya entregaste tu ofrenda!
+              Pendiente de aprobación del administrador
             </span>
           ) : !isLive ? (
             <span className="font-label text-xs uppercase tracking-wide px-3 py-1.5 rounded-sm border border-border text-ink-light">
