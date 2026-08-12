@@ -75,17 +75,23 @@ function QuestPaperCard({
   const paperSrc = QUEST_PAPER_IMAGES[index % QUEST_PAPER_IMAGES.length];
   const angle = PAPER_ANGLES[index % PAPER_ANGLES.length];
   return (
-    <div style={{ transform: `rotate(${angle}deg)` }}>
-      {/* The images are square (1254x1254) — aspect-square keeps object-contain
-       * from letterboxing, which would otherwise throw off the padding below. */}
-      <div className={cn("relative aspect-square w-full", className)}>
+    <div style={{ transform: `rotate(${angle}deg)` }} className="mx-auto w-full max-w-[260px]">
+      {/* Fixed size, not aspect-ratio-driven — the images are square
+       * (1254x1254), so a fixed square box keeps object-contain from
+       * letterboxing (which would throw off the padding below) while
+       * still giving every card the same footprint regardless of how
+       * much text it holds. */}
+      <div className={cn("relative w-full max-w-[260px] h-[340px] mx-auto", className)}>
         {/* The paper's own torn/burnt edges and corner ornaments (including a
          * wax seal that lands in a different corner per variant) are part of
          * the art — generous padding keeps text and controls clear of all of
          * them rather than clipping the image to a rectangle. */}
-        <Image src={paperSrc} alt="" fill sizes="380px" className="object-contain pointer-events-none select-none" />
-        <MissionInfoButton type={infoType} className="top-[22px] right-[22px]" />
-        <div className="absolute inset-0 flex flex-col gap-2 px-[52px] pt-14 pb-[72px] overflow-y-auto">
+        <Image src={paperSrc} alt="" fill sizes="260px" className="object-contain pointer-events-none select-none" />
+        <MissionInfoButton type={infoType} className="top-4 right-4" />
+        {/* overflow-hidden + line-clamp on title/narrative instead of a
+         * scrollbar — a rotated card with a native scrollbar looks broken,
+         * and a graceful truncation reads better in a card grid anyway. */}
+        <div className="absolute inset-0 flex flex-col gap-1.5 px-9 pt-10 pb-12 overflow-hidden">
           {children}
         </div>
       </div>
@@ -173,19 +179,19 @@ export function QuestBoard({ eventId, individualMissions, groupMissions, loggedI
     groupAction(`/api/quests/${questId}/group/turn-in`, { groupId }, groupId, "¡Entregada! Esperando confirmación.");
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2 pb-1">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 justify-items-center gap-6 pt-2 pb-1">
       {individualMissions.map((m, i) => {
         const state = states[m.id];
         const soldOut = m.maxPerEvent > 0 && m.usedCount >= m.maxPerEvent && state === "available";
         return (
           <QuestPaperCard key={m.id} index={i} infoType="individual" className={state === "completed" ? "opacity-60" : undefined}>
             <div className="flex items-start justify-between gap-2 flex-wrap pr-7">
-              <p className="font-label text-sm font-semibold text-ink">{m.title}</p>
+              <p className="font-label text-sm font-semibold text-ink line-clamp-2 shrink-0">{m.title}</p>
               <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-leather/10 text-leather">
                 {DIFFICULTY_LABELS[m.difficulty]}
               </span>
             </div>
-            {m.narrative && <p className="font-body text-sm text-ink-light leading-relaxed">{m.narrative}</p>}
+            {m.narrative && <p className="font-body text-xs text-ink-light leading-snug line-clamp-3 shrink-0">{m.narrative}</p>}
             <div className="flex items-center gap-3 flex-wrap">
               <span className="font-label text-2xs font-semibold text-[#8a6420]">
                 +{m.rewardXp} XP · +{m.rewardRp} RP{m.badgeName ? ` · insignia "${m.badgeName}"` : ""}
@@ -256,12 +262,12 @@ export function QuestBoard({ eventId, individualMissions, groupMissions, loggedI
             className={m.viewerRewarded ? "opacity-60" : undefined}
           >
             <div className="flex items-start justify-between gap-2 flex-wrap pr-7">
-              <p className="font-label text-sm font-semibold text-ink">{m.title}</p>
+              <p className="font-label text-sm font-semibold text-ink line-clamp-2 shrink-0">{m.title}</p>
               <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-leather/10 text-leather">
                 {DIFFICULTY_LABELS[m.difficulty]}
               </span>
             </div>
-            {m.narrative && <p className="font-body text-sm text-ink-light leading-relaxed">{m.narrative}</p>}
+            {m.narrative && <p className="font-body text-xs text-ink-light leading-snug line-clamp-3 shrink-0">{m.narrative}</p>}
             <div className="flex items-center gap-3 flex-wrap">
               <span className="font-label text-2xs font-semibold text-[#8a6420]">
                 +{m.rewardXp} XP · +{m.rewardRp} RP{m.badgeName ? ` · insignia "${m.badgeName}"` : ""}
@@ -288,7 +294,12 @@ export function QuestBoard({ eventId, individualMissions, groupMissions, loggedI
                 Iniciá sesión para unirte
               </Link>
             ) : (
-              <div className="flex flex-col gap-1.5 mt-1">
+              <div className="flex flex-col gap-1.5 mt-1 min-h-0">
+                {/* Bounded, independently-scrollable — the card itself has a
+                 * fixed height, but a mission can have several concurrent
+                 * parties forming, so this list (not the whole card) is what
+                 * scrolls when there are more than fit. */}
+                <div className="flex flex-col gap-1.5 max-h-[104px] overflow-y-auto pr-0.5">
                 {m.groups.map((g) => {
                   const isMine = g.id === m.viewerGroupId;
                   const full = g.members.length >= m.maxParticipants;
@@ -342,6 +353,7 @@ export function QuestBoard({ eventId, individualMissions, groupMissions, loggedI
                     </div>
                   );
                 })}
+                </div>
 
                 {canFormNew && (
                   <button

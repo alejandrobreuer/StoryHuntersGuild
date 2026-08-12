@@ -71,14 +71,22 @@
 
   .text-balance { text-wrap: balance; }
 
-  /* A mission "paper" pinned to the Quest Board — parchment card with a
-   * torn top/bottom edge (reuses .torn-edge) and a brass pin (.pin-dot),
-   * given a slight rotation per-card for a hand-pinned feel via the
-   * .paper-tilt-a/b/c helpers below. */
-  .surface-paper {
-    @apply bg-gradient-to-br from-parchment to-parchment-dark shadow-parchment-lg;
+  /* Quest Board picture frame — a real 9-slice border-image (board.png),
+   * not a stretched <Image>: corners render at native size (never
+   * distorted), only the straight edges stretch to fit. Border width
+   * drops on small screens so the frame doesn't dominate a narrow card. */
+  .quest-board-frame {
+    border-style: solid;
+    border-width: 64px;
+    border-image-source: url("/images/board.png");
+    border-image-slice: 110 fill;
+    border-image-width: 64px;
+    border-image-repeat: stretch;
   }
-  .paper-tilt-a { transform: rotate(-1deg); }
-  .paper-tilt-b { transform: rotate(0.75deg); }
-  .paper-tilt-c { transform: rotate(-0.5deg); }
+  @media (max-width: 640px) {
+    .quest-board-frame {
+      border-width: 32px;
+      border-image-width: 32px;
+    }
+  }
 }
