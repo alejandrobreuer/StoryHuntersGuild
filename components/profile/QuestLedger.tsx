@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Check, ScrollText, Users, Compass, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { MissionInfoButton } from "@/components/ui/MissionInfoButton";
 import type { QuestType } from "@/types/database";
 
 export interface LedgerQuest {
@@ -37,26 +38,31 @@ export function QuestLedger({ quests }: { quests: LedgerQuest[] }) {
 
   return (
     <div>
-      <div className="flex gap-1 flex-wrap">
-        {available.map(({ key, label, icon: Icon }) => {
-          const isActive = key === activeTab;
-          return (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setTab(key)}
-              className={cn(
-                "flex items-center gap-1.5 font-label text-2xs uppercase tracking-wide px-3.5 py-2 border border-brass/40 rounded-t-sm transition-colors relative top-px",
-                isActive
-                  ? "bg-parchment text-crimson border-b-parchment"
-                  : "bg-parchment-dark/60 text-leather-light hover:text-ink"
-              )}
-            >
-              <Icon size={13} />
-              {label}
-            </button>
-          );
-        })}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex gap-1 flex-wrap">
+          {available.map(({ key, label, icon: Icon }) => {
+            const isActive = key === activeTab;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setTab(key)}
+                className={cn(
+                  "flex items-center gap-1.5 font-label text-2xs uppercase tracking-wide px-3.5 py-2 border border-brass/40 rounded-t-sm transition-colors relative top-px",
+                  isActive
+                    ? "bg-parchment text-crimson border-b-parchment"
+                    : "bg-parchment-dark/60 text-leather-light hover:text-ink"
+                )}
+              >
+                <Icon size={13} />
+                {label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="relative size-6 shrink-0 mt-0.5">
+          <MissionInfoButton type={activeTab} className="top-0 right-0" />
+        </div>
       </div>
 
       <div className="border border-brass/40 rounded-b-sm rounded-tr-sm bg-parchment p-1.5">

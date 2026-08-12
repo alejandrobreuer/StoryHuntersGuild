@@ -322,15 +322,24 @@ export default async function EventDetailPage({ params }: { params: { id: string
                       ? "Así quedaron las misiones de este evento."
                       : "Se van a poder activar cuando el evento empiece."}
                 </p>
-                <div className="surface-wood rounded-md px-4 py-6 sm:px-7">
-                  <QuestBoard
-                    eventId={typedEvent.id}
-                    individualMissions={individualMissionItems}
-                    groupMissions={groupMissionItems}
-                    loggedIn={Boolean(sessionUser)}
-                    isLive={isLive}
-                    inactiveNote={inactiveNote}
+                <div className="relative rounded-md overflow-hidden">
+                  <Image
+                    src="/images/board.png"
+                    alt=""
+                    fill
+                    sizes="(min-width: 1024px) 900px, 100vw"
+                    className="object-fill pointer-events-none select-none"
                   />
+                  <div className="relative px-6 pt-16 pb-8 sm:px-10 sm:pt-16 sm:pb-10">
+                    <QuestBoard
+                      eventId={typedEvent.id}
+                      individualMissions={individualMissionItems}
+                      groupMissions={groupMissionItems}
+                      loggedIn={Boolean(sessionUser)}
+                      isLive={isLive}
+                      inactiveNote={inactiveNote}
+                    />
+                  </div>
                 </div>
               </section>
             )}

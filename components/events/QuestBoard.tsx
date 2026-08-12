@@ -8,7 +8,8 @@ import { Dice5, Check, Users, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { DIFFICULTY_LABELS } from "@/lib/gamification/questDifficulty";
-import type { QuestDifficulty, QuestGroupStatus } from "@/types/database";
+import { MissionInfoButton } from "@/components/ui/MissionInfoButton";
+import type { QuestDifficulty, QuestGroupStatus, QuestType } from "@/types/database";
 
 export type MissionActivationState = "available" | "active" | "turned_in" | "rejected" | "completed";
 
@@ -55,7 +56,42 @@ interface QuestBoardProps {
   inactiveNote:       string;
 }
 
-const PAPER_TILTS = ["paper-tilt-a", "paper-tilt-b", "paper-tilt-c"];
+// Real parchment art, alternated so no two adjacent cards look identical,
+// each given its own small (subtle!) rotation so they read as individually
+// pinned notes rather than a uniform grid.
+const QUEST_PAPER_IMAGES = [
+  "/images/quest-paper-classic-red-seal.png",
+  "/images/quest-paper-formal-burgundy-seal.png",
+  "/images/quest-paper-guild-blue-seal.png",
+  "/images/quest-paper-rugged-green-seal.png",
+];
+const PAPER_ANGLES = [-1.5, 1, -0.75, 1.25, -1, 0.5];
+
+function QuestPaperCard({
+  index, infoType, className, children,
+}: {
+  index: number; infoType: QuestType; className?: string; children: React.ReactNode;
+}) {
+  const paperSrc = QUEST_PAPER_IMAGES[index % QUEST_PAPER_IMAGES.length];
+  const angle = PAPER_ANGLES[index % PAPER_ANGLES.length];
+  return (
+    <div style={{ transform: `rotate(${angle}deg)` }}>
+      {/* The images are square (1254x1254) — aspect-square keeps object-contain
+       * from letterboxing, which would otherwise throw off the padding below. */}
+      <div className={cn("relative aspect-square w-full", className)}>
+        {/* The paper's own torn/burnt edges and corner ornaments (including a
+         * wax seal that lands in a different corner per variant) are part of
+         * the art — generous padding keeps text and controls clear of all of
+         * them rather than clipping the image to a rectangle. */}
+        <Image src={paperSrc} alt="" fill sizes="380px" className="object-contain pointer-events-none select-none" />
+        <MissionInfoButton type={infoType} className="top-[22px] right-[22px]" />
+        <div className="absolute inset-0 flex flex-col gap-2 px-[52px] pt-14 pb-[72px] overflow-y-auto">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function GameChip({ game }: { game: { name: string; image_url: string | null } }) {
   return (
@@ -142,15 +178,8 @@ export function QuestBoard({ eventId, individualMissions, groupMissions, loggedI
         const state = states[m.id];
         const soldOut = m.maxPerEvent > 0 && m.usedCount >= m.maxPerEvent && state === "available";
         return (
-          <div
-            key={m.id}
-            className={cn(
-              "surface-paper torn-edge pin-dot relative px-4 pt-5 pb-4 flex flex-col gap-2",
-              PAPER_TILTS[i % PAPER_TILTS.length],
-              state === "completed" && "opacity-60"
-            )}
-          >
-            <div className="flex items-start justify-between gap-2 flex-wrap">
+          <QuestPaperCard key={m.id} index={i} infoType="individual" className={state === "completed" ? "opacity-60" : undefined}>
+            <div className="flex items-start justify-between gap-2 flex-wrap pr-7">
               <p className="font-label text-sm font-semibold text-ink">{m.title}</p>
               <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-leather/10 text-leather">
                 {DIFFICULTY_LABELS[m.difficulty]}
@@ -158,7 +187,7 @@ export function QuestBoard({ eventId, individualMissions, groupMissions, loggedI
             </div>
             {m.narrative && <p className="font-body text-sm text-ink-light leading-relaxed">{m.narrative}</p>}
             <div className="flex items-center gap-3 flex-wrap">
-              <span className="font-label text-2xs text-brass">
+              <span className="font-label text-2xs font-semibold text-[#8a6420]">
                 +{m.rewardXp} XP · +{m.rewardRp} RP{m.badgeName ? ` · insignia "${m.badgeName}"` : ""}
               </span>
               {m.game && <GameChip game={m.game} />}
@@ -212,7 +241,7 @@ export function QuestBoard({ eventId, individualMissions, groupMissions, loggedI
                 </button>
               )}
             </div>
-          </div>
+          </QuestPaperCard>
         );
       })}
 
@@ -220,15 +249,13 @@ export function QuestBoard({ eventId, individualMissions, groupMissions, loggedI
         const viewerGroup = m.groups.find((g) => g.id === m.viewerGroupId) ?? null;
         const canFormNew = loggedIn && isLive && !m.viewerRewarded && !viewerGroup;
         return (
-          <div
+          <QuestPaperCard
             key={m.id}
-            className={cn(
-              "surface-paper torn-edge pin-dot relative px-4 pt-5 pb-4 flex flex-col gap-2",
-              PAPER_TILTS[(individualMissions.length + i) % PAPER_TILTS.length],
-              m.viewerRewarded && "opacity-60"
-            )}
+            index={individualMissions.length + i}
+            infoType="group"
+            className={m.viewerRewarded ? "opacity-60" : undefined}
           >
-            <div className="flex items-start justify-between gap-2 flex-wrap">
+            <div className="flex items-start justify-between gap-2 flex-wrap pr-7">
               <p className="font-label text-sm font-semibold text-ink">{m.title}</p>
               <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-leather/10 text-leather">
                 {DIFFICULTY_LABELS[m.difficulty]}
@@ -236,7 +263,7 @@ export function QuestBoard({ eventId, individualMissions, groupMissions, loggedI
             </div>
             {m.narrative && <p className="font-body text-sm text-ink-light leading-relaxed">{m.narrative}</p>}
             <div className="flex items-center gap-3 flex-wrap">
-              <span className="font-label text-2xs text-brass">
+              <span className="font-label text-2xs font-semibold text-[#8a6420]">
                 +{m.rewardXp} XP · +{m.rewardRp} RP{m.badgeName ? ` · insignia "${m.badgeName}"` : ""}
               </span>
               {m.game && <GameChip game={m.game} />}
@@ -328,7 +355,7 @@ export function QuestBoard({ eventId, individualMissions, groupMissions, loggedI
                 )}
               </div>
             )}
-          </div>
+          </QuestPaperCard>
         );
       })}
     </div>

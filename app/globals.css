@@ -71,18 +71,6 @@
 
   .text-balance { text-wrap: balance; }
 
-  /* Quest Board — literal wood-plank surface, zero-asset (gradients only,
-   * same approach as .torn-edge/.pin-dot above). Vertical seams read as
-   * plank joins; the inset shadow reads as a recessed board. */
-  .surface-wood {
-    background-color: theme("colors.wood.DEFAULT");
-    background-image:
-      repeating-linear-gradient(90deg, rgba(0,0,0,0.16) 0px, transparent 3px, transparent 150px, rgba(0,0,0,0.16) 153px),
-      repeating-linear-gradient(180deg, rgba(255,255,255,0.025) 0px, transparent 1px, transparent 3px, rgba(0,0,0,0.02) 4px),
-      linear-gradient(180deg, rgba(255,255,255,0.06), rgba(0,0,0,0.18));
-    box-shadow: inset 0 3px 12px rgba(0,0,0,0.45), inset 0 -3px 12px rgba(0,0,0,0.35);
-  }
-
   /* A mission "paper" pinned to the Quest Board — parchment card with a
    * torn top/bottom edge (reuses .torn-edge) and a brass pin (.pin-dot),
    * given a slight rotation per-card for a hand-pinned feel via the

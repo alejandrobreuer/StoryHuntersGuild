@@ -6,6 +6,7 @@ import { Flame } from "lucide-react";
 import { toast } from "sonner";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Modal } from "@/components/ui/Modal";
+import { MissionInfoButton } from "@/components/ui/MissionInfoButton";
 
 export interface GuildMissionData {
   id:            string;
@@ -104,7 +105,8 @@ export function GuildMissionSection({ mission, loggedIn, viewerPending }: GuildM
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setDetailsOpen(true); } }}
         className="relative bg-gradient-to-r from-leather via-crimson to-leather border-y-2 border-brass-bright shadow-glow z-10 cursor-pointer"
       >
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3.5">
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-3.5 pr-12 sm:pr-14">
+          <MissionInfoButton type="guild" className="border-brass-bright text-brass-bright bg-leather/80 hover:bg-brass-bright hover:text-ink" />
           <div className="flex items-center justify-center sm:justify-between gap-x-4 gap-y-2 flex-wrap text-center sm:text-left mb-2.5">
             <div className="flex items-center gap-2.5 min-w-0">
               <Flame size={20} className="text-brass-bright shrink-0 animate-pulse" />

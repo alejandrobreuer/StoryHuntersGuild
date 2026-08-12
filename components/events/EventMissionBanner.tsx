@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { ProgressBar } from "@/components/ui/ProgressBar";
+import { MissionInfoButton } from "@/components/ui/MissionInfoButton";
 import type { QuestEventStatus } from "@/types/database";
 
 export interface EventMissionData {
@@ -64,8 +65,9 @@ export function EventMissionBanner({ eventId, mission, loggedIn, isLive, viewerS
       <div className="relative border border-brass rounded-md bg-gradient-to-br from-parchment-card to-parchment px-4 py-3.5 sm:px-6 shadow-parchment overflow-hidden">
         <div className="absolute inset-y-0 left-0 w-1.5 opacity-40" style={{ backgroundImage: "repeating-linear-gradient(180deg, #A9793A 0 4px, transparent 4px 14px)" }} />
         <div className="absolute inset-y-0 right-0 w-1.5 opacity-40" style={{ backgroundImage: "repeating-linear-gradient(180deg, #A9793A 0 4px, transparent 4px 14px)" }} />
+        <MissionInfoButton type="event" className="top-2.5 right-4" />
 
-        <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-5">
+        <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-5 pr-6">
           <div className="flex-1 min-w-0">
             <h2 className="font-display text-lg text-ink leading-tight mb-0.5">{mission.title}</h2>
             {mission.narrative && (
