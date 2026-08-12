@@ -418,11 +418,15 @@ export function EventsManager() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">Misiones disponibles</label>
-            <p className="font-body text-2xs text-ink-light -mt-1">Elegí qué misiones del panel de Misiones están disponibles para este evento.</p>
+          <div className="flex flex-col gap-1.5 border border-brass/40 bg-brass/5 p-3">
+            <label className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">Misiones disponibles en este evento</label>
+            <p className="font-body text-2xs text-ink-light -mt-1">Elegí qué misiones del panel de Misiones están disponibles para este evento — si no elegís ninguna, no se muestra nada en la página pública del evento.</p>
             {quests.length === 0 ? (
-              <p className="font-body text-xs italic text-ink-light">Todavía no hay misiones cargadas.</p>
+              <p className="font-body text-xs italic text-ink-light">
+                No hay misiones para elegir todavía. Creá una desde{" "}
+                <a href="/admin/quests" target="_blank" rel="noopener noreferrer" className="underline text-brass">Misiones</a>{" "}
+                y volvé a abrir este formulario.
+              </p>
             ) : (
               <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto border border-border p-2 bg-parchment/40">
                 {quests.map((q) => (

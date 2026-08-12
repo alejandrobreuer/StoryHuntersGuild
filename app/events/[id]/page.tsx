@@ -2,15 +2,14 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { unstable_noStore as noStore } from "next/cache";
-import { MapPin, Users, Clock, Dice5, AtSign, ScrollText, Radio } from "lucide-react";
+import { AtSign, ExternalLink, Ticket, ScrollText, Radio } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSessionUser } from "@/lib/auth/guard";
 import { getFeatureFlags } from "@/lib/features";
 import { EVENT_TYPE_LABELS } from "@/lib/gamification/eventTypes";
 import { EventMissionGrid, type MissionItem } from "@/components/events/EventMissionGrid";
 import { Button } from "@/components/ui/Button";
-import { CapacityBadge } from "@/components/ui/CapacityBadge";
-import { formatARS, formatDateTime, formatPlayers, formatPlaytime } from "@/lib/formatting";
+import { formatARS, formatDateTime, formatTime } from "@/lib/formatting";
 import type { ShgEvent, ShgVenuePublic, ShgGame, QuestDifficulty, QuestType } from "@/types/database";
 
 interface EventQuestRow {
@@ -106,34 +105,73 @@ export default async function EventDetailPage({ params }: { params: { id: string
     };
   });
 
-  return (
-    <main className="max-w-3xl mx-auto px-6 py-14">
-      {typedEvent.cover_image_url && (
-        <div className="relative w-full aspect-[16/7] mb-8 overflow-hidden border border-brass/30">
-          <Image src={typedEvent.cover_image_url} alt="" fill className="object-cover" sizes="800px" />
-        </div>
-      )}
+  const eyebrowDate = new Date(typedEvent.starts_at).toLocaleDateString("es-AR", {
+    weekday: "long", day: "numeric", month: "long",
+  });
+  const schedule = typedEvent.ends_at
+    ? `${formatTime(typedEvent.starts_at)} a ${formatTime(typedEvent.ends_at)} hs`
+    : `${formatTime(typedEvent.starts_at)} hs`;
 
-      <div className="flex items-start justify-between gap-4 mb-6">
-        <div>
-          <div className="flex items-center gap-2 flex-wrap mb-2">
-            <p className="font-label text-xs uppercase tracking-widest text-crimson">
-              {formatDateTime(typedEvent.starts_at)}
-            </p>
+  return (
+    <main className="bg-gradient-to-b from-parchment to-parchment-dark px-6 py-14">
+      <div className="max-w-3xl mx-auto">
+        {typedEvent.cover_image_url && (
+          <div className="relative w-full aspect-[16/7] mb-8 overflow-hidden border border-brass/30 rounded-md">
+            <Image src={typedEvent.cover_image_url} alt="" fill className="object-cover" sizes="800px" />
+          </div>
+        )}
+
+        {/* ————— Hero ————— */}
+        <div className="text-center mb-10">
+          <div className="flex items-center justify-center gap-2 flex-wrap mb-2">
+            <span className="font-label text-xs uppercase tracking-[0.14em] text-brass">
+              Evento · {eyebrowDate}
+            </span>
             {isLive && (
-              <span className="inline-flex items-center gap-1 font-label text-2xs uppercase tracking-widest px-2 py-0.5 rounded-full bg-crimson text-crimson-foreground">
+              <span className="inline-flex items-center gap-1 font-label text-2xs uppercase tracking-widest px-2.5 py-1 rounded-full bg-crimson text-crimson-foreground">
                 <Radio size={11} className="animate-pulse" /> En vivo ahora
               </span>
             )}
             {hasEnded && (
-              <span className="font-label text-2xs uppercase tracking-widest px-2 py-0.5 rounded-full bg-leather/40 text-parchment-dark">
+              <span className="font-label text-2xs uppercase tracking-widest px-2.5 py-1 rounded-full bg-leather/15 text-leather">
                 Finalizado
               </span>
             )}
           </div>
-          <h1 className="font-display text-3xl text-parchment leading-snug">{typedEvent.title}</h1>
+
+          <h1 className="font-display text-3xl sm:text-4xl text-ink leading-tight mb-3">{typedEvent.title}</h1>
+
+          {typedEvent.description && (
+            <p className="font-body text-base text-ink-light max-w-xl mx-auto leading-relaxed mb-5">
+              {typedEvent.description}
+            </p>
+          )}
+
+          <div className="flex flex-wrap justify-center gap-x-6 gap-y-1.5 font-label text-xs uppercase tracking-wide text-ink-light">
+            <span>Sede: <b className="text-ink font-semibold">{venue.name}{venue.city ? `, ${venue.city}` : ""}</b></span>
+            <span>Horario: <b className="text-ink font-semibold">{schedule}</b></span>
+            {games.length > 0 && (
+              <span>Juegos destacados: <b className="text-ink font-semibold">{games.map((g) => g.name).join(", ")}</b></span>
+            )}
+          </div>
+
+          {(venue.map_url || venue.instagram_url) && (
+            <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-1 mt-2">
+              {venue.map_url && (
+                <a href={venue.map_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-label uppercase tracking-widest text-ink-light hover:text-crimson transition-colors">
+                  <ExternalLink size={12} /> Ver en el mapa
+                </a>
+              )}
+              {venue.instagram_url && (
+                <a href={venue.instagram_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-label uppercase tracking-widest text-ink-light hover:text-crimson transition-colors">
+                  <AtSign size={12} /> Instagram
+                </a>
+              )}
+            </div>
+          )}
+
           {features.event_rewards && (typedEvent.event_type || typedEvent.reward_rp > 0) && (
-            <div className="flex flex-wrap gap-1.5 mt-2">
+            <div className="flex flex-wrap justify-center gap-1.5 mt-4">
               {typedEvent.event_type && (
                 <span className="font-label text-2xs uppercase tracking-wide px-2 py-0.5 rounded-sm bg-brass/15 text-brass">
                   {EVENT_TYPE_LABELS[typedEvent.event_type]}
@@ -146,126 +184,76 @@ export default async function EventDetailPage({ params }: { params: { id: string
               )}
             </div>
           )}
-        </div>
-        <CapacityBadge remaining={remaining} className="shrink-0" />
-      </div>
 
-      {typedEvent.description && (
-        <p className="font-body text-base text-parchment-dark/90 leading-relaxed mb-8">{typedEvent.description}</p>
-      )}
-
-      {/* Venue inline — no standalone venue page */}
-      <div className="surface-parchment p-5 mb-6">
-        <h2 className="font-label text-xs uppercase tracking-widest text-leather-light mb-2 flex items-center gap-1.5">
-          <MapPin size={14} /> Lugar
-        </h2>
-        <div className="flex items-start gap-3">
-          {venue.logo_url && (
-            <div className="relative size-12 shrink-0 bg-parchment-dark/40 border border-brass/30 overflow-hidden">
-              <Image src={venue.logo_url} alt="" fill className="object-contain" sizes="48px" />
+          {notStarted && (
+            <div className="inline-flex items-center gap-2 mt-5 border border-brass rounded-full px-4 py-1.5 font-label text-xs uppercase tracking-wide text-crimson bg-white/50">
+              <Ticket size={14} /> {remaining} / {typedEvent.capacity} cupos disponibles
             </div>
           )}
-          <div className="min-w-0">
-            <p className="font-display text-lg text-ink">{venue.name}</p>
-            <p className="font-body text-sm text-ink-light">{venue.address}{venue.city ? `, ${venue.city}` : ""}</p>
-          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2">
-          {venue.map_url && (
-            <a href={venue.map_url} target="_blank" rel="noopener noreferrer" className="inline-block text-xs font-label uppercase tracking-widest">
-              Ver en el mapa →
-            </a>
-          )}
-          {venue.instagram_url && (
-            <a
-              href={venue.instagram_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs font-label uppercase tracking-widest"
-            >
-              <AtSign size={13} /> Instagram
-            </a>
-          )}
-        </div>
-      </div>
 
-      {games.length > 0 && (
-        <div className="surface-parchment p-5 mb-6">
-          <h2 className="font-label text-xs uppercase tracking-widest text-leather-light mb-3 flex items-center gap-1.5">
-            <Dice5 size={14} /> Juegos destacados
-          </h2>
-          <div className="flex flex-wrap gap-3">
-            {games.map((g) => (
-              <div key={g.id} className="flex items-center gap-2 border border-border px-3 py-2 bg-parchment/50">
-                <span className="font-label text-sm font-semibold text-ink">{g.name}</span>
-                <span className="text-2xs text-leather-light flex items-center gap-1"><Users size={11} />{formatPlayers(g.min_players, g.max_players)}</span>
-                <span className="text-2xs text-leather-light flex items-center gap-1"><Clock size={11} />{formatPlaytime(g.playtime_minutes)}</span>
+        {notStarted && (
+          <div className="border border-brass/40 bg-white/40 rounded-md p-5 flex items-center justify-between flex-wrap gap-4 mb-10">
+            <div>
+              <p className="font-label text-2xs uppercase tracking-widest text-leather-light">Precio por persona</p>
+              <p className="font-display text-2xl font-semibold text-brass">{formatARS(typedEvent.price_per_person)}</p>
+            </div>
+            {remaining > 0 ? (
+              <Button asChild size="lg"><Link href={`/events/${typedEvent.id}/book`}>Reservar un lugar</Link></Button>
+            ) : (
+              <Button size="lg" disabled>Sin cupo</Button>
+            )}
+          </div>
+        )}
+
+        {communityMissions.map((m) => {
+          const badge = one(m.badge);
+          const total = usageByQuest.get(m.id) ?? 0;
+          return (
+            <section key={m.id} className="mb-10">
+              <p className="font-label text-xs uppercase tracking-widest text-brass mb-1">Misión del evento</p>
+              <div className="border border-brass rounded-md bg-white/50 p-6">
+                <p className="font-display text-xl text-ink mb-1">{m.title}</p>
+                {m.narrative && <p className="font-body text-sm text-ink-light leading-relaxed mb-4">{m.narrative}</p>}
+                <div className="flex items-center justify-between font-label text-2xs uppercase tracking-widest text-leather-light mb-1">
+                  <span>Ofrendas del gremio</span>
+                  <span><b className="text-crimson text-sm">{total}</b> / {m.goal_count ?? "—"}</span>
+                </div>
+                <div className="h-3.5 w-full bg-parchment-dark/40 rounded-full overflow-hidden border border-brass/30">
+                  <div
+                    className="h-full bg-gradient-to-r from-brass to-crimson transition-all"
+                    style={{ width: `${m.goal_count ? Math.min(100, (total / m.goal_count) * 100) : 0}%` }}
+                  />
+                </div>
+                <p className="font-label text-2xs text-brass mt-3">
+                  +{m.reward_rp} RP para todos los que contribuyan{badge ? ` · insignia "${badge.name}"` : ""}
+                </p>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+            </section>
+          );
+        })}
 
-      {communityMissions.length > 0 && communityMissions.map((m) => {
-        const badge = one(m.badge);
-        const total = usageByQuest.get(m.id) ?? 0;
-        return (
-          <div key={m.id} className="surface-parchment p-5 mb-6">
-            <h2 className="font-label text-xs uppercase tracking-widest text-leather-light mb-1 flex items-center gap-1.5">
-              <ScrollText size={14} /> Misión del evento
+        {otherMissions.length > 0 && (
+          <section className="mb-10">
+            <p className="font-label text-xs uppercase tracking-widest text-brass mb-1">Misiones disponibles</p>
+            <h2 className="font-display text-xl text-ink mb-2 flex items-center gap-2">
+              <ScrollText size={18} className="text-crimson" /> Tablón de misiones del evento
             </h2>
-            <p className="font-display text-lg text-ink mb-1">{m.title}</p>
-            {m.narrative && <p className="font-body text-sm text-ink-light leading-relaxed mb-3">{m.narrative}</p>}
-            <div className="flex items-center justify-between font-label text-2xs uppercase tracking-widest text-leather-light mb-1">
-              <span>Ofrendas del gremio</span>
-              <span>{total} / {m.goal_count ?? "—"}</span>
-            </div>
-            <div className="h-3 w-full bg-parchment-dark/40 rounded-full overflow-hidden border border-brass/30">
-              <div
-                className="h-full bg-gradient-to-r from-brass to-crimson transition-all"
-                style={{ width: `${m.goal_count ? Math.min(100, (total / m.goal_count) * 100) : 0}%` }}
-              />
-            </div>
-            <p className="font-body text-xs text-brass mt-2">
-              +{m.reward_rp} RP para todos los que contribuyan{badge ? ` · insignia "${badge.name}"` : ""}
+            <p className="font-body text-sm text-ink-light mb-4">
+              {isLive
+                ? "Activá las que te interesen y jugalas durante el evento. Cuando la completes, avisale a un Asistente del Gremio."
+                : hasEnded
+                  ? "Así quedaron las misiones de este evento."
+                  : "Se van a poder activar cuando el evento empiece."}
             </p>
-          </div>
-        );
-      })}
-
-      {otherMissions.length > 0 && (
-        <div className="surface-parchment p-5 mb-6">
-          <h2 className="font-label text-xs uppercase tracking-widest text-leather-light mb-1 flex items-center gap-1.5">
-            <ScrollText size={14} /> Misiones disponibles
-          </h2>
-          <p className="font-body text-sm text-ink-light mb-3">
-            {isLive
-              ? "Activá las que te interesen y jugalas durante el evento. Cuando la completes, avisale a un Asistente del Gremio."
-              : hasEnded
-                ? "Así quedaron las misiones de este evento."
-                : "Se van a poder activar cuando el evento empiece."}
-          </p>
-          <EventMissionGrid
-            eventId={typedEvent.id}
-            missions={missionGridItems}
-            loggedIn={Boolean(sessionUser)}
-            isLive={isLive}
-            inactiveNote={notStarted ? "Se activa cuando el evento empiece" : "El evento ya finalizó"}
-          />
-        </div>
-      )}
-
-      <div className="surface-parchment p-5 flex items-center justify-between flex-wrap gap-4">
-        <div>
-          <p className="font-label text-2xs uppercase tracking-widest text-leather-light">Precio por persona</p>
-          <p className="font-display text-2xl font-semibold text-brass">{formatARS(typedEvent.price_per_person)}</p>
-        </div>
-        {!notStarted ? (
-          <p className="font-body text-sm text-ink-light italic">Las inscripciones para este evento ya cerraron.</p>
-        ) : remaining > 0 ? (
-          <Button asChild size="lg"><Link href={`/events/${typedEvent.id}/book`}>Reservar un lugar</Link></Button>
-        ) : (
-          <Button size="lg" disabled>Sin cupo</Button>
+            <EventMissionGrid
+              eventId={typedEvent.id}
+              missions={missionGridItems}
+              loggedIn={Boolean(sessionUser)}
+              isLive={isLive}
+              inactiveNote={notStarted ? "Se activa cuando el evento empiece" : "El evento ya finalizó"}
+            />
+          </section>
         )}
       </div>
     </main>

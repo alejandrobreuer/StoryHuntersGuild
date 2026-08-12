@@ -19,19 +19,22 @@ export function EventCard({ event, showRewards }: EventCardProps) {
   const isLive = Boolean(event.started_at) && !event.ended_at;
 
   return (
-    <Link
-      href={`/events/${event.id}`}
-      className={cn(
-        "group relative block no-underline torn-edge pin-dot surface-parchment p-5 transition-transform duration-200 hover:-rotate-1 hover:shadow-parchment-lg",
-        isLive && "ring-2 ring-crimson shadow-glow"
-      )}
-    >
+    // The badge lives in this outer, unclipped wrapper — torn-edge's
+    // clip-path on the Link below would otherwise slice off anything
+    // positioned outside the card via a negative offset, badge included.
+    <div className={cn("relative", isLive && "pt-3")}>
       {isLive && (
-        <span className="absolute -top-2.5 left-4 z-10 inline-flex items-center gap-1 font-label text-2xs uppercase tracking-widest px-2.5 py-1 rounded-full bg-crimson text-crimson-foreground shadow-parchment">
+        <span className="absolute top-0 left-4 z-10 inline-flex items-center gap-1 font-label text-2xs uppercase tracking-widest px-2.5 py-1 rounded-full bg-crimson text-crimson-foreground shadow-parchment">
           <Radio size={11} className="animate-pulse" /> En vivo ahora
         </span>
       )}
-
+      <Link
+        href={`/events/${event.id}`}
+        className={cn(
+          "group relative block no-underline torn-edge pin-dot surface-parchment p-5 transition-transform duration-200 hover:-rotate-1 hover:shadow-parchment-lg",
+          isLive && "ring-2 ring-crimson shadow-glow"
+        )}
+      >
       {event.cover_image_url && (
         <div className="relative w-full aspect-[16/9] mb-4 overflow-hidden border border-border">
           <Image src={event.cover_image_url} alt="" fill className="object-cover" sizes="400px" />
@@ -74,6 +77,7 @@ export function EventCard({ event, showRewards }: EventCardProps) {
           {formatARS(event.price_per_person)}
         </span>
       </div>
-    </Link>
+      </Link>
+    </div>
   );
 }

@@ -39,6 +39,17 @@ export function EventFilters({ venues }: EventFiltersProps) {
           <option key={v.id} value={v.id}>{v.name}</option>
         ))}
       </Select>
+      <Select
+        label="Estado"
+        defaultValue={searchParams.get("lifecycle") ?? ""}
+        onChange={(e) => updateParam("lifecycle", e.target.value)}
+        wrapperClassName="min-w-[180px]"
+      >
+        <option value="">Todos</option>
+        <option value="pending">Pendiente de iniciar</option>
+        <option value="active">En vivo</option>
+        <option value="closed">Finalizado</option>
+      </Select>
     </div>
   );
 }

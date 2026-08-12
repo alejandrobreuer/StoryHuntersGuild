@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function EventsPage({
   searchParams,
 }: {
-  searchParams: { from?: string; venueId?: string };
+  searchParams: { from?: string; venueId?: string; lifecycle?: string };
 }) {
   noStore();
   const admin = createAdminClient();
@@ -24,12 +24,18 @@ export default async function EventsPage({
     .eq("status", "published")
     .order("starts_at", { ascending: true });
 
-  // Upcoming events from the selected date, PLUS any event currently live
-  // (started but not ended) — otherwise a live event would drop out of the
-  // list the moment its scheduled start time passes.
-  const fromIso = searchParams.from ? new Date(searchParams.from).toISOString() : new Date().toISOString();
-  query = query.or(`starts_at.gte.${fromIso},and(started_at.not.is.null,ended_at.is.null)`);
+  // No filters selected → show everything. "Desde" only narrows the list
+  // once explicitly set — but even then, a currently-live event stays
+  // visible even if its scheduled start is before that date, so it never
+  // drops out of the list mid-event.
+  if (searchParams.from) {
+    const fromIso = new Date(searchParams.from).toISOString();
+    query = query.or(`starts_at.gte.${fromIso},and(started_at.not.is.null,ended_at.is.null)`);
+  }
   if (searchParams.venueId) query = query.eq("venue_id", searchParams.venueId);
+  if (searchParams.lifecycle === "pending") query = query.is("started_at", null);
+  if (searchParams.lifecycle === "active") query = query.not("started_at", "is", null).is("ended_at", null);
+  if (searchParams.lifecycle === "closed") query = query.not("ended_at", "is", null);
 
   const [{ data: rawEvents }, { data: venues }] = await Promise.all([
     query,
