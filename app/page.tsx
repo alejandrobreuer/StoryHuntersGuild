@@ -97,6 +97,11 @@ export default async function HomePage() {
 
   return (
     <main>
+      {/* ── Guild Missions — thin banner right under the nav ────────────── */}
+      {guildMissions.map((m) => (
+        <GuildMissionSection key={m.id} mission={m} loggedIn={Boolean(sessionUser)} viewerPending={guildPendingByQuest.get(m.id) ?? false} />
+      ))}
+
       {/* ── Hero ──────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden bg-gradient-to-b from-parchment to-parchment-dark text-center px-6 py-20 sm:py-28">
         <Image
@@ -118,11 +123,6 @@ export default async function HomePage() {
           <Button asChild size="lg" variant="ghost"><Link href="/games">Explorar ludoteca</Link></Button>
         </div>
       </section>
-
-      {/* ── Guild Missions ───────────────────────────────────────────── */}
-      {guildMissions.map((m) => (
-        <GuildMissionSection key={m.id} mission={m} loggedIn={Boolean(sessionUser)} viewerPending={guildPendingByQuest.get(m.id) ?? false} />
-      ))}
 
       {/* ── Upcoming events strip ────────────────────────────────────── */}
       <section className="bg-gradient-to-b from-parchment to-parchment-dark px-6 py-16">

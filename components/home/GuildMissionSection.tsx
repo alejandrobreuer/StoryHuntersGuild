@@ -2,8 +2,8 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { Flame } from "lucide-react";
 import { toast } from "sonner";
-import { ProgressBar } from "@/components/ui/ProgressBar";
 
 export interface GuildMissionData {
   id:            string;
@@ -22,12 +22,15 @@ interface GuildMissionSectionProps {
   viewerPending: boolean;
 }
 
-// Guild Missions are repeatable: once a Guild Attendant confirms a turn-in,
-// the player can submit again — so there's no "already completed" grayed
-// state here, just a "pending confirmation" note while one's in flight.
+// A thin, high-contrast strip pinned between the nav and the hero — meant
+// to read as an urgent guild-wide call to action, not another content
+// section. Guild Missions are repeatable: once a Guild Attendant confirms a
+// turn-in, the player can submit again, so there's no "already completed"
+// grayed state here, just a "pending" note while one's in flight.
 export function GuildMissionSection({ mission, loggedIn, viewerPending }: GuildMissionSectionProps) {
   const [pending, setPending] = React.useState(viewerPending);
   const [busy, setBusy] = React.useState(false);
+  const pct = mission.goalCount > 0 ? Math.min(100, (mission.totalApproved / mission.goalCount) * 100) : 0;
 
   async function turnIn() {
     setBusy(true);
@@ -43,50 +46,46 @@ export function GuildMissionSection({ mission, loggedIn, viewerPending }: GuildM
   }
 
   return (
-    <section className="bg-gradient-to-b from-parchment to-parchment-dark px-6 py-16">
-      <div className="max-w-3xl mx-auto">
-        <p className="font-label text-xs uppercase tracking-widest text-brass text-center mb-1.5">Misión de Gremio</p>
-        <h2 className="font-display text-2xl sm:text-3xl text-ink text-center mb-6">{mission.title}</h2>
+    <div className="relative bg-gradient-to-r from-leather via-crimson to-leather border-y-2 border-brass-bright shadow-glow z-10">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-2 flex items-center justify-center sm:justify-between gap-x-4 gap-y-1 flex-wrap text-center sm:text-left">
+        <div className="flex items-center gap-2 min-w-0">
+          <Flame size={15} className="text-brass-bright shrink-0 animate-pulse" />
+          <p className="font-label text-2xs sm:text-xs font-semibold uppercase tracking-wide text-parchment truncate">
+            <span className="text-brass-bright">Misión de Gremio</span> · {mission.title}
+          </p>
+          <span className="hidden md:inline font-label text-2xs text-parchment/70 shrink-0">
+            {mission.totalApproved}/{mission.goalCount} · +{mission.rewardXp} XP · +{mission.rewardRp} RP
+          </span>
+        </div>
 
-        <div className="border border-brass rounded-md bg-gradient-to-br from-parchment-card to-parchment px-6 py-7 sm:px-9 shadow-parchment-lg">
-          {mission.narrative && (
-            <p className="font-body text-sm text-ink-light leading-relaxed mb-5 text-center max-w-xl mx-auto">{mission.narrative}</p>
+        <div className="shrink-0">
+          {pending ? (
+            <span className="font-label text-2xs uppercase tracking-wide px-3 py-1 rounded-full border border-brass-bright/60 text-brass-bright">
+              Pendiente de aprobación
+            </span>
+          ) : !loggedIn ? (
+            <Link
+              href="/sign-in?next=/"
+              className="font-label text-2xs uppercase tracking-wide px-3 py-1 rounded-full bg-brass-bright text-ink no-underline hover:bg-brass transition-colors"
+            >
+              Iniciá sesión para entregar
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={turnIn}
+              disabled={busy}
+              className="font-label text-2xs uppercase tracking-wide px-4 py-1 rounded-full bg-brass-bright text-ink hover:bg-brass transition-colors disabled:opacity-50"
+            >
+              Entregar
+            </button>
           )}
-
-          <div className="flex items-center justify-between font-label text-2xs uppercase tracking-widest text-leather-light mb-1.5">
-            <span>Progreso del gremio</span>
-            <span><b className="text-crimson text-sm">{mission.totalApproved}</b> / {mission.goalCount}</span>
-          </div>
-          <ProgressBar value={mission.totalApproved} max={mission.goalCount} className="border border-brass/30" />
-
-          <div className="mt-5 flex items-center justify-between flex-wrap gap-3">
-            <p className="font-label text-2xs text-brass">
-              +{mission.rewardXp} XP · +{mission.rewardRp} RP{mission.badgeName ? ` · insignia "${mission.badgeName}"` : ""}
-            </p>
-            {pending ? (
-              <span className="font-label text-xs uppercase tracking-wide px-3 py-1.5 rounded-sm border border-brass/40 bg-brass/5 text-brass">
-                Pendiente de aprobación del administrador
-              </span>
-            ) : !loggedIn ? (
-              <Link
-                href="/sign-in?next=/"
-                className="font-label text-xs uppercase tracking-wide px-4 py-1.5 rounded-sm border border-crimson text-crimson no-underline hover:bg-crimson/10 transition-colors"
-              >
-                Iniciá sesión para entregar
-              </Link>
-            ) : (
-              <button
-                type="button"
-                onClick={turnIn}
-                disabled={busy}
-                className="font-label text-xs uppercase tracking-wide px-5 py-1.5 rounded-sm border border-crimson bg-crimson text-crimson-foreground hover:bg-crimson/90 transition-colors disabled:opacity-50"
-              >
-                Entregar
-              </button>
-            )}
-          </div>
         </div>
       </div>
-    </section>
+
+      <div className="h-[3px] w-full bg-black/30">
+        <div className="h-full bg-brass-bright transition-all duration-500" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
   );
 }
