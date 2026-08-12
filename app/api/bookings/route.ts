@@ -41,13 +41,16 @@ export async function POST(req: NextRequest) {
 
   const { data: event, error: eventErr } = await admin
     .from("shg_events")
-    .select("id, title, starts_at, price_per_person, status")
+    .select("id, title, starts_at, price_per_person, status, started_at")
     .eq("id", event_id)
     .eq("status", "published")
     .maybeSingle();
 
   if (eventErr || !event) {
     return NextResponse.json({ error: "Evento no encontrado." }, { status: 404 });
+  }
+  if (event.started_at) {
+    return NextResponse.json({ error: "Las inscripciones para este evento ya cerraron." }, { status: 422 });
   }
 
   // Soft capacity pre-check — immediate UX feedback only. The authoritative

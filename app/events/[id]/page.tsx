@@ -2,19 +2,20 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { unstable_noStore as noStore } from "next/cache";
-import { MapPin, Users, Clock, Dice5, AtSign, ScrollText } from "lucide-react";
+import { MapPin, Users, Clock, Dice5, AtSign, ScrollText, Radio } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getSessionUser } from "@/lib/auth/guard";
 import { getFeatureFlags } from "@/lib/features";
 import { EVENT_TYPE_LABELS } from "@/lib/gamification/eventTypes";
-import { DIFFICULTY_LABELS } from "@/lib/gamification/questDifficulty";
+import { EventMissionGrid, type MissionItem } from "@/components/events/EventMissionGrid";
 import { Button } from "@/components/ui/Button";
 import { CapacityBadge } from "@/components/ui/CapacityBadge";
 import { formatARS, formatDateTime, formatPlayers, formatPlaytime } from "@/lib/formatting";
-import type { ShgEvent, ShgVenuePublic, ShgGame, QuestDifficulty } from "@/types/database";
+import type { ShgEvent, ShgVenuePublic, ShgGame, QuestDifficulty, QuestType } from "@/types/database";
 
 interface EventQuestRow {
-  id: string; title: string; narrative: string | null; difficulty: QuestDifficulty;
-  reward_xp: number; reward_rp: number; max_completions_per_event: number;
+  id: string; title: string; narrative: string | null; difficulty: QuestDifficulty; type: QuestType;
+  reward_xp: number; reward_rp: number; goal_count: number | null; max_completions_per_event: number; status: string;
   badge: { name: string } | { name: string }[] | null;
   game: { name: string; image_url: string | null } | { name: string; image_url: string | null }[] | null;
 }
@@ -35,6 +36,7 @@ export default async function EventDetailPage({ params }: { params: { id: string
   noStore();
   const admin = createAdminClient();
   const features = await getFeatureFlags();
+  const sessionUser = await getSessionUser();
 
   const { data: event } = await admin
     .from("shg_events")
@@ -51,7 +53,7 @@ export default async function EventDetailPage({ params }: { params: { id: string
     features.quests
       ? admin
           .from("shg_quest_events")
-          .select("quest:shg_quests(id, title, narrative, difficulty, reward_xp, reward_rp, max_completions_per_event, status, badge:shg_badges(name), game:shg_games(name, image_url))")
+          .select("quest:shg_quests(id, title, narrative, difficulty, type, reward_xp, reward_rp, goal_count, max_completions_per_event, status, badge:shg_badges(name), game:shg_games(name, image_url))")
           .eq("event_id", params.id)
       : Promise.resolve({ data: [] }),
   ]);
@@ -61,10 +63,16 @@ export default async function EventDetailPage({ params }: { params: { id: string
   const venue = event.venue as unknown as ShgVenuePublic;
   const typedEvent = event as unknown as ShgEvent;
 
-  const missions = ((eventQuests ?? []).map((r) => one(r.quest)).filter(Boolean) as unknown as (EventQuestRow & { status: string })[])
-    .filter((q) => q.status === "active");
+  const isLive = Boolean(typedEvent.started_at) && !typedEvent.ended_at;
+  const hasEnded = Boolean(typedEvent.ended_at);
+  const notStarted = !typedEvent.started_at;
 
-  const missionIds = missions.map((m) => m.id);
+  const allMissions = ((eventQuests ?? []).map((r) => one(r.quest)).filter(Boolean) as unknown as EventQuestRow[])
+    .filter((q) => q.status === "active");
+  const communityMissions = allMissions.filter((q) => q.type === "community");
+  const otherMissions = allMissions.filter((q) => q.type !== "community");
+
+  const missionIds = allMissions.map((m) => m.id);
   const usageByQuest = new Map<string, number>();
   if (missionIds.length > 0) {
     const { data: usageRows } = await admin
@@ -74,6 +82,29 @@ export default async function EventDetailPage({ params }: { params: { id: string
       .in("quest_id", missionIds);
     for (const row of usageRows ?? []) usageByQuest.set(row.quest_id, (usageByQuest.get(row.quest_id) ?? 0) + 1);
   }
+
+  const otherMissionIds = otherMissions.map((m) => m.id);
+  const activationByQuest = new Map<string, "active" | "turned_in">();
+  const rewardedQuestIds = new Set<string>();
+  if (sessionUser && otherMissionIds.length > 0) {
+    const [{ data: activationRows }, { data: rewardRows }] = await Promise.all([
+      admin.from("shg_quest_activations").select("quest_id, status").eq("event_id", params.id).eq("user_id", sessionUser.id).in("quest_id", otherMissionIds),
+      admin.from("shg_quest_rewards").select("quest_id").eq("user_id", sessionUser.id).in("quest_id", otherMissionIds),
+    ]);
+    for (const row of activationRows ?? []) activationByQuest.set(row.quest_id, row.status);
+    for (const row of rewardRows ?? []) rewardedQuestIds.add(row.quest_id);
+  }
+
+  const missionGridItems: MissionItem[] = otherMissions.map((m) => {
+    const badge = one(m.badge);
+    const game = one(m.game);
+    const initialState = rewardedQuestIds.has(m.id) ? "completed" : activationByQuest.get(m.id) ?? "available";
+    return {
+      id: m.id, title: m.title, narrative: m.narrative, difficulty: m.difficulty,
+      rewardXp: m.reward_xp, rewardRp: m.reward_rp, badgeName: badge?.name ?? null, game,
+      maxPerEvent: m.max_completions_per_event, usedCount: usageByQuest.get(m.id) ?? 0, initialState,
+    };
+  });
 
   return (
     <main className="max-w-3xl mx-auto px-6 py-14">
@@ -85,9 +116,21 @@ export default async function EventDetailPage({ params }: { params: { id: string
 
       <div className="flex items-start justify-between gap-4 mb-6">
         <div>
-          <p className="font-label text-xs uppercase tracking-widest text-crimson mb-2">
-            {formatDateTime(typedEvent.starts_at)}
-          </p>
+          <div className="flex items-center gap-2 flex-wrap mb-2">
+            <p className="font-label text-xs uppercase tracking-widest text-crimson">
+              {formatDateTime(typedEvent.starts_at)}
+            </p>
+            {isLive && (
+              <span className="inline-flex items-center gap-1 font-label text-2xs uppercase tracking-widest px-2 py-0.5 rounded-full bg-crimson text-crimson-foreground">
+                <Radio size={11} className="animate-pulse" /> En vivo ahora
+              </span>
+            )}
+            {hasEnded && (
+              <span className="font-label text-2xs uppercase tracking-widest px-2 py-0.5 rounded-full bg-leather/40 text-parchment-dark">
+                Finalizado
+              </span>
+            )}
+          </div>
           <h1 className="font-display text-3xl text-parchment leading-snug">{typedEvent.title}</h1>
           {features.event_rewards && (typedEvent.event_type || typedEvent.reward_rp > 0) && (
             <div className="flex flex-wrap gap-1.5 mt-2">
@@ -163,54 +206,52 @@ export default async function EventDetailPage({ params }: { params: { id: string
         </div>
       )}
 
-      {missions.length > 0 && (
+      {communityMissions.length > 0 && communityMissions.map((m) => {
+        const badge = one(m.badge);
+        const total = usageByQuest.get(m.id) ?? 0;
+        return (
+          <div key={m.id} className="surface-parchment p-5 mb-6">
+            <h2 className="font-label text-xs uppercase tracking-widest text-leather-light mb-1 flex items-center gap-1.5">
+              <ScrollText size={14} /> Misión del evento
+            </h2>
+            <p className="font-display text-lg text-ink mb-1">{m.title}</p>
+            {m.narrative && <p className="font-body text-sm text-ink-light leading-relaxed mb-3">{m.narrative}</p>}
+            <div className="flex items-center justify-between font-label text-2xs uppercase tracking-widest text-leather-light mb-1">
+              <span>Ofrendas del gremio</span>
+              <span>{total} / {m.goal_count ?? "—"}</span>
+            </div>
+            <div className="h-3 w-full bg-parchment-dark/40 rounded-full overflow-hidden border border-brass/30">
+              <div
+                className="h-full bg-gradient-to-r from-brass to-crimson transition-all"
+                style={{ width: `${m.goal_count ? Math.min(100, (total / m.goal_count) * 100) : 0}%` }}
+              />
+            </div>
+            <p className="font-body text-xs text-brass mt-2">
+              +{m.reward_rp} RP para todos los que contribuyan{badge ? ` · insignia "${badge.name}"` : ""}
+            </p>
+          </div>
+        );
+      })}
+
+      {otherMissions.length > 0 && (
         <div className="surface-parchment p-5 mb-6">
-          <h2 className="font-label text-xs uppercase tracking-widest text-leather-light mb-3 flex items-center gap-1.5">
+          <h2 className="font-label text-xs uppercase tracking-widest text-leather-light mb-1 flex items-center gap-1.5">
             <ScrollText size={14} /> Misiones disponibles
           </h2>
-          <div className="flex flex-col gap-3">
-            {missions.map((m) => {
-              const badge = one(m.badge);
-              const game = one(m.game);
-              const used = usageByQuest.get(m.id) ?? 0;
-              const soldOut = m.max_completions_per_event > 0 && used >= m.max_completions_per_event;
-              return (
-                <div key={m.id} className={`border border-border px-3.5 py-3 bg-parchment/50 ${soldOut ? "opacity-60" : ""}`}>
-                  <div className="flex items-start justify-between gap-2 flex-wrap">
-                    <p className="font-label text-sm font-semibold text-ink">{m.title}</p>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-leather/10 text-leather">
-                        {DIFFICULTY_LABELS[m.difficulty]}
-                      </span>
-                      {soldOut && (
-                        <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-crimson/15 text-crimson">
-                          Cupo agotado
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  {m.narrative && <p className="font-body text-sm text-ink-light mt-1 leading-relaxed">{m.narrative}</p>}
-                  <div className="flex items-center gap-3 flex-wrap mt-2">
-                    <span className="font-label text-2xs text-brass">
-                      +{m.reward_xp} XP · +{m.reward_rp} RP{badge ? ` · insignia "${badge.name}"` : ""}
-                    </span>
-                    {game && (
-                      <span className="inline-flex items-center gap-1.5 font-label text-2xs text-leather-light">
-                        <span className="relative size-4 shrink-0 rounded-sm overflow-hidden bg-parchment-dark/40">
-                          {game.image_url ? (
-                            <Image src={game.image_url} alt="" fill className="object-cover" sizes="16px" />
-                          ) : (
-                            <Dice5 size={10} className="absolute inset-0 m-auto text-leather-light" />
-                          )}
-                        </span>
-                        {game.name}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <p className="font-body text-sm text-ink-light mb-3">
+            {isLive
+              ? "Activá las que te interesen y jugalas durante el evento. Cuando la completes, avisale a un Asistente del Gremio."
+              : hasEnded
+                ? "Así quedaron las misiones de este evento."
+                : "Se van a poder activar cuando el evento empiece."}
+          </p>
+          <EventMissionGrid
+            eventId={typedEvent.id}
+            missions={missionGridItems}
+            loggedIn={Boolean(sessionUser)}
+            isLive={isLive}
+            inactiveNote={notStarted ? "Se activa cuando el evento empiece" : "El evento ya finalizó"}
+          />
         </div>
       )}
 
@@ -219,7 +260,9 @@ export default async function EventDetailPage({ params }: { params: { id: string
           <p className="font-label text-2xs uppercase tracking-widest text-leather-light">Precio por persona</p>
           <p className="font-display text-2xl font-semibold text-brass">{formatARS(typedEvent.price_per_person)}</p>
         </div>
-        {remaining > 0 ? (
+        {!notStarted ? (
+          <p className="font-body text-sm text-ink-light italic">Las inscripciones para este evento ya cerraron.</p>
+        ) : remaining > 0 ? (
           <Button asChild size="lg"><Link href={`/events/${typedEvent.id}/book`}>Reservar un lugar</Link></Button>
         ) : (
           <Button size="lg" disabled>Sin cupo</Button>

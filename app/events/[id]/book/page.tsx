@@ -16,7 +16,7 @@ export default async function BookEventPage({ params }: { params: { id: string }
 
   const { data: event } = await admin
     .from("shg_events")
-    .select("id, title, starts_at, price_per_person, status")
+    .select("id, title, starts_at, price_per_person, status, started_at")
     .eq("id", params.id)
     .eq("status", "published")
     .maybeSingle();
@@ -48,7 +48,11 @@ export default async function BookEventPage({ params }: { params: { id: string }
       <h1 className="font-display text-2xl text-parchment mb-1">{event.title}</h1>
       <p className="font-body italic text-parchment-dark/70 mb-8">{formatDateTime(event.starts_at)}</p>
 
-      {remaining <= 0 ? (
+      {event.started_at ? (
+        <p className="surface-parchment p-6 text-center font-body text-ink-light">
+          Las inscripciones para este evento ya cerraron.
+        </p>
+      ) : remaining <= 0 ? (
         <p className="surface-parchment p-6 text-center font-body text-ink-light">
           Este evento ya no tiene cupo disponible.
         </p>

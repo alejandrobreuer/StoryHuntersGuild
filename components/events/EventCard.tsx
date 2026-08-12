@@ -1,9 +1,10 @@
 import Link from "next/link";
 import Image from "next/image";
-import { MapPin } from "lucide-react";
+import { MapPin, Radio } from "lucide-react";
 import { formatARS, formatDateTime } from "@/lib/formatting";
 import { EVENT_TYPE_LABELS } from "@/lib/gamification/eventTypes";
 import { CapacityBadge } from "@/components/ui/CapacityBadge";
+import { cn } from "@/lib/utils";
 import type { ShgEventListItem } from "@/types/database";
 
 interface EventCardProps {
@@ -15,11 +16,22 @@ interface EventCardProps {
 /** "Bounty posting" event card — the signature UI motif: torn-parchment
  * edges + a pinned-notice feel, capacity shown as a crosshair-seal badge. */
 export function EventCard({ event, showRewards }: EventCardProps) {
+  const isLive = Boolean(event.started_at) && !event.ended_at;
+
   return (
     <Link
       href={`/events/${event.id}`}
-      className="group relative block no-underline torn-edge pin-dot surface-parchment p-5 transition-transform duration-200 hover:-rotate-1 hover:shadow-parchment-lg"
+      className={cn(
+        "group relative block no-underline torn-edge pin-dot surface-parchment p-5 transition-transform duration-200 hover:-rotate-1 hover:shadow-parchment-lg",
+        isLive && "ring-2 ring-crimson shadow-glow"
+      )}
     >
+      {isLive && (
+        <span className="absolute -top-2.5 left-4 z-10 inline-flex items-center gap-1 font-label text-2xs uppercase tracking-widest px-2.5 py-1 rounded-full bg-crimson text-crimson-foreground shadow-parchment">
+          <Radio size={11} className="animate-pulse" /> En vivo ahora
+        </span>
+      )}
+
       {event.cover_image_url && (
         <div className="relative w-full aspect-[16/9] mb-4 overflow-hidden border border-border">
           <Image src={event.cover_image_url} alt="" fill className="object-cover" sizes="400px" />

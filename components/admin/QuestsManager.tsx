@@ -27,6 +27,10 @@ interface RewardRow {
   user_id: string; awarded_xp: number; awarded_rp: number; awarded_at: string;
   user: { id: string; email: string; name: string | null } | null;
 }
+interface ActivationRow {
+  event_id: string; user_id: string; status: "active" | "turned_in"; turned_in_at: string | null;
+  user: { id: string; email: string; name: string | null } | null;
+}
 
 const TYPE_LABELS: Record<QuestType, string> = {
   individual: "Individual", party: "Grupo", community: "Comunitaria", event: "Evento",
@@ -51,6 +55,7 @@ function userLabel(u: { email: string; name: string | null }): string {
 function QuestDetail({ quest, users }: { quest: QuestRow; users: ShgUserPublic[] }) {
   const [completions, setCompletions] = React.useState<CompletionRow[] | null>(null);
   const [rewards, setRewards] = React.useState<RewardRow[] | null>(null);
+  const [activations, setActivations] = React.useState<ActivationRow[] | null>(null);
   const [selectedUserId, setSelectedUserId] = React.useState("");
   const [selectedEventId, setSelectedEventId] = React.useState("");
   const [amount, setAmount] = React.useState(1);
@@ -61,6 +66,7 @@ function QuestDetail({ quest, users }: { quest: QuestRow; users: ShgUserPublic[]
     const json = await res.json();
     setCompletions(json.data?.completions ?? []);
     setRewards(json.data?.rewards ?? []);
+    setActivations(json.data?.activations ?? []);
   }, [quest.id]);
 
   React.useEffect(() => { load(); }, [load]);
@@ -70,6 +76,29 @@ function QuestDetail({ quest, users }: { quest: QuestRow; users: ShgUserPublic[]
     [completions, selectedEventId]
   );
   const capReached = selectedEventId !== "" && quest.max_completions_per_event > 0 && usedForEvent >= quest.max_completions_per_event;
+
+  const rewardedUserIds = React.useMemo(() => new Set((rewards ?? []).map((r) => r.user_id)), [rewards]);
+  const pendingTurnIns = React.useMemo(
+    () => (activations ?? []).filter((a) => a.status === "turned_in" && a.event_id === selectedEventId && !rewardedUserIds.has(a.user_id)),
+    [activations, selectedEventId, rewardedUserIds]
+  );
+
+  async function confirmTurnIn(userId: string) {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/quests/${quest.id}/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, eventId: selectedEventId || null }),
+      });
+      const json = await res.json();
+      if (!res.ok) { toast.error(json.error ?? "Error."); return; }
+      toast.success("Misión confirmada y recompensa otorgada.");
+      load();
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function markComplete() {
     if (!selectedUserId) { toast.error("Elegí un usuario."); return; }
@@ -123,7 +152,7 @@ function QuestDetail({ quest, users }: { quest: QuestRow; users: ShgUserPublic[]
     }
   }
 
-  if (!completions || !rewards) {
+  if (!completions || !rewards || !activations) {
     return <p className="font-body text-xs italic text-ink-light">Cargando…</p>;
   }
 
@@ -197,6 +226,22 @@ function QuestDetail({ quest, users }: { quest: QuestRow; users: ShgUserPublic[]
         </>
       ) : (
         <>
+          {selectedEventId && pendingTurnIns.length > 0 && (
+            <div>
+              <p className="font-label text-2xs uppercase tracking-widest text-crimson mb-1.5">
+                Entregas pendientes de confirmar ({pendingTurnIns.length})
+              </p>
+              <div className="flex flex-col gap-1.5">
+                {pendingTurnIns.map((a) => (
+                  <div key={a.user_id} className="flex items-center justify-between gap-2 font-body text-xs text-ink-light bg-crimson/5 border border-crimson/20 px-2.5 py-1.5 rounded-sm">
+                    <span>{a.user ? userLabel(a.user) : "—"}</span>
+                    <Button size="sm" variant="secondary" onClick={() => confirmTurnIn(a.user_id)} loading={busy} disabled={capReached}>Confirmar</Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-wrap items-end gap-2">
             <Select wrapperClassName="flex-1 min-w-[180px]" label="Completar para" value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)}>
               <option value="">Elegí un usuario…</option>

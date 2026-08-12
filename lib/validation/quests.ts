@@ -31,3 +31,7 @@ export const questContributeSchema = z.object({
   amount:  z.number().int().min(1).max(1000).default(1),
   eventId: z.string().uuid().nullable().optional(),
 });
+
+export const questActivationSchema = z.object({
+  eventId: z.string().uuid(),
+});

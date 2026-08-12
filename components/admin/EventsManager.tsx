@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { Plus, Edit2, Trash2, Upload, Eye, Receipt, ImageOff } from "lucide-react";
+import { Plus, Edit2, Trash2, Upload, Eye, Receipt, ImageOff, PlayCircle, StopCircle, Radio } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
@@ -21,6 +21,7 @@ interface EventRow {
   price_per_person: number; currency: string; status: EventStatus;
   cover_image_url: string | null; venue: { id: string; name: string } | null;
   game_ids: string[]; quest_ids: string[]; event_type: EventType | null; reward_rp: number;
+  started_at: string | null; ended_at: string | null;
 }
 
 interface EventDetail {
@@ -29,6 +30,21 @@ interface EventDetail {
   price_per_person: number; status: EventStatus; cover_image_url: string | null;
   venue: { id: string; name: string } | null; game_ids: string[]; quest_ids: string[];
   event_type: EventType | null; reward_rp: number;
+  started_at: string | null; ended_at: string | null;
+}
+
+function LifecycleBadge({ startedAt, endedAt }: { startedAt: string | null; endedAt: string | null }) {
+  if (endedAt) {
+    return <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-leather/10 text-leather">Finalizado</span>;
+  }
+  if (startedAt) {
+    return (
+      <span className="inline-flex items-center gap-1 font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-crimson/15 text-crimson">
+        <Radio size={11} /> En vivo
+      </span>
+    );
+  }
+  return null;
 }
 
 interface VenueOption { id: string; name: string; }
@@ -58,6 +74,7 @@ export function EventsManager() {
   const [viewingEvent, setViewingEvent] = React.useState<EventDetail | null>(null);
   const [eventBookings, setEventBookings] = React.useState<ShgBookingWithEvent[]>([]);
   const [attendanceBusyId, setAttendanceBusyId] = React.useState<string | null>(null);
+  const [lifecycleBusyId, setLifecycleBusyId] = React.useState<string | null>(null);
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -200,6 +217,36 @@ export function EventsManager() {
     else toast.error("No se pudo eliminar.");
   }
 
+  async function startEvent(id: string) {
+    if (!confirm("¿Iniciar este evento ahora? Se cerrarán las inscripciones.")) return;
+    setLifecycleBusyId(id);
+    try {
+      const res = await fetch(`/api/admin/events/${id}/start`, { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) { toast.error(json.error ?? "No se pudo iniciar."); return; }
+      toast.success("Evento iniciado — las inscripciones ya están cerradas.");
+      setViewingEvent((prev) => (prev && prev.id === id ? { ...prev, started_at: json.data.started_at } : prev));
+      load();
+    } finally {
+      setLifecycleBusyId(null);
+    }
+  }
+
+  async function endEvent(id: string) {
+    if (!confirm("¿Finalizar este evento ahora?")) return;
+    setLifecycleBusyId(id);
+    try {
+      const res = await fetch(`/api/admin/events/${id}/end`, { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) { toast.error(json.error ?? "No se pudo finalizar."); return; }
+      toast.success("Evento finalizado.");
+      setViewingEvent((prev) => (prev && prev.id === id ? { ...prev, ended_at: json.data.ended_at } : prev));
+      load();
+    } finally {
+      setLifecycleBusyId(null);
+    }
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -231,6 +278,7 @@ export function EventsManager() {
                   <div className="flex items-center gap-2 flex-wrap mb-0.5">
                     <p className="font-label text-sm font-bold text-ink">{e.title}</p>
                     <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-leather/10 text-leather">{e.status}</span>
+                    <LifecycleBadge startedAt={e.started_at} endedAt={e.ended_at} />
                     {e.event_type && (
                       <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-brass/15 text-brass">
                         {EVENT_TYPE_LABELS[e.event_type]}
@@ -240,6 +288,12 @@ export function EventsManager() {
                   <p className="font-body text-2xs text-ink-light/70 truncate">/{e.slug}</p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
+                  {!e.started_at && (
+                    <button onClick={() => startEvent(e.id)} disabled={lifecycleBusyId === e.id} className="p-1.5 text-leather-light hover:text-moss-dark transition-colors disabled:opacity-50" title="Iniciar evento"><PlayCircle size={15} /></button>
+                  )}
+                  {e.started_at && !e.ended_at && (
+                    <button onClick={() => endEvent(e.id)} disabled={lifecycleBusyId === e.id} className="p-1.5 text-leather-light hover:text-crimson transition-colors disabled:opacity-50" title="Finalizar evento"><StopCircle size={15} /></button>
+                  )}
                   <button onClick={() => openView(e.id)} className="p-1.5 text-leather-light hover:text-moss-dark transition-colors" title="Ver detalle"><Eye size={15} /></button>
                   <button onClick={() => openEdit(e.id)} className="p-1.5 text-leather-light hover:text-brass transition-colors" title="Editar"><Edit2 size={15} /></button>
                   <button onClick={() => handleDelete(e.id)} className="p-1.5 text-leather-light hover:text-crimson transition-colors" title="Eliminar"><Trash2 size={15} /></button>
@@ -409,10 +463,21 @@ export function EventsManager() {
               <span className="font-label text-2xs uppercase tracking-wide px-2 py-0.5 rounded-sm bg-leather/10 text-leather">
                 {viewingEvent.status}
               </span>
+              <LifecycleBadge startedAt={viewingEvent.started_at} endedAt={viewingEvent.ended_at} />
               <span className="font-body text-sm text-ink-light">
                 {formatDateTime(viewingEvent.starts_at)}
                 {viewingEvent.ends_at ? ` – ${formatDateTime(viewingEvent.ends_at)}` : ""}
               </span>
+              {!viewingEvent.started_at && (
+                <Button size="sm" variant="secondary" onClick={() => startEvent(viewingEvent.id)} loading={lifecycleBusyId === viewingEvent.id}>
+                  <PlayCircle size={13} className="mr-1" />Iniciar evento
+                </Button>
+              )}
+              {viewingEvent.started_at && !viewingEvent.ended_at && (
+                <Button size="sm" variant="danger" onClick={() => endEvent(viewingEvent.id)} loading={lifecycleBusyId === viewingEvent.id}>
+                  <StopCircle size={13} className="mr-1" />Finalizar evento
+                </Button>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 font-body text-sm text-ink">

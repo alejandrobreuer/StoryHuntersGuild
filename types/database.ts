@@ -128,6 +128,9 @@ export interface ShgEvent {
   venue_id:          string;
   starts_at:         string;
   ends_at:           string | null;
+  /** Actual Start/End clicked by an admin — distinct from the scheduled starts_at/ends_at above. */
+  started_at:        string | null;
+  ended_at:          string | null;
   capacity:          number;
   price_per_person:  number;
   currency:          string;
@@ -233,6 +236,17 @@ export interface ShgQuest {
 export interface ShgQuestEvent {
   quest_id: string;
   event_id: string;
+}
+
+export type QuestActivationStatus = "active" | "turned_in";
+
+export interface ShgQuestActivation {
+  quest_id:     string;
+  event_id:     string;
+  user_id:      string;
+  status:       QuestActivationStatus;
+  activated_at: string;
+  turned_in_at: string | null;
 }
 
 export interface ShgQuestCompletion {
