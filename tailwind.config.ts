@@ -78,9 +78,14 @@ const config: Config = {
           from: { opacity: "0", transform: "translateY(4px)" },
           to:   { opacity: "1", transform: "translateY(0)" },
         },
+        shimmer: {
+          from: { transform: "translateX(-100%)" },
+          to:   { transform: "translateX(100%)" },
+        },
       },
       animation: {
         "fade-in": "fade-in 0.2s ease-out both",
+        shimmer:   "shimmer 1.6s ease-in-out infinite",
       },
     },
   },
