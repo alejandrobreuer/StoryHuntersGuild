@@ -9,6 +9,7 @@ import { currentRank, nextRank } from "@/lib/gamification/ranks";
 import { PasswordSection } from "@/components/profile/PasswordSection";
 import { DisplayNameEditor } from "@/components/profile/DisplayNameEditor";
 import { QuestLedger, type LedgerQuest } from "@/components/profile/QuestLedger";
+import { RankTrack } from "@/components/profile/RankTrack";
 import { formatDate } from "@/lib/formatting";
 import { cn } from "@/lib/utils";
 import type { ShgRank, QuestType } from "@/types/database";
@@ -135,19 +136,19 @@ export default async function ProfilePage() {
     <main className="bg-gradient-to-b from-parchment to-parchment-dark px-6 py-14">
       <div className="max-w-4xl mx-auto">
       {/* ————— Adventurer Card header ————— */}
-      <div className="relative bg-gradient-to-br from-parchment-dark to-parchment-deep border border-brass rounded-md shadow-[0_1px_0_#EFE4CC,0_12px_28px_-14px_rgba(59,42,30,0.45),inset_0_0_0_6px_#EFE4CC] px-7 py-8 flex flex-col md:flex-row items-center justify-center text-center gap-6">
+      <div className="relative bg-gradient-to-br from-parchment-dark to-parchment-deep border border-brass rounded-md shadow-[0_1px_0_#EFE4CC,0_12px_28px_-14px_rgba(59,42,30,0.45),inset_0_0_0_6px_#EFE4CC] px-7 py-8 flex flex-col md:flex-row items-center text-center gap-6">
           <div className="pointer-events-none absolute top-[10px] left-[18px] right-[18px] h-px bg-brass/60" />
           <div className="pointer-events-none absolute bottom-[10px] left-[18px] right-[18px] h-px bg-brass/60" />
 
-          <div className="shrink-0 relative size-20 rounded-full bg-gradient-to-br from-crimson/90 to-crimson border-4 border-parchment shadow-seal flex items-center justify-center -rotate-3 overflow-hidden">
+          <div className="shrink-0 relative size-24 md:size-28 flex items-center justify-center">
             {rank?.icon_url ? (
-              <Image src={rank.icon_url} alt="" fill className="object-cover" sizes="80px" />
+              <Image src={rank.icon_url} alt="" fill className="object-contain" sizes="112px" />
             ) : (
-              <Shield size={34} className="text-parchment" strokeWidth={1.5} />
+              <Shield size={64} className="text-crimson" strokeWidth={1.25} />
             )}
           </div>
 
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="font-label text-[12px] uppercase tracking-[0.14em] text-[#A6772F] mb-1">
               {showRankTrack && rank ? `Aventurero Rango ${rank.name}` : "Aventurero del Gremio"}
             </p>
@@ -168,8 +169,8 @@ export default async function ProfilePage() {
 
           {showProgress && (
             <div className="text-center shrink-0">
-              <p className="font-display text-2xl text-crimson leading-none">{progress.level}</p>
-              <p className="font-label text-2xs tracking-widest text-leather-light uppercase mt-1">Nivel</p>
+              <p className="font-display text-4xl text-crimson leading-none">{progress.level}</p>
+              <p className="font-label text-xs tracking-widest text-leather-light uppercase mt-1.5">Nivel</p>
             </div>
           )}
       </div>
@@ -229,23 +230,8 @@ export default async function ProfilePage() {
           )}
 
           {showRankTrack && (ranks?.length ?? 0) > 0 && (
-            <div className="col-span-1 md:col-span-2 bg-parchment-dark border border-brass/50 border-t-0 rounded-b-md px-4 py-3 flex justify-between gap-1 overflow-x-auto">
-              {(ranks ?? []).map((r) => {
-                const achieved = rp >= r.rp_required;
-                return (
-                  <div key={r.id} className={cn("flex flex-col items-center shrink-0 min-w-[58px]", !achieved && "opacity-40")}>
-                    <div className={cn(
-                      "relative size-6 rounded-full border-2 border-brass overflow-hidden flex items-center justify-center",
-                      achieved ? "bg-brass/30" : "bg-transparent"
-                    )}>
-                      {r.icon_url && <Image src={r.icon_url} alt="" fill className="object-cover" sizes="24px" />}
-                    </div>
-                    <span className="font-label text-2xs tracking-wide text-leather-light mt-1 uppercase text-center leading-tight">
-                      {r.name}
-                    </span>
-                  </div>
-                );
-              })}
+            <div className="col-span-1 md:col-span-2 bg-parchment-dark border border-brass/50 border-t-0 rounded-b-md px-4 py-3">
+              <RankTrack ranks={ranks ?? []} rp={rp} />
             </div>
           )}
         </div>

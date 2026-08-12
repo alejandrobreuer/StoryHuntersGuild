@@ -98,11 +98,11 @@ export function RanksManager() {
           {[...ranks].sort((a, b) => a.rp_required - b.rp_required).map((r) => (
             <div key={r.id} className="surface-parchment p-4 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="relative size-10 shrink-0 rounded-full bg-brass/15 border border-brass/30 flex items-center justify-center overflow-hidden">
+                <div className="relative size-14 shrink-0 flex items-center justify-center overflow-hidden">
                   {r.icon_url ? (
-                    <Image src={r.icon_url} alt="" fill className="object-cover" sizes="40px" />
+                    <Image src={r.icon_url} alt="" fill className="object-contain" sizes="56px" />
                   ) : (
-                    <Shield size={17} className="text-brass" />
+                    <Shield size={30} className="text-brass" />
                   )}
                 </div>
                 <div className="min-w-0">
