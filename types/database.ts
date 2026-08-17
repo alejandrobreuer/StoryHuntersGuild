@@ -52,7 +52,7 @@ export interface ShgAdminUser {
 export type PermissionKey =
   | "events" | "venues" | "games" | "tags" | "users" | "quests"
   | "ranks" | "badges" | "feature_flags" | "bookings" | "reports"
-  | "settings" | "roles" | "turn_ins";
+  | "settings" | "roles" | "turn_ins" | "rol";
 
 export interface ShgSecurityRole {
   id:                 string;
@@ -73,6 +73,7 @@ export interface ShgSecurityRole {
   perm_settings:      boolean;
   perm_roles:         boolean;
   perm_turn_ins:      boolean;
+  perm_rol:           boolean;
   created_at:         string;
   updated_at:         string;
 }
@@ -329,6 +330,104 @@ export interface ShgSetting {
   key:        string;
   value:      string;
   updated_at: string;
+}
+
+// ─── Rol (Adventurers Guild) ────────────────────────────────────────────────
+// A single shared Fabula Ultima world — one shg_rol_guild row, one DM
+// (an shg_admin_user with perm_rol), many players (shg_users). Distinct from
+// the unrelated ShgQuest/ShgRank gamification system above.
+
+export type RolQuestStatus   = "available" | "active" | "completed";
+export type RolNoteVisibility = "public" | "dm_private" | "player_private";
+
+export interface ShgRolGuild {
+  id:         string;
+  name:       string;
+  image_url:  string | null;
+  supplies:   number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ShgRolGuildFeature {
+  id:          string;
+  guild_id:    string;
+  title:       string;
+  description: string;
+  benefit:     string | null;
+  unlocked:    boolean;
+  sort_order:  number;
+  created_at:  string;
+}
+
+export interface ShgRolGuildRank {
+  id:               string;
+  guild_id:         string;
+  name:             string;
+  points_threshold: number;
+  sort_order:        number;
+}
+
+export interface ShgRolCharacter {
+  id:             string;
+  owner_id:       string;
+  name:           string;
+  /** Full Fabula Ultima sheet — flexible shape, validated with
+   *  lib/validation/rol.ts's fuCharacterSheetSchema, not typed rigidly here. */
+  sheet_data:     Record<string, unknown>;
+  guild_rank_id:  string | null;
+  guild_points:   number;
+  created_at:     string;
+  updated_at:     string;
+}
+
+export interface ShgRolMap {
+  id:        string;
+  guild_id:  string;
+  image_url: string | null;
+}
+
+export interface ShgRolLocation {
+  id:          string;
+  map_id:      string;
+  name:        string;
+  type:        string;
+  description: string;
+  x_pct:       number;
+  y_pct:       number;
+  discovered:  boolean;
+  icon_url:    string | null;
+  created_at:  string;
+}
+
+export interface ShgRolQuest {
+  id:               string;
+  location_id:      string | null;
+  title:            string;
+  description:      string;
+  status:           RolQuestStatus;
+  reward_coin:      number;
+  reward_standing:  number;
+  reward_supplies:  number;
+  created_at:       string;
+  completed_at:     string | null;
+  completed_by:     string | null;
+}
+
+export interface ShgRolQuestParticipant {
+  quest_id:     string;
+  character_id: string;
+}
+
+export interface ShgRolQuestNote {
+  id:           string;
+  quest_id:     string;
+  visibility:   RolNoteVisibility;
+  character_id: string | null;
+  author_id:    string;
+  author_kind:  "player" | "admin";
+  content:      string;
+  created_at:   string;
 }
 
 // ─── Session payloads (signed into the shg_session / shg_admin_session cookies) ──

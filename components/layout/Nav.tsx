@@ -14,6 +14,7 @@ const BASE_LINKS = [
   { href: "/about",       label: "Nosotros" },
   { href: "/my-bookings", label: "Mis reservas" },
   { href: "/profile",     label: "Mi perfil" },
+  { href: "/rol",         label: "Gremio" },
 ];
 
 function NavItem({ href, label, onClick }: { href: string; label: string; onClick?: () => void }) {

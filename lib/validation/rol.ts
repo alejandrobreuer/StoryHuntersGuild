@@ -1,0 +1,126 @@
+import { z } from "zod";
+
+// ─── Fabula Ultima character sheet ───────────────────────────────────────────
+// Mirrors app/FU/lib/types.ts's FUCharacter exactly (minus id/createdAt/
+// updatedAt, which are the shg_rol_character row's own id/created_at/
+// updated_at) — this is the runtime validator for the sheet_data jsonb blob,
+// which app/FU itself never had (it only had structural TS types).
+
+const dieSizeSchema = z.union([z.literal(6), z.literal(8), z.literal(10), z.literal(12)]);
+
+const bondEmotionSchema = z.enum(["admiration", "inferiority", "loyalty", "mistrust", "affection", "hatred"]);
+
+const attributesSchema = z.object({
+  dexterity: dieSizeSchema,
+  insight:   dieSizeSchema,
+  might:     dieSizeSchema,
+  willpower: dieSizeSchema,
+});
+
+const classLevelSchema = z.object({
+  classId:     z.string().min(1),
+  levels:      z.number().int().min(1).max(5),
+  skillsTaken: z.array(z.string()),
+});
+
+const equipmentSchema = z.object({
+  weapons: z.array(z.string()).max(2),
+  shield:  z.string().optional(),
+  armor:   z.string().optional(),
+});
+
+const bondSchema = z.object({
+  name:     z.string().min(1),
+  emotions: z.array(bondEmotionSchema).max(3),
+});
+
+export const fuCharacterSheetSchema = z.object({
+  level: z.number().int().min(1).max(5),
+
+  identity: z.string(),
+  theme:    z.string(),
+  origin:   z.string(),
+
+  classLevels:   z.array(classLevelSchema).min(1).max(3),
+  attributes:    attributesSchema,
+  statusEffects: z.array(z.string()),
+  bonds:         z.array(bondSchema).max(6),
+
+  equipment: equipmentSchema,
+  zenit:     z.number().int().min(0),
+
+  name:       z.string().min(1),
+  pronouns:   z.string(),
+  appearance: z.string(),
+
+  fabulaPoints: z.number().int().min(0),
+});
+
+export type RolCharacterSheet = z.infer<typeof fuCharacterSheetSchema>;
+
+export const characterSchema = z.object({
+  name:       z.string().min(1).max(200),
+  sheet_data: fuCharacterSheetSchema,
+});
+
+// ─── Guild config ─────────────────────────────────────────────────────────────
+
+export const guildSchema = z.object({
+  name:      z.string().min(1).max(200),
+  image_url: z.string().url().nullable().optional().or(z.literal("")),
+  supplies:  z.number().int().min(0).max(1000000).default(0),
+});
+
+export const guildFeatureSchema = z.object({
+  title:       z.string().min(1).max(200),
+  description: z.string().min(1).max(2000),
+  benefit:     z.string().max(500).nullable().optional().or(z.literal("")),
+  unlocked:    z.boolean().default(false),
+  sort_order:  z.number().int().default(0),
+});
+
+export const guildRankSchema = z.object({
+  name:             z.string().min(1).max(100),
+  points_threshold: z.number().int().min(0),
+  sort_order:       z.number().int().default(0),
+});
+
+// ─── Map / locations ────────────────────────────────────────────────────────
+
+export const locationSchema = z.object({
+  name:        z.string().min(1).max(200),
+  type:        z.string().min(1).max(100),
+  description: z.string().min(1).max(2000),
+  x_pct:       z.number().min(0).max(100),
+  y_pct:       z.number().min(0).max(100),
+  discovered:  z.boolean().default(false),
+  icon_url:    z.string().url().nullable().optional().or(z.literal("")),
+});
+
+// ─── Quests ─────────────────────────────────────────────────────────────────
+
+export const questSchema = z.object({
+  title:            z.string().min(1).max(200),
+  description:      z.string().min(1).max(2000),
+  location_id:      z.string().uuid().nullable().optional(),
+  reward_coin:      z.number().int().min(0).max(1000000).default(0),
+  reward_standing:  z.number().int().min(0).max(1000000).default(0),
+  reward_supplies:  z.number().int().min(0).max(1000000).default(0),
+});
+
+export const questInitiateSchema = z.object({
+  character_ids: z.array(z.string().uuid()).min(1),
+});
+
+export const questNoteCreateSchema = z.object({
+  content:      z.string().min(1).max(5000),
+  visibility:   z.enum(["public", "dm_private", "player_private"]),
+  character_id: z.string().uuid().nullable().optional(),
+}).refine((d) => d.visibility !== "player_private" || Boolean(d.character_id), {
+  message: "Las notas privadas de jugador necesitan un personaje.",
+  path: ["character_id"],
+});
+
+export const playerQuestNoteCreateSchema = z.object({
+  content: z.string().min(1).max(5000),
+});
