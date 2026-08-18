@@ -50,13 +50,13 @@ function LocationPin({ location, onStartMove }: { location: ShgRolLocation; onSt
     >
       <div
         className={cn(
-          "flex items-center justify-center w-8 h-8 rounded-full border-2 shadow-parchment-lg",
-          location.discovered ? "bg-parchment border-brass" : "bg-parchment/80 border-leather-light grayscale"
+          "flex items-center justify-center w-8 h-8 border-2 rounded-sm shadow-parchment-lg",
+          location.discovered ? "border-crimson" : "border-leather-light grayscale opacity-70"
         )}
       >
         {location.icon_url ? (
           // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, size unknown ahead of render
-          <img src={location.icon_url} alt="" className="w-5 h-5 object-contain" draggable={false} />
+          <img src={location.icon_url} alt="" className="w-full h-full object-contain" draggable={false} />
         ) : (
           <Icon size={16} className="text-crimson" fill="currentColor" />
         )}
