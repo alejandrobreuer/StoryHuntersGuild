@@ -112,6 +112,20 @@ export function LocationsManager() {
     };
   }
 
+  // Native listener with { passive: false } — React's onWheel is passive by
+  // default, so e.preventDefault() inside it wouldn't actually stop the
+  // container from also scrolling while the wheel zooms.
+  React.useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    function handleWheel(e: WheelEvent) {
+      e.preventDefault();
+      setZoom((z) => clamp(z + (e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP), MIN_ZOOM, MAX_ZOOM));
+    }
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    return () => el.removeEventListener("wheel", handleWheel);
+  }, [map?.image_url]);
+
   function startPaletteDrag(e: React.PointerEvent, typeId: string) {
     e.preventDefault();
     setDrag({ kind: "create", typeId, x: e.clientX, y: e.clientY });
@@ -349,7 +363,7 @@ export function LocationsManager() {
                 </button>
               )}
               <span className="font-body text-2xs text-ink-light">
-                Click derecho o botón central + arrastrar para mover el mapa
+                Rueda del mouse para zoom · click derecho o botón central + arrastrar para mover el mapa
               </span>
             </div>
           </>

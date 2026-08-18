@@ -41,6 +41,7 @@ export default function RolMapPage() {
   const [selected, setSelected] = React.useState<ShgRolLocation | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [zoom, setZoom] = React.useState(1);
+  const scrollRef = React.useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
     fetch("/api/rol/map")
@@ -51,6 +52,20 @@ export default function RolMapPage() {
         setLoading(false);
       });
   }, []);
+
+  // Native listener with { passive: false } — React's onWheel is passive by
+  // default, so e.preventDefault() inside it wouldn't actually stop the
+  // container from also scrolling while the wheel zooms.
+  React.useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    function handleWheel(e: WheelEvent) {
+      e.preventDefault();
+      setZoom((z) => clamp(z + (e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP), MIN_ZOOM, MAX_ZOOM));
+    }
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    return () => el.removeEventListener("wheel", handleWheel);
+  }, [map?.image_url]);
 
   return (
     <main className="max-w-6xl mx-auto px-6 py-14">
@@ -95,7 +110,7 @@ export default function RolMapPage() {
               )}
             </div>
 
-            <div className="relative surface-parchment overflow-auto" style={{ maxHeight: 560 }}>
+            <div ref={scrollRef} className="relative surface-parchment overflow-auto" style={{ maxHeight: 560 }}>
               <div className={cn("relative")} style={{ width: `${zoom * 100}%`, minWidth: "100%" }}>
                 {/* eslint-disable-next-line @next/next/no-img-element -- must render at its natural aspect ratio */}
                 <img src={map.image_url} alt="" className="w-full h-auto block select-none" draggable={false} />
