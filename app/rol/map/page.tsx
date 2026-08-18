@@ -23,12 +23,14 @@ function LocationMarker({ location, onSelect }: { location: ShgRolLocation; onSe
       className="absolute -translate-x-1/2 -translate-y-1/2 hover:scale-110 transition-transform"
       style={{ left: `${location.x_pct}%`, top: `${location.y_pct}%` }}
     >
-      {location.icon_url ? (
-        // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, size unknown ahead of render
-        <img src={location.icon_url} alt="" className="w-8 h-8 object-contain drop-shadow" />
-      ) : (
-        <Icon size={24} className="text-crimson drop-shadow" fill="currentColor" />
-      )}
+      <div className="flex items-center justify-center w-9 h-9 rounded-full border-2 border-brass bg-parchment shadow-parchment-lg">
+        {location.icon_url ? (
+          // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, size unknown ahead of render
+          <img src={location.icon_url} alt="" className="w-6 h-6 object-contain" />
+        ) : (
+          <Icon size={18} className="text-crimson" fill="currentColor" />
+        )}
+      </div>
     </button>
   );
 }

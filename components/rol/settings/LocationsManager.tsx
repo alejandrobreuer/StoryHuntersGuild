@@ -45,18 +45,22 @@ function LocationPin({ location, onStartMove }: { location: ShgRolLocation; onSt
     <div
       title={location.name}
       onPointerDown={onStartMove}
-      className={cn(
-        "absolute -translate-x-1/2 -translate-y-1/2 flex items-center justify-center cursor-move touch-none",
-        !location.discovered && "grayscale opacity-80"
-      )}
+      className="absolute -translate-x-1/2 -translate-y-1/2 flex items-center justify-center cursor-move touch-none"
       style={{ left: `${location.x_pct}%`, top: `${location.y_pct}%` }}
     >
-      {location.icon_url ? (
-        // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, size unknown ahead of render
-        <img src={location.icon_url} alt="" className="w-8 h-8 object-contain drop-shadow" draggable={false} />
-      ) : (
-        <Icon size={20} className="text-crimson drop-shadow" fill="currentColor" />
-      )}
+      <div
+        className={cn(
+          "flex items-center justify-center w-8 h-8 rounded-full border-2 shadow-parchment-lg",
+          location.discovered ? "bg-parchment border-brass" : "bg-parchment/80 border-leather-light grayscale"
+        )}
+      >
+        {location.icon_url ? (
+          // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, size unknown ahead of render
+          <img src={location.icon_url} alt="" className="w-5 h-5 object-contain" draggable={false} />
+        ) : (
+          <Icon size={16} className="text-crimson" fill="currentColor" />
+        )}
+      </div>
     </div>
   );
 }
