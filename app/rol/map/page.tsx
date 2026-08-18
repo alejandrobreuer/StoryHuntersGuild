@@ -42,6 +42,8 @@ export default function RolMapPage() {
   const [loading, setLoading] = React.useState(true);
   const [zoom, setZoom] = React.useState(1);
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
+  const [panning, setPanning] = React.useState(false);
+  const panStartRef = React.useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
 
   React.useEffect(() => {
     fetch("/api/rol/map")
@@ -66,6 +68,39 @@ export default function RolMapPage() {
     el.addEventListener("wheel", handleWheel, { passive: false });
     return () => el.removeEventListener("wheel", handleWheel);
   }, [map?.image_url]);
+
+  function startPan(e: React.PointerEvent) {
+    if (e.button !== 1 && e.button !== 2) return;
+    e.preventDefault();
+    panStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      scrollLeft: scrollRef.current?.scrollLeft ?? 0,
+      scrollTop: scrollRef.current?.scrollTop ?? 0,
+    };
+    setPanning(true);
+  }
+
+  React.useEffect(() => {
+    if (!panning) return;
+
+    function handleMove(e: PointerEvent) {
+      if (!scrollRef.current) return;
+      const start = panStartRef.current;
+      scrollRef.current.scrollLeft = start.scrollLeft - (e.clientX - start.x);
+      scrollRef.current.scrollTop = start.scrollTop - (e.clientY - start.y);
+    }
+    function handleUp() {
+      setPanning(false);
+    }
+
+    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointerup", handleUp);
+    return () => {
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleUp);
+    };
+  }, [panning]);
 
   return (
     <main className="max-w-6xl mx-auto px-6 py-14">
@@ -108,9 +143,18 @@ export default function RolMapPage() {
                   <RotateCcw size={15} />
                 </button>
               )}
+              <span className="font-body text-2xs text-parchment-dark">
+                Rueda del mouse para zoom · click derecho o botón central + arrastrar para mover el mapa
+              </span>
             </div>
 
-            <div ref={scrollRef} className="relative surface-parchment overflow-auto" style={{ maxHeight: 560 }}>
+            <div
+              ref={scrollRef}
+              onPointerDown={startPan}
+              onContextMenu={(e) => e.preventDefault()}
+              className={cn("relative surface-parchment overflow-auto", panning && "cursor-grabbing")}
+              style={{ maxHeight: 560 }}
+            >
               <div className={cn("relative")} style={{ width: `${zoom * 100}%`, minWidth: "100%" }}>
                 {/* eslint-disable-next-line @next/next/no-img-element -- must render at its natural aspect ratio */}
                 <img src={map.image_url} alt="" className="w-full h-auto block select-none" draggable={false} />
