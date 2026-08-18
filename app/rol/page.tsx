@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
 import { Lock, Unlock, Shield } from "lucide-react";
@@ -48,13 +47,14 @@ export default async function RolGuildPage() {
   return (
     <main className="max-w-6xl mx-auto px-6 py-14">
       <div className="grid md:grid-cols-2 gap-10 mb-14">
-        <div className="relative aspect-video md:aspect-square surface-parchment overflow-hidden flex items-center justify-center">
-          {guild.image_url ? (
-            <Image src={guild.image_url} alt={guild.name} fill className="object-cover" sizes="(max-width: 768px) 100vw, 50vw" />
-          ) : (
+        {guild.image_url ? (
+          // eslint-disable-next-line @next/next/no-img-element -- must render at its natural aspect ratio, not cropped to a fixed box
+          <img src={guild.image_url} alt={guild.name} className="w-full h-auto surface-parchment" />
+        ) : (
+          <div className="relative aspect-square surface-parchment overflow-hidden flex items-center justify-center">
             <Shield size={64} className="text-leather-light" />
-          )}
-        </div>
+          </div>
+        )}
 
         <div>
           <h1 className="font-display text-3xl text-parchment mb-1">{guild.name}</h1>
