@@ -21,11 +21,10 @@ function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n));
 }
 
-interface DragState {
-  typeId: string;
-  x: number;
-  y: number;
-}
+type DragMode =
+  | { kind: "create"; typeId: string; x: number; y: number }
+  | { kind: "move"; locationId: string; x: number; y: number }
+  | { kind: "pan"; x: number; y: number; startScrollLeft: number; startScrollTop: number };
 
 function PaletteItem({ type, onPointerDownStart }: { type: RolLocationType; onPointerDownStart: (e: React.PointerEvent, typeId: string) => void }) {
   const Icon = type.icon;
@@ -40,20 +39,21 @@ function PaletteItem({ type, onPointerDownStart }: { type: RolLocationType; onPo
   );
 }
 
-function LocationPin({ location }: { location: ShgRolLocation }) {
+function LocationPin({ location, onStartMove }: { location: ShgRolLocation; onStartMove: (e: React.PointerEvent) => void }) {
   const Icon = iconForLocationType(location.type);
   return (
     <div
       title={location.name}
+      onPointerDown={onStartMove}
       className={cn(
-        "absolute -translate-x-1/2 -translate-y-1/2 flex items-center justify-center pointer-events-none",
-        location.discovered ? "opacity-100" : "opacity-40"
+        "absolute -translate-x-1/2 -translate-y-1/2 flex items-center justify-center cursor-move touch-none",
+        !location.discovered && "grayscale opacity-80"
       )}
       style={{ left: `${location.x_pct}%`, top: `${location.y_pct}%` }}
     >
       {location.icon_url ? (
         // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, size unknown ahead of render
-        <img src={location.icon_url} alt="" className="w-8 h-8 object-contain drop-shadow" />
+        <img src={location.icon_url} alt="" className="w-8 h-8 object-contain drop-shadow" draggable={false} />
       ) : (
         <Icon size={20} className="text-crimson drop-shadow" fill="currentColor" />
       )}
@@ -74,8 +74,10 @@ export function LocationsManager() {
   const [zoom, setZoom] = React.useState(1);
 
   const mapRef = React.useRef<HTMLDivElement | null>(null);
-  const [drag, setDrag] = React.useState<DragState | null>(null);
+  const scrollRef = React.useRef<HTMLDivElement | null>(null);
+  const [drag, setDrag] = React.useState<DragMode | null>(null);
   const [overMap, setOverMap] = React.useState(false);
+  const [movingPreview, setMovingPreview] = React.useState<{ id: string; x_pct: number; y_pct: number } | null>(null);
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -98,31 +100,85 @@ export function LocationsManager() {
     return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
   }
 
-  function startPaletteDrag(e: React.PointerEvent, typeId: string) {
-    e.preventDefault();
-    setDrag({ typeId, x: e.clientX, y: e.clientY });
+  function pctFromPoint(x: number, y: number): { x_pct: number; y_pct: number } {
+    const rect = mapRef.current!.getBoundingClientRect();
+    return {
+      x_pct: clamp(((x - rect.left) / rect.width) * 100, 0, 100),
+      y_pct: clamp(((y - rect.top) / rect.height) * 100, 0, 100),
+    };
   }
 
-  // Plain pointer events instead of a drag-and-drop library: a small
-  // floating preview follows the cursor from pointerdown on a palette chip
-  // to pointerup, and release position decides the drop — no sensor
+  function startPaletteDrag(e: React.PointerEvent, typeId: string) {
+    e.preventDefault();
+    setDrag({ kind: "create", typeId, x: e.clientX, y: e.clientY });
+  }
+
+  function startPinMove(e: React.PointerEvent, locationId: string) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setDrag({ kind: "move", locationId, x: e.clientX, y: e.clientY });
+  }
+
+  function startPan(e: React.PointerEvent) {
+    if (e.button !== 1 && e.button !== 2) return;
+    e.preventDefault();
+    setDrag({
+      kind: "pan",
+      x: e.clientX,
+      y: e.clientY,
+      startScrollLeft: scrollRef.current?.scrollLeft ?? 0,
+      startScrollTop: scrollRef.current?.scrollTop ?? 0,
+    });
+  }
+
+  // Plain pointer events instead of a drag-and-drop library for all three map
+  // gestures (placing a new pin from the palette, dragging an existing pin,
+  // panning the map) — window-level pointermove/pointerup, no sensor
   // activation thresholds or drop-target collision detection to get wrong.
   React.useEffect(() => {
     if (!drag) return;
+    const active = drag; // narrowed once here; TS can't see through the closures below on its own
 
     function handleMove(e: PointerEvent) {
-      setDrag((d) => (d ? { ...d, x: e.clientX, y: e.clientY } : d));
-      setOverMap(pointInMap(e.clientX, e.clientY));
+      if (active.kind === "create") {
+        setDrag((d) => (d && d.kind === "create" ? { ...d, x: e.clientX, y: e.clientY } : d));
+        setOverMap(pointInMap(e.clientX, e.clientY));
+      } else if (active.kind === "move") {
+        if (!mapRef.current) return;
+        const { x_pct, y_pct } = pctFromPoint(e.clientX, e.clientY);
+        setMovingPreview({ id: active.locationId, x_pct, y_pct });
+      } else if (active.kind === "pan") {
+        if (!scrollRef.current) return;
+        scrollRef.current.scrollLeft = active.startScrollLeft - (e.clientX - active.x);
+        scrollRef.current.scrollTop = active.startScrollTop - (e.clientY - active.y);
+      }
     }
 
-    function handleUp(e: PointerEvent) {
-      if (pointInMap(e.clientX, e.clientY) && mapRef.current && drag) {
-        const rect = mapRef.current.getBoundingClientRect();
-        const x_pct = clamp(((e.clientX - rect.left) / rect.width) * 100, 0, 100);
-        const y_pct = clamp(((e.clientY - rect.top) / rect.height) * 100, 0, 100);
-        setEditing(null);
-        setForm({ ...EMPTY, type: drag.typeId, x_pct: x_pct.toFixed(1), y_pct: y_pct.toFixed(1) });
-        setModalOpen(true);
+    async function handleUp(e: PointerEvent) {
+      if (active.kind === "create") {
+        if (pointInMap(e.clientX, e.clientY) && mapRef.current) {
+          const { x_pct, y_pct } = pctFromPoint(e.clientX, e.clientY);
+          setEditing(null);
+          setForm({ ...EMPTY, type: active.typeId, x_pct: x_pct.toFixed(1), y_pct: y_pct.toFixed(1) });
+          setModalOpen(true);
+        }
+      } else if (active.kind === "move") {
+        if (mapRef.current) {
+          const { x_pct, y_pct } = pctFromPoint(e.clientX, e.clientY);
+          const res = await fetch(`/api/admin/rol/locations/${active.locationId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ x_pct: Number(x_pct.toFixed(1)), y_pct: Number(y_pct.toFixed(1)) }),
+          });
+          if (res.ok) {
+            const json = await res.json();
+            setLocations((prev) => prev.map((l) => (l.id === active.locationId ? json.data : l)));
+          } else {
+            toast.error("No se pudo mover la ubicación.");
+          }
+        }
+        setMovingPreview(null);
       }
       setDrag(null);
       setOverMap(false);
@@ -206,6 +262,11 @@ export function LocationsManager() {
       if (!res.ok) { toast.error(json.error ?? "Error al guardar."); return; }
       toast.success("Ubicación guardada.");
       setModalOpen(false);
+      // Update local state immediately from the response — don't wait on a
+      // refetch to know a brand-new pin exists.
+      setLocations((prev) => (
+        editing ? prev.map((l) => (l.id === editing.id ? json.data : l)) : [...prev, json.data]
+      ));
       load();
     } finally {
       setSaving(false);
@@ -230,7 +291,7 @@ export function LocationsManager() {
   }
 
   const FormIcon = iconForLocationType(form.type || "other");
-  const DragIcon = drag ? iconForLocationType(drag.typeId) : null;
+  const DragIcon = drag?.kind === "create" ? iconForLocationType(drag.typeId) : null;
 
   return (
     <div>
@@ -246,14 +307,14 @@ export function LocationsManager() {
           <>
             <div className="mb-3">
               <p className="font-label text-2xs uppercase tracking-wide text-ink-light mb-2">
-                Arrastrá un tipo de ubicación sobre el mapa para crearla ahí
+                Arrastrá un tipo de ubicación sobre el mapa para crearla ahí. Arrastrá un pin existente para reubicarlo.
               </p>
               <div className="flex flex-wrap gap-2">
                 {LOCATION_TYPES.map((t) => <PaletteItem key={t.id} type={t} onPointerDownStart={startPaletteDrag} />)}
               </div>
             </div>
 
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
               <button
                 type="button"
                 onClick={() => setZoom((z) => clamp(z - ZOOM_STEP, MIN_ZOOM, MAX_ZOOM))}
@@ -283,19 +344,38 @@ export function LocationsManager() {
                   <RotateCcw size={15} />
                 </button>
               )}
+              <span className="font-body text-2xs text-ink-light">
+                Click derecho o botón central + arrastrar para mover el mapa
+              </span>
             </div>
           </>
         )}
 
         <div
-          className={cn("relative w-full border overflow-auto mb-3 transition-colors", overMap ? "border-brass border-2" : "border-border")}
+          ref={scrollRef}
+          onPointerDown={startPan}
+          onContextMenu={(e) => e.preventDefault()}
+          className={cn(
+            "relative w-full border overflow-auto mb-3 transition-colors",
+            overMap ? "border-brass border-2" : "border-border",
+            drag?.kind === "pan" && "cursor-grabbing"
+          )}
           style={{ maxHeight: 560 }}
         >
           {map?.image_url ? (
             <div ref={mapRef} className="relative" style={{ width: `${zoom * 100}%`, minWidth: "100%" }}>
               {/* eslint-disable-next-line @next/next/no-img-element -- must render at its natural aspect ratio; next/image needs known dimensions */}
               <img src={map.image_url} alt="" className="w-full h-auto block select-none" draggable={false} />
-              {locations.map((l) => <LocationPin key={l.id} location={l} />)}
+              {locations.map((l) => {
+                const pos = movingPreview?.id === l.id ? movingPreview : l;
+                return (
+                  <LocationPin
+                    key={l.id}
+                    location={{ ...l, x_pct: pos.x_pct, y_pct: pos.y_pct }}
+                    onStartMove={(e) => startPinMove(e, l.id)}
+                  />
+                );
+              })}
             </div>
           ) : (
             <div className="flex items-center justify-center h-40 text-leather-light font-body text-sm italic">Sin imagen todavía</div>
@@ -351,8 +431,8 @@ export function LocationsManager() {
           </Select>
           <Textarea label="Descripción" required rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Posición X (%)" type="number" min={0} max={100} value={form.x_pct} onChange={(e) => setForm({ ...form, x_pct: e.target.value })} />
-            <Input label="Posición Y (%)" type="number" min={0} max={100} value={form.y_pct} onChange={(e) => setForm({ ...form, y_pct: e.target.value })} />
+            <Input label="Posición X (%)" type="number" min={0} max={100} step="0.1" value={form.x_pct} onChange={(e) => setForm({ ...form, x_pct: e.target.value })} />
+            <Input label="Posición Y (%)" type="number" min={0} max={100} step="0.1" value={form.y_pct} onChange={(e) => setForm({ ...form, y_pct: e.target.value })} />
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -395,7 +475,7 @@ export function LocationsManager() {
         </form>
       </Modal>
 
-      {drag && DragIcon && (
+      {drag?.kind === "create" && DragIcon && (
         <div
           className="fixed z-[999] pointer-events-none -translate-x-1/2 -translate-y-1/2 flex items-center justify-center border-2 border-brass bg-parchment p-1.5 shadow-parchment-lg"
           style={{ left: drag.x, top: drag.y }}
