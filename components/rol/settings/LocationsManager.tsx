@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Edit2, Trash2, Upload, Eye, EyeOff, ZoomIn, ZoomOut, RotateCcw, X } from "lucide-react";
+import { Plus, Edit2, Trash2, Upload, Eye, EyeOff, ZoomIn, ZoomOut, RotateCcw, X, Sword } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
@@ -45,21 +45,20 @@ function LocationPin({ location, onStartMove }: { location: ShgRolLocation; onSt
     <div
       title={location.name}
       onPointerDown={onStartMove}
-      className="absolute -translate-x-1/2 -translate-y-1/2 flex items-center justify-center cursor-move touch-none"
+      className={cn(
+        "absolute -translate-x-1/2 -translate-y-1/2 flex items-center justify-center cursor-move touch-none",
+        !location.discovered && "grayscale opacity-70"
+      )}
       style={{ left: `${location.x_pct}%`, top: `${location.y_pct}%` }}
     >
-      <div
-        className={cn(
-          "flex items-center justify-center w-8 h-8 border-2 rounded-sm shadow-parchment-lg",
-          location.discovered ? "border-crimson" : "border-leather-light grayscale opacity-70"
-        )}
-      >
+      <div className="relative flex items-center justify-center w-9 h-9">
         {location.icon_url ? (
           // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, size unknown ahead of render
-          <img src={location.icon_url} alt="" className="w-full h-full object-contain" draggable={false} />
+          <img src={location.icon_url} alt="" className="w-8 h-8 object-contain drop-shadow-lg" draggable={false} />
         ) : (
-          <Icon size={16} className="text-crimson" fill="currentColor" />
+          <Icon size={22} className="text-crimson drop-shadow-lg" fill="currentColor" />
         )}
+        <Sword size={13} strokeWidth={2.5} className="absolute -top-2 left-1/2 -translate-x-1/2 -rotate-45 text-brass-light drop-shadow" />
       </div>
     </div>
   );

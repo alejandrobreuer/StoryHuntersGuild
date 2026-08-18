@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
+import { ZoomIn, ZoomOut, RotateCcw, Sword } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { iconForLocationType, labelForLocationType } from "@/lib/rol/locationTypes";
 import type { ShgRolLocation, ShgRolMap } from "@/types/database";
@@ -23,13 +23,14 @@ function LocationMarker({ location, onSelect }: { location: ShgRolLocation; onSe
       className="absolute -translate-x-1/2 -translate-y-1/2 hover:scale-110 transition-transform"
       style={{ left: `${location.x_pct}%`, top: `${location.y_pct}%` }}
     >
-      <div className="flex items-center justify-center w-9 h-9 border-2 border-crimson rounded-sm shadow-parchment-lg">
+      <div className="relative flex items-center justify-center w-9 h-9">
         {location.icon_url ? (
           // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, size unknown ahead of render
-          <img src={location.icon_url} alt="" className="w-full h-full object-contain" />
+          <img src={location.icon_url} alt="" className="w-8 h-8 object-contain drop-shadow-lg" />
         ) : (
-          <Icon size={18} className="text-crimson" fill="currentColor" />
+          <Icon size={22} className="text-crimson drop-shadow-lg" fill="currentColor" />
         )}
+        <Sword size={13} strokeWidth={2.5} className="absolute -top-2 left-1/2 -translate-x-1/2 -rotate-45 text-brass-light drop-shadow" />
       </div>
     </button>
   );
