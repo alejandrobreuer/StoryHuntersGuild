@@ -15,5 +15,9 @@ export default async function RolSettingsPage() {
   const adminUser = await getAdminUser();
   if (!adminUser?.permissions.rol) redirect("/rol");
 
-  return <RolSettingsTabs />;
+  return (
+    <div className="max-w-6xl px-6 py-14">
+      <RolSettingsTabs />
+    </div>
+  );
 }
