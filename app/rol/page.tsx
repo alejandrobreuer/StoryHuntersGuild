@@ -1,10 +1,8 @@
-import { redirect } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
 import { Lock, Unlock, Shield } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getSessionUser } from "@/lib/auth/guard";
 import { computeRank } from "@/lib/rol/rank";
 import { cn } from "@/lib/utils";
 import type { ShgRolGuildFeature, ShgRolGuildRank } from "@/types/database";
@@ -21,11 +19,10 @@ interface RosterCharacter {
   owner: { name: string | null } | { name: string | null }[] | null;
 }
 
+// Auth is guarded by app/rol/layout.tsx — every /rol/** route requires a
+// signed-in player before this ever renders.
 export default async function RolGuildPage() {
   noStore();
-  const sessionUser = await getSessionUser();
-  if (!sessionUser) redirect("/sign-in?next=/rol");
-
   const admin = createAdminClient();
   const [{ data: guild }, { data: features }, { data: ranks }, { data: characters }] = await Promise.all([
     admin.from("shg_rol_guild").select("*").limit(1).maybeSingle(),
