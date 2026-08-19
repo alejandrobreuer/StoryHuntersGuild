@@ -58,13 +58,6 @@ function LocationPin({ location, onStartMove }: { location: ShgRolLocation; onSt
         ) : (
           <Icon size={30} className="text-crimson drop-shadow-lg" fill="currentColor" />
         )}
-        {/* eslint-disable-next-line @next/next/no-img-element -- decorative, fixed asset */}
-        <img
-          src="/images/dagger.png"
-          alt=""
-          className="absolute -top-5 left-[calc(50%+11px)] -translate-x-1/2 w-12 h-12 object-contain drop-shadow pointer-events-none"
-          draggable={false}
-        />
       </div>
     </div>
   );
