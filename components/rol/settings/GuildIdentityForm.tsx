@@ -5,12 +5,13 @@ import Image from "next/image";
 import { Upload, Shield } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Textarea } from "@/components/ui/Textarea";
 import { toast } from "sonner";
 import type { ShgRolGuild } from "@/types/database";
 
 export function GuildIdentityForm() {
   const [guild, setGuild] = React.useState<ShgRolGuild | null>(null);
-  const [form, setForm] = React.useState({ name: "", image_url: "", supplies: "0" });
+  const [form, setForm] = React.useState({ name: "", image_url: "", description: "", supplies: "0" });
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [uploading, setUploading] = React.useState(false);
@@ -21,7 +22,10 @@ export function GuildIdentityForm() {
     const json = await res.json();
     if (json.data) {
       setGuild(json.data);
-      setForm({ name: json.data.name, image_url: json.data.image_url ?? "", supplies: String(json.data.supplies) });
+      setForm({
+        name: json.data.name, image_url: json.data.image_url ?? "",
+        description: json.data.description ?? "", supplies: String(json.data.supplies),
+      });
     }
     setLoading(false);
   }, []);
@@ -49,7 +53,10 @@ export function GuildIdentityForm() {
       const res = await fetch("/api/admin/rol/guild", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: form.name, image_url: form.image_url, supplies: Number(form.supplies) || 0 }),
+        body: JSON.stringify({
+          name: form.name, image_url: form.image_url, description: form.description,
+          supplies: Number(form.supplies) || 0,
+        }),
       });
       const json = await res.json();
       if (!res.ok) { toast.error(json.error ?? "Error al guardar."); return; }
@@ -67,6 +74,13 @@ export function GuildIdentityForm() {
     <form onSubmit={handleSave} className="surface-parchment p-5 flex flex-col gap-3">
       <h2 className="font-label text-sm font-bold uppercase tracking-widest text-ink mb-1">Identidad del gremio</h2>
       <Input label="Nombre" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+      <Textarea
+        label="Descripción / novedades"
+        rows={4}
+        placeholder="¿Qué está haciendo el gremio? Últimas novedades, avisos, rumores…"
+        value={form.description}
+        onChange={(e) => setForm({ ...form, description: e.target.value })}
+      />
       <Input
         label="Suministros"
         type="number"

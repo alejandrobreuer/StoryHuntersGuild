@@ -4,6 +4,7 @@ import { Lock, Unlock, Shield } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { computeRank } from "@/lib/rol/rank";
 import { cn } from "@/lib/utils";
+import { GuildImageLightbox } from "@/components/rol/GuildImageLightbox";
 import type { ShgRolGuildFeature, ShgRolGuildRank } from "@/types/database";
 
 export const metadata = { title: "Gremio — Story Hunters Guild" };
@@ -48,8 +49,7 @@ export default async function RolGuildPage() {
     <main className="max-w-6xl mx-auto px-6 py-14">
       <div className="grid md:grid-cols-2 gap-10 mb-14">
         {guild.image_url ? (
-          // eslint-disable-next-line @next/next/no-img-element -- must render at its natural aspect ratio, not cropped to a fixed box
-          <img src={guild.image_url} alt={guild.name} className="w-full h-auto surface-parchment" />
+          <GuildImageLightbox src={guild.image_url} alt={guild.name} />
         ) : (
           <div className="relative aspect-square surface-parchment overflow-hidden flex items-center justify-center">
             <Shield size={64} className="text-leather-light" />
@@ -58,9 +58,16 @@ export default async function RolGuildPage() {
 
         <div>
           <h1 className="font-display text-3xl text-parchment mb-1">{guild.name}</h1>
-          <p className="font-label text-xs uppercase tracking-widest text-brass-light mb-6">
+          <p className="font-label text-xs uppercase tracking-widest text-brass-light mb-4">
             {guild.supplies} suministros del gremio
           </p>
+
+          {guild.description && (
+            <div className="surface-parchment p-4 mb-6">
+              <p className="font-label text-2xs font-bold uppercase tracking-widest text-brass mb-1.5">Novedades del gremio</p>
+              <p className="font-body text-sm text-ink-light whitespace-pre-line">{guild.description}</p>
+            </div>
+          )}
 
           <div className="flex flex-col gap-3">
             {featureList.length === 0 ? (

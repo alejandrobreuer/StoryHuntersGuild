@@ -66,9 +66,10 @@ export const characterSchema = z.object({
 // ─── Guild config ─────────────────────────────────────────────────────────────
 
 export const guildSchema = z.object({
-  name:      z.string().min(1).max(200),
-  image_url: z.string().url().nullable().optional().or(z.literal("")),
-  supplies:  z.number().int().min(0).max(1000000).default(0),
+  name:        z.string().min(1).max(200),
+  image_url:   z.string().url().nullable().optional().or(z.literal("")),
+  description: z.string().max(4000).nullable().optional().or(z.literal("")),
+  supplies:    z.number().int().min(0).max(1000000).default(0),
 });
 
 export const guildFeatureSchema = z.object({

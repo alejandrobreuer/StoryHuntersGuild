@@ -341,12 +341,13 @@ export type RolQuestStatus   = "available" | "active" | "completed";
 export type RolNoteVisibility = "public" | "dm_private" | "player_private";
 
 export interface ShgRolGuild {
-  id:         string;
-  name:       string;
-  image_url:  string | null;
-  supplies:   number;
-  created_at: string;
-  updated_at: string;
+  id:          string;
+  name:        string;
+  image_url:   string | null;
+  description: string | null;
+  supplies:    number;
+  created_at:  string;
+  updated_at:  string;
 }
 
 export interface ShgRolGuildFeature {
