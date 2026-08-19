@@ -23,18 +23,18 @@ function LocationMarker({ location, onSelect }: { location: ShgRolLocation; onSe
       className="absolute -translate-x-1/2 -translate-y-1/2 hover:scale-110 transition-transform"
       style={{ left: `${location.x_pct}%`, top: `${location.y_pct}%` }}
     >
-      <div className="relative flex items-center justify-center w-11 h-11">
+      <div className="relative flex items-center justify-center w-14 h-14">
         {location.icon_url ? (
           // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, size unknown ahead of render
-          <img src={location.icon_url} alt="" className="w-9 h-9 object-contain drop-shadow-lg" />
+          <img src={location.icon_url} alt="" className="w-11 h-11 object-contain drop-shadow-lg" />
         ) : (
-          <Icon size={24} className="text-crimson drop-shadow-lg" fill="currentColor" />
+          <Icon size={30} className="text-crimson drop-shadow-lg" fill="currentColor" />
         )}
         {/* eslint-disable-next-line @next/next/no-img-element -- decorative, fixed asset */}
         <img
           src="/images/dagger.png"
           alt=""
-          className="absolute -top-3 left-1/2 -translate-x-1/2 w-7 h-7 object-contain drop-shadow pointer-events-none"
+          className="absolute -top-5 left-[calc(50%+11px)] -translate-x-1/2 w-12 h-12 object-contain drop-shadow pointer-events-none"
         />
       </div>
     </button>
