@@ -114,6 +114,60 @@ function NpcGalleryModal({ images, initialIndex, onClose }: { images: GalleryIma
   );
 }
 
+function NpcCard({ npc, onSelect }: { npc: NpcRow; onSelect: () => void }) {
+  const residence = oneOf(npc.residence);
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onSelect}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(); } }}
+      className="surface-parchment p-5 text-left cursor-pointer hover:shadow-parchment-lg transition-shadow"
+    >
+      <div className="flex items-start gap-3">
+        <NpcPortrait npc={npc} className="size-24 shrink-0 rounded-full border border-brass/30" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 flex-wrap mb-1">
+            <p className="font-label text-base font-bold text-ink">{npc.name}</p>
+            <span className={cn("font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm", badgeClassForStanding(npc.standing))}>
+              {labelForStanding(npc.standing)}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap mb-2">
+            {residence && (
+              <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-leather/10 text-leather">
+                {residence.name}
+              </span>
+            )}
+            {npc.factions.map((fl) => {
+              const faction = oneOf(fl.faction);
+              if (!faction) return null;
+              return (
+                <span
+                  key={faction.id}
+                  className={cn(
+                    "font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm",
+                    fl.is_former ? "bg-border/40 text-ink-light" : "bg-moss/10 text-moss-dark"
+                  )}
+                >
+                  {fl.is_former ? `Ex-${faction.name}` : faction.name}
+                </span>
+              );
+            })}
+            {npc.tags.map((tag) => (
+              <span key={tag} className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-brass/10 text-brass">
+                {tag}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+      <p className="font-body text-sm text-ink-light line-clamp-4">{npc.description}</p>
+      <p className="font-label text-2xs uppercase tracking-widest text-brass mt-1">Mostrar más…</p>
+    </div>
+  );
+}
+
 function NpcDetailModal({ npc, onClose }: { npc: NpcRow; onClose: () => void }) {
   const residence = oneOf(npc.residence);
   const origin = oneOf(npc.origin);
@@ -236,11 +290,42 @@ export default function RolNpcsPage() {
     return Array.from(seen.entries()).sort((a, b) => a[1].localeCompare(b[1]));
   }, [npcs]);
 
-  const filtered = npcs.filter((n) => {
-    if (residenceFilter && oneOf(n.residence)?.id !== residenceFilter) return false;
-    if (factionFilter && !n.factions.some((fl) => oneOf(fl.faction)?.id === factionFilter)) return false;
-    return true;
-  });
+  // One section per current faction (an NPC with several shows up in each);
+  // former ("Ex-") memberships don't count toward grouping. NPCs with no
+  // current faction land in a trailing "Sin facción" section.
+  const groups = React.useMemo(() => {
+    const filtered = npcs.filter((n) => {
+      if (residenceFilter && oneOf(n.residence)?.id !== residenceFilter) return false;
+      if (factionFilter && !n.factions.some((fl) => oneOf(fl.faction)?.id === factionFilter)) return false;
+      return true;
+    });
+
+    const byFaction = new Map<string, { id: string; name: string; npcs: NpcRow[] }>();
+    const unaffiliated: NpcRow[] = [];
+
+    for (const n of filtered) {
+      const currentFactions = n.factions
+        .filter((fl) => !fl.is_former)
+        .map((fl) => oneOf(fl.faction))
+        .filter((f): f is { id: string; name: string } => Boolean(f));
+
+      if (currentFactions.length === 0) {
+        unaffiliated.push(n);
+        continue;
+      }
+      for (const f of currentFactions) {
+        const group = byFaction.get(f.id) ?? { id: f.id, name: f.name, npcs: [] };
+        group.npcs.push(n);
+        byFaction.set(f.id, group);
+      }
+    }
+
+    const sorted = Array.from(byFaction.values()).sort((a, b) => a.name.localeCompare(b.name));
+    if (unaffiliated.length > 0) sorted.push({ id: "none", name: "Sin facción", npcs: unaffiliated });
+    return sorted;
+  }, [npcs, residenceFilter, factionFilter]);
+
+  const totalShown = groups.reduce((sum, g) => sum + g.npcs.length, 0);
 
   return (
     <main className="max-w-5xl mx-auto px-6 py-14">
@@ -259,7 +344,7 @@ export default function RolNpcsPage() {
 
       {loading ? (
         <p className="font-body italic text-parchment-dark">Cargando…</p>
-      ) : filtered.length === 0 ? (
+      ) : totalShown === 0 ? (
         <div className="text-center py-16">
           <Contact size={28} className="mx-auto text-parchment-dark/60 mb-3" />
           <p className="font-body italic text-parchment-dark">
@@ -267,62 +352,14 @@ export default function RolNpcsPage() {
           </p>
         </div>
       ) : (
-        <div className="grid sm:grid-cols-2 gap-4">
-          {filtered.map((n) => {
-            const residence = oneOf(n.residence);
-            return (
-              <div
-                key={n.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => setSelected(n)}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelected(n); } }}
-                className="surface-parchment p-5 text-left cursor-pointer hover:shadow-parchment-lg transition-shadow"
-              >
-                <div className="flex items-start gap-3">
-                  <NpcPortrait npc={n} className="size-24 shrink-0 rounded-full border border-brass/30" />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                      <p className="font-label text-base font-bold text-ink">{n.name}</p>
-                      <span className={cn("font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm", badgeClassForStanding(n.standing))}>
-                        {labelForStanding(n.standing)}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-wrap mb-2">
-                      {residence && (
-                        <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-leather/10 text-leather">
-                          {residence.name}
-                        </span>
-                      )}
-                      {n.factions.map((fl) => {
-                        const faction = oneOf(fl.faction);
-                        if (!faction) return null;
-                        return (
-                          <span
-                            key={faction.id}
-                            className={cn(
-                              "font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm",
-                              fl.is_former ? "bg-border/40 text-ink-light" : "bg-moss/10 text-moss-dark"
-                            )}
-                          >
-                            {fl.is_former ? `Ex-${faction.name}` : faction.name}
-                          </span>
-                        );
-                      })}
-                      {n.tags.map((tag) => (
-                        <span key={tag} className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-brass/10 text-brass">
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                <p className="font-body text-sm text-ink-light line-clamp-4">{n.description}</p>
-                <p className="font-label text-2xs uppercase tracking-widest text-brass mt-1">Mostrar más…</p>
-              </div>
-            );
-          })}
-        </div>
+        groups.map((group) => (
+          <section key={group.id} className="mb-10">
+            <h2 className="font-display text-xl text-parchment mb-4 pb-2 border-b border-brass/20">{group.name}</h2>
+            <div className="grid sm:grid-cols-2 gap-4">
+              {group.npcs.map((n) => <NpcCard key={n.id} npc={n} onSelect={() => setSelected(n)} />)}
+            </div>
+          </section>
+        ))
       )}
 
       {selected && <NpcDetailModal npc={selected} onClose={() => setSelected(null)} />}
