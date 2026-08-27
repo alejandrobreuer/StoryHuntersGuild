@@ -19,7 +19,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
   const { data: participantRows } = await admin
     .from("shg_rol_quest_participant")
-    .select("character:shg_rol_character(id, owner_id, name)")
+    .select("character:shg_rol_character(id, owner_id, name, portrait_url)")
     .eq("quest_id", params.id);
   const allParticipants = (participantRows ?? [])
     .map((p) => (Array.isArray(p.character) ? p.character[0] : p.character))
@@ -78,32 +78,46 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       .map((f) => ({ id: f.id, title: f.title, cost_supplies: f.cost_supplies, supplies_allocated: f.supplies_allocated }));
   }
 
-  let publicNotes: unknown[] = [];
-  let myThread: unknown[] = [];
+  // Each thread is a single document now (see 033_shg_rol_quest_note_
+  // document.sql) — at most one row per visibility (+character for private).
+  let publicNote: { content: string; updated_at: string } | null = null;
+  let myNote: { content: string; updated_at: string } | null = null;
   if (myCharacter || isRolAdmin) {
     const { data: notes } = await admin
       .from("shg_rol_quest_note")
-      .select("*")
-      .eq("quest_id", params.id)
-      .order("created_at", { ascending: true });
+      .select("visibility, character_id, content, updated_at")
+      .eq("quest_id", params.id);
 
-    publicNotes = (notes ?? []).filter((n) => n.visibility === "public");
+    publicNote = (notes ?? []).find((n) => n.visibility === "public") ?? null;
     if (myCharacter) {
-      myThread = (notes ?? []).filter((n) => n.visibility === "player_private" && n.character_id === myCharacter.id);
+      myNote = (notes ?? []).find((n) => n.visibility === "player_private" && n.character_id === myCharacter.id) ?? null;
     }
+  }
+
+  // Full sheet for the mission page's embedded CharacterSheet — the viewer's
+  // own character only (not every participant's).
+  let myCharacterSheet: { sheet_data: unknown; portrait_url: string | null; full_body_url: string | null } | null = null;
+  if (myCharacter) {
+    const { data: full } = await admin
+      .from("shg_rol_character")
+      .select("sheet_data, portrait_url, full_body_url")
+      .eq("id", myCharacter.id)
+      .maybeSingle();
+    myCharacterSheet = full ?? null;
   }
 
   return NextResponse.json({
     data: {
       quest,
-      participants: allParticipants.map((c) => ({ id: c.id, name: c.name })),
+      participants: allParticipants.map((c) => ({ id: c.id, name: c.name, portrait_url: c.portrait_url })),
       myCharacterId: myCharacter?.id ?? null,
+      myCharacterSheet,
       myApplication,
       leaderVotes,
       isLeader,
       eligibleFeatures,
-      publicNotes,
-      myThread,
+      publicNote,
+      myNote,
     },
   });
 }

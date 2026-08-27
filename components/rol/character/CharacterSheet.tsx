@@ -578,6 +578,7 @@ export function CharacterSheet({
   onUpdate,
   onImagesChange,
   guildStanding,
+  hideBackLink,
 }: {
   character: FUCharacter;
   portraitUrl: string | null;
@@ -586,6 +587,8 @@ export function CharacterSheet({
   onUpdate: (updated: FUCharacter) => void;
   onImagesChange: (portraitUrl: string | null, fullBodyUrl: string | null) => void;
   guildStanding?: React.ReactNode;
+  /** Set when embedding the sheet somewhere other than its own dedicated page (e.g. the active mission page). */
+  hideBackLink?: boolean;
 }) {
   const classes = character.classLevels.map((cl) => classesById[cl.classId]).filter((c): c is NonNullable<typeof c> => Boolean(c));
   const current = currentAttributes(character.attributes, character.statusEffects);
@@ -599,7 +602,7 @@ export function CharacterSheet({
     try {
       const body = new FormData();
       body.set("file", file);
-      const res = await fetch("/api/admin/media", { method: "POST", body });
+      const res = await fetch("/api/rol/media", { method: "POST", body });
       const json = await res.json();
       if (!res.ok) return;
       if (kind === "portrait") onImagesChange(json.data.url, fullBodyUrl);
@@ -618,9 +621,11 @@ export function CharacterSheet({
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 py-8 md:px-8">
-      <Link href={backHref} className="font-label text-xs uppercase tracking-widest text-parchment-dark hover:text-parchment">
-        ← Mis personajes
-      </Link>
+      {!hideBackLink && (
+        <Link href={backHref} className="font-label text-xs uppercase tracking-widest text-parchment-dark hover:text-parchment">
+          ← Mis personajes
+        </Link>
+      )}
 
       <header className="surface-parchment p-6">
         <div className="flex items-start gap-4">

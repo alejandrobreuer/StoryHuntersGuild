@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
+import { NoteEditor } from "@/components/rol/quest/NoteEditor";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { RolQuestStatus, RolQuestApplicationStatus, ShgRolLocation, ShgRolQuestNote } from "@/types/database";
@@ -122,8 +123,6 @@ function oneOf<T>(v: T | T[] | null): T | null {
 function QuestDetail({ quest, onChanged }: { quest: QuestRow; onChanged: () => void }) {
   const [notes, setNotes] = React.useState<ShgRolQuestNote[] | null>(null);
   const [applications, setApplications] = React.useState<ApplicationRow[] | null>(null);
-  const [publicNote, setPublicNote] = React.useState("");
-  const [dmNote, setDmNote] = React.useState("");
   const [historySummary, setHistorySummary] = React.useState("");
   const [busy, setBusy] = React.useState(false);
 
@@ -203,28 +202,24 @@ function QuestDetail({ quest, onChanged }: { quest: QuestRow; onChanged: () => v
     }
   }
 
-  async function addNote(visibility: "public" | "dm_private", content: string, clear: () => void) {
-    if (!content.trim()) return;
+  async function saveNote(visibility: "public" | "dm_private", content: string): Promise<boolean> {
     const res = await fetch(`/api/admin/rol/quests/${quest.id}/notes`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ visibility, content }),
     });
-    const json = await res.json();
-    if (!res.ok) { toast.error(json.error ?? "Error al guardar la nota."); return; }
-    clear();
-    loadNotes();
+    const ok = res.ok;
+    if (ok) loadNotes();
+    return ok;
   }
 
   if (!notes) return <p className="font-body text-xs italic text-ink-light pt-3 border-t border-border">Cargando…</p>;
 
-  const publicNotes = notes.filter((n) => n.visibility === "public");
-  const dmNotes = notes.filter((n) => n.visibility === "dm_private");
-  const playerThreads = new Map<string, ShgRolQuestNote[]>();
+  const publicNote = notes.find((n) => n.visibility === "public") ?? null;
+  const dmNote = notes.find((n) => n.visibility === "dm_private") ?? null;
+  const playerNoteByCharacter = new Map<string, ShgRolQuestNote>();
   for (const n of notes.filter((n) => n.visibility === "player_private" && n.character_id)) {
-    const list = playerThreads.get(n.character_id!) ?? [];
-    list.push(n);
-    playerThreads.set(n.character_id!, list);
+    playerNoteByCharacter.set(n.character_id!, n);
   }
 
   const pendingApplications = (applications ?? []).filter((a) => a.status === "pending");
@@ -330,45 +325,21 @@ function QuestDetail({ quest, onChanged }: { quest: QuestRow; onChanged: () => v
 
       {quest.status !== "available" && (
         <>
-          <div>
-            <p className="font-label text-2xs uppercase tracking-widest text-leather-light mb-1.5">Notas públicas (todos los que tienen acceso)</p>
-            <div className="flex flex-col gap-1 mb-2 max-h-32 overflow-y-auto">
-              {publicNotes.map((n) => <p key={n.id} className="font-body text-xs text-ink-light border-l-2 border-brass/40 pl-2">{n.content}</p>)}
-            </div>
-            <div className="flex gap-2">
-              <Input wrapperClassName="flex-1" value={publicNote} onChange={(e) => setPublicNote(e.target.value)} placeholder="Agregar nota pública…" />
-              <Button size="sm" onClick={() => addNote("public", publicNote, () => setPublicNote(""))}>Agregar</Button>
-            </div>
-          </div>
-
-          <div>
-            <p className="font-label text-2xs uppercase tracking-widest text-leather-light mb-1.5">Notas privadas del DM</p>
-            <div className="flex flex-col gap-1 mb-2 max-h-32 overflow-y-auto">
-              {dmNotes.map((n) => <p key={n.id} className="font-body text-xs text-ink-light border-l-2 border-crimson/40 pl-2">{n.content}</p>)}
-            </div>
-            <div className="flex gap-2">
-              <Input wrapperClassName="flex-1" value={dmNote} onChange={(e) => setDmNote(e.target.value)} placeholder="Agregar nota privada…" />
-              <Button size="sm" onClick={() => addNote("dm_private", dmNote, () => setDmNote(""))}>Agregar</Button>
-            </div>
-          </div>
+          <NoteEditor label="Notas públicas (todos los que tienen acceso)" initialContent={publicNote?.content ?? ""} onSave={(c) => saveNote("public", c)} />
+          <NoteEditor label="Notas privadas del DM" initialContent={dmNote?.content ?? ""} onSave={(c) => saveNote("dm_private", c)} />
 
           {quest.participants.map((p) => {
             const character = oneOf(p.character);
             if (!character) return null;
-            const thread = playerThreads.get(character.id) ?? [];
+            const note = playerNoteByCharacter.get(character.id);
             return (
-              <div key={character.id}>
-                <p className="font-label text-2xs uppercase tracking-widest text-leather-light mb-1.5">Notas privadas — {character.name}</p>
-                <div className="flex flex-col gap-1">
-                  {thread.length === 0
-                    ? <p className="font-body text-xs italic text-ink-light">Sin notas todavía.</p>
-                    : thread.map((n) => (
-                      <p key={n.id} className="font-body text-xs text-ink-light border-l-2 border-moss/40 pl-2">
-                        {n.author_kind === "admin" ? "DM: " : ""}{n.content}
-                      </p>
-                    ))}
-                </div>
-              </div>
+              <NoteEditor
+                key={character.id}
+                label={`Notas privadas — ${character.name}`}
+                initialContent={note?.content ?? ""}
+                readOnly
+                placeholder="Sin notas todavía."
+              />
             );
           })}
         </>

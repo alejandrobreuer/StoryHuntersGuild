@@ -2,12 +2,18 @@
 
 import * as React from "react";
 import { useParams } from "next/navigation";
+import { Contact } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { CharacterSheet } from "@/components/rol/character/CharacterSheet";
+import { NoteEditor } from "@/components/rol/quest/NoteEditor";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import type { RolQuestStatus, RolQuestApplicationStatus, ShgRolQuestNote } from "@/types/database";
+import type { RolQuestStatus, RolQuestApplicationStatus } from "@/types/database";
+import type { FUCharacter } from "@/app/FU/lib/types";
+
+interface ParticipantRef { id: string; name: string; portrait_url: string | null }
 
 interface QuestDetail {
   quest: {
@@ -16,14 +22,15 @@ interface QuestDetail {
     max_participants: number; scheduled_date: string | null; session_count: number;
     leader_character_id: string | null; supplies_pool_remaining: number;
   };
-  participants: { id: string; name: string }[];
+  participants: ParticipantRef[];
   myCharacterId: string | null;
+  myCharacterSheet: { sheet_data: FUCharacter; portrait_url: string | null; full_body_url: string | null } | null;
   myApplication: { id: string; status: RolQuestApplicationStatus; character_id: string } | null;
   leaderVotes: { voter_character_id: string; candidate_character_id: string }[];
   isLeader: boolean;
   eligibleFeatures: { id: string; title: string; cost_supplies: number; supplies_allocated: number }[];
-  publicNotes: ShgRolQuestNote[];
-  myThread: ShgRolQuestNote[];
+  publicNote: { content: string; updated_at: string } | null;
+  myNote: { content: string; updated_at: string } | null;
 }
 
 interface CharacterOption { id: string; name: string }
@@ -36,6 +43,47 @@ const APPLICATION_LABELS: Record<RolQuestApplicationStatus, string> = {
   approved: "¡Fuiste aceptado en esta misión!",
   rejected: "Tu postulación no fue seleccionada esta vez.",
 };
+
+function ParticipantPortrait({ p }: { p: ParticipantRef }) {
+  return p.portrait_url ? (
+    // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, size unknown ahead of render
+    <img src={p.portrait_url} alt="" className="size-10 rounded-full object-cover border border-brass/40" />
+  ) : (
+    <div className="size-10 rounded-full border border-brass/40 bg-brass/15 flex items-center justify-center">
+      <Contact size={16} className="text-brass" />
+    </div>
+  );
+}
+
+// Full-width bar right below the top nav — title, short description, and
+// every participant's portrait, laid out side by side.
+function MissionTopBar({ quest, participants }: { quest: QuestDetail["quest"]; participants: ParticipantRef[] }) {
+  return (
+    <div className="w-full bg-[#1c1810] border-b border-brass/25 px-4 py-3 md:px-8">
+      <div className="flex items-center gap-6 overflow-x-auto">
+        <div className="shrink-0 max-w-md">
+          <div className="flex items-center gap-2">
+            <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-brass/15 text-brass shrink-0">
+              {STATUS_LABELS[quest.status]}
+            </span>
+            <h1 className="font-display text-lg text-parchment truncate">{quest.title}</h1>
+          </div>
+          <p className="font-body text-xs text-parchment-dark line-clamp-1">{quest.description}</p>
+        </div>
+        {participants.length > 0 && (
+          <div className="flex items-center gap-3 shrink-0">
+            {participants.map((p) => (
+              <div key={p.id} className="flex flex-col items-center gap-1">
+                <ParticipantPortrait p={p} />
+                <span className="font-label text-2xs text-parchment-dark max-w-14 truncate">{p.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function ApplySection({ questId, onChanged }: { questId: string; onChanged: () => void }) {
   const [characters, setCharacters] = React.useState<CharacterOption[] | null>(null);
@@ -87,7 +135,7 @@ function LeaderVoteSection({
   questId, participants, myCharacterId, votes, onChanged,
 }: {
   questId: string;
-  participants: { id: string; name: string }[];
+  participants: ParticipantRef[];
   myCharacterId: string;
   votes: { voter_character_id: string; candidate_character_id: string }[];
   onChanged: () => void;
@@ -205,8 +253,6 @@ function AllocateSection({
 export default function RolQuestDetailPage() {
   const params = useParams<{ id: string }>();
   const [detail, setDetail] = React.useState<QuestDetail | null | undefined>(undefined);
-  const [note, setNote] = React.useState("");
-  const [posting, setPosting] = React.useState(false);
   const [withdrawing, setWithdrawing] = React.useState(false);
   const [turningIn, setTurningIn] = React.useState(false);
 
@@ -218,23 +264,48 @@ export default function RolQuestDetailPage() {
 
   React.useEffect(() => { load(); }, [load]);
 
-  async function handlePost(e: React.FormEvent) {
-    e.preventDefault();
-    if (!note.trim()) return;
-    setPosting(true);
-    try {
-      const res = await fetch(`/api/rol/quests/${params.id}/notes`, {
+  async function saveNote(kind: "public" | "private", content: string): Promise<boolean> {
+    const res = await fetch(
+      kind === "public" ? `/api/admin/rol/quests/${params.id}/notes` : `/api/rol/quests/${params.id}/notes`,
+      {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: note }),
-      });
-      const json = await res.json();
-      if (!res.ok) { toast.error(json.error ?? "Error al guardar la nota."); return; }
-      setNote("");
-      load();
-    } finally {
-      setPosting(false);
-    }
+        body: JSON.stringify(kind === "public" ? { visibility: "public", content } : { content }),
+      }
+    );
+    const ok = res.ok;
+    if (ok) load();
+    return ok;
+  }
+
+  async function handleSheetUpdate(updated: FUCharacter) {
+    if (!detail?.myCharacterSheet || !detail.myCharacterId) return;
+    setDetail({ ...detail, myCharacterSheet: { ...detail.myCharacterSheet, sheet_data: updated } });
+    await fetch(`/api/rol/characters/${detail.myCharacterId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: updated.name,
+        sheet_data: updated,
+        portrait_url: detail.myCharacterSheet.portrait_url,
+        full_body_url: detail.myCharacterSheet.full_body_url,
+      }),
+    });
+  }
+
+  async function handleSheetImagesChange(portraitUrl: string | null, fullBodyUrl: string | null) {
+    if (!detail?.myCharacterSheet || !detail.myCharacterId) return;
+    setDetail({ ...detail, myCharacterSheet: { ...detail.myCharacterSheet, portrait_url: portraitUrl, full_body_url: fullBodyUrl } });
+    await fetch(`/api/rol/characters/${detail.myCharacterId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: detail.myCharacterSheet.sheet_data.name,
+        sheet_data: detail.myCharacterSheet.sheet_data,
+        portrait_url: portraitUrl,
+        full_body_url: fullBodyUrl,
+      }),
+    });
   }
 
   async function handleTurnIn() {
@@ -274,117 +345,97 @@ export default function RolQuestDetailPage() {
     );
   }
 
-  const { quest, participants, myCharacterId, myApplication, leaderVotes, isLeader, eligibleFeatures, publicNotes, myThread } = detail;
+  const { quest, participants, myCharacterId, myCharacterSheet, myApplication, leaderVotes, isLeader, eligibleFeatures, publicNote, myNote } = detail;
   const leader = quest.leader_character_id ? participants.find((p) => p.id === quest.leader_character_id) : null;
 
   return (
-    <main className="max-w-2xl mx-auto px-6 py-14">
-      <div className="flex items-center gap-2 mb-2">
-        <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-brass/15 text-brass">
-          {STATUS_LABELS[quest.status]}
-        </span>
-      </div>
-      <h1 className="font-display text-3xl text-parchment mb-3">{quest.title}</h1>
-      <p className="font-body text-sm text-parchment-dark mb-3">{quest.description}</p>
-      <p className="font-body text-xs text-parchment-dark mb-6">
-        Hasta {quest.max_participants} participantes
-        {quest.scheduled_date && <> · {new Date(quest.scheduled_date + "T00:00:00").toLocaleDateString("es-AR")}</>}
-        {" "}· {quest.session_count} {quest.session_count === 1 ? "sesión" : "sesiones"}
-      </p>
+    <>
+      <MissionTopBar quest={quest} participants={participants} />
 
-      {participants.length > 0 && (
-        <p className="font-body text-xs text-parchment-dark mb-8">
-          Participantes: {participants.map((p) => p.name).join(", ")}
-        </p>
-      )}
-
-      {quest.status === "available" && (
-        <section className="surface-parchment p-5 mb-6">
-          <h2 className="font-label text-sm font-bold uppercase tracking-widest text-ink mb-3">Postulación</h2>
-          {myApplication ? (
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <p className="font-body text-sm text-ink-light">{APPLICATION_LABELS[myApplication.status]}</p>
-              <Button size="sm" variant="ghost" onClick={handleWithdraw} loading={withdrawing}>Retirar postulación</Button>
-            </div>
-          ) : (
-            <ApplySection questId={quest.id} onChanged={load} />
-          )}
-        </section>
-      )}
-
-      {quest.status === "active" && (
-        <section className="surface-parchment p-5 mb-6">
-          <h2 className="font-label text-sm font-bold uppercase tracking-widest text-ink mb-3">Líder de la misión</h2>
-          {leader ? (
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <p className="font-body text-sm text-ink-light">{leader.name} lidera esta misión.</p>
-              {isLeader && (
-                <Button size="sm" onClick={handleTurnIn} loading={turningIn}>Entregar misión</Button>
-              )}
-            </div>
-          ) : myCharacterId ? (
-            <LeaderVoteSection questId={quest.id} participants={participants} myCharacterId={myCharacterId} votes={leaderVotes} onChanged={load} />
-          ) : (
-            <p className="font-body italic text-ink-light text-sm">Todavía no hay un líder asignado.</p>
-          )}
-        </section>
-      )}
-
-      {quest.status === "turned_in" && (
-        <section className="surface-parchment p-5 mb-6">
-          <p className="font-body text-sm text-ink-light">
-            {leader?.name ?? "El líder"} entregó esta misión — esperando que el DM la acepte.
-          </p>
-        </section>
-      )}
-
-      {quest.status === "accepted" && (
-        <section className="surface-parchment p-5 mb-6">
-          <h2 className="font-label text-sm font-bold uppercase tracking-widest text-ink mb-3">Recompensas</h2>
-          <p className="font-body text-sm text-ink-light mb-3">
-            {quest.reward_standing} pts. de gremio otorgados a cada participante.
-          </p>
-          {isLeader ? (
-            <AllocateSection questId={quest.id} remaining={quest.supplies_pool_remaining} features={eligibleFeatures} onChanged={load} />
-          ) : (
-            <p className="font-body italic text-ink-light text-sm">
-              {leader?.name ?? "El líder"} está asignando los {quest.supplies_pool_remaining} suministros restantes a funciones del gremio.
-            </p>
-          )}
-        </section>
-      )}
-
-      <section className="surface-parchment p-5 mb-6">
-        <h2 className="font-label text-sm font-bold uppercase tracking-widest text-ink mb-3">Notas públicas</h2>
-        {publicNotes.length === 0 ? (
-          <p className="font-body italic text-ink-light text-sm">Sin notas todavía.</p>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {publicNotes.map((n) => <p key={n.id} className="font-body text-sm text-ink-light border-l-2 border-brass/40 pl-3">{n.content}</p>)}
-          </div>
-        )}
-      </section>
-
-      {myCharacterId && (
-        <section className={cn("surface-parchment p-5")}>
-          <h2 className="font-label text-sm font-bold uppercase tracking-widest text-ink mb-3">Tus notas privadas</h2>
-          <div className="flex flex-col gap-2 mb-4">
-            {myThread.length === 0 ? (
-              <p className="font-body italic text-ink-light text-sm">Solo vos y el DM ven esto.</p>
+      <main className="max-w-2xl mx-auto px-6 py-10">
+        {quest.status === "available" && (
+          <section className="surface-parchment p-5 mb-6">
+            <h2 className="font-label text-sm font-bold uppercase tracking-widest text-ink mb-3">Postulación</h2>
+            {myApplication ? (
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <p className="font-body text-sm text-ink-light">{APPLICATION_LABELS[myApplication.status]}</p>
+                <Button size="sm" variant="ghost" onClick={handleWithdraw} loading={withdrawing}>Retirar postulación</Button>
+              </div>
             ) : (
-              myThread.map((n) => (
-                <p key={n.id} className="font-body text-sm text-ink-light border-l-2 border-moss/40 pl-3">
-                  {n.author_kind === "admin" ? "DM: " : ""}{n.content}
-                </p>
-              ))
+              <ApplySection questId={quest.id} onChanged={load} />
             )}
-          </div>
-          <form onSubmit={handlePost} className="flex gap-2">
-            <Input wrapperClassName="flex-1" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Escribí una nota…" />
-            <Button type="submit" loading={posting}>Enviar</Button>
-          </form>
-        </section>
+          </section>
+        )}
+
+        {quest.status === "active" && (
+          <section className="surface-parchment p-5 mb-6">
+            <h2 className="font-label text-sm font-bold uppercase tracking-widest text-ink mb-3">Líder de la misión</h2>
+            {leader ? (
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <p className="font-body text-sm text-ink-light">{leader.name} lidera esta misión.</p>
+                {isLeader && (
+                  <Button size="sm" onClick={handleTurnIn} loading={turningIn}>Entregar misión</Button>
+                )}
+              </div>
+            ) : myCharacterId ? (
+              <LeaderVoteSection questId={quest.id} participants={participants} myCharacterId={myCharacterId} votes={leaderVotes} onChanged={load} />
+            ) : (
+              <p className="font-body italic text-ink-light text-sm">Todavía no hay un líder asignado.</p>
+            )}
+          </section>
+        )}
+
+        {quest.status === "turned_in" && (
+          <section className="surface-parchment p-5 mb-6">
+            <p className="font-body text-sm text-ink-light">
+              {leader?.name ?? "El líder"} entregó esta misión — esperando que el DM la acepte.
+            </p>
+          </section>
+        )}
+
+        {quest.status === "accepted" && (
+          <section className="surface-parchment p-5 mb-6">
+            <h2 className="font-label text-sm font-bold uppercase tracking-widest text-ink mb-3">Recompensas</h2>
+            <p className="font-body text-sm text-ink-light mb-3">
+              {quest.reward_standing} pts. de gremio otorgados a cada participante.
+            </p>
+            {isLeader ? (
+              <AllocateSection questId={quest.id} remaining={quest.supplies_pool_remaining} features={eligibleFeatures} onChanged={load} />
+            ) : (
+              <p className="font-body italic text-ink-light text-sm">
+                {leader?.name ?? "El líder"} está asignando los {quest.supplies_pool_remaining} suministros restantes a funciones del gremio.
+              </p>
+            )}
+          </section>
+        )}
+      </main>
+
+      {myCharacterSheet && (
+        <div className="grid lg:grid-cols-[1fr_320px] gap-6 items-start pb-14">
+          <CharacterSheet
+            character={myCharacterSheet.sheet_data}
+            portraitUrl={myCharacterSheet.portrait_url}
+            fullBodyUrl={myCharacterSheet.full_body_url}
+            backHref="/rol/characters"
+            hideBackLink
+            onUpdate={handleSheetUpdate}
+            onImagesChange={handleSheetImagesChange}
+          />
+          <aside className="lg:sticky lg:top-4 flex flex-col gap-4 px-4 md:pr-8">
+            <div className="surface-parchment p-4">
+              <NoteEditor label="Notas públicas" initialContent={publicNote?.content ?? ""} onSave={(c) => saveNote("public", c)} />
+            </div>
+            <div className="surface-parchment p-4">
+              <NoteEditor
+                label="Tus notas privadas"
+                initialContent={myNote?.content ?? ""}
+                onSave={(c) => saveNote("private", c)}
+                placeholder="Solo vos y el DM ven esto."
+              />
+            </div>
+          </aside>
+        </div>
       )}
-    </main>
+    </>
   );
 }

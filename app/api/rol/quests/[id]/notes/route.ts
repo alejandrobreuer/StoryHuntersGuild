@@ -3,9 +3,11 @@ import { requireSessionUser } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { playerQuestNoteCreateSchema } from "@/lib/validation/rol";
 
-// A player can only ever post into their OWN player_private thread for a
-// quest they're participating in — visibility and character_id are resolved
-// server-side, never trusted from the client.
+// A player only ever has ONE player_private document per quest (their own
+// thread) — visibility and character_id are resolved server-side, never
+// trusted from the client. Saving overwrites it in place (explicit
+// select-then-update-or-insert; see the admin notes route for why not a DB
+// upsert).
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const { user, error } = await requireSessionUser();
   if (error) return error;
@@ -33,19 +35,35 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: "No participás en esta misión." }, { status: 403 });
   }
 
-  const { data, error: insertError } = await admin
+  const { data: existing } = await admin
     .from("shg_rol_quest_note")
-    .insert({
-      quest_id: params.id,
-      visibility: "player_private",
-      character_id: myCharacter.id,
-      author_id: user.id,
-      author_kind: "player",
-      content: parsed.data.content,
-    })
-    .select()
-    .single();
+    .select("id")
+    .eq("quest_id", params.id)
+    .eq("visibility", "player_private")
+    .eq("character_id", myCharacter.id)
+    .maybeSingle();
 
-  if (insertError) return NextResponse.json({ error: "No se pudo guardar la nota." }, { status: 500 });
-  return NextResponse.json({ data }, { status: 201 });
+  const now = new Date().toISOString();
+  const row = existing
+    ? await admin
+        .from("shg_rol_quest_note")
+        .update({ content: parsed.data.content, author_id: user.id, author_kind: "player", updated_at: now })
+        .eq("id", existing.id)
+        .select()
+        .single()
+    : await admin
+        .from("shg_rol_quest_note")
+        .insert({
+          quest_id: params.id,
+          visibility: "player_private",
+          character_id: myCharacter.id,
+          author_id: user.id,
+          author_kind: "player",
+          content: parsed.data.content,
+        })
+        .select()
+        .single();
+
+  if (row.error) return NextResponse.json({ error: "No se pudo guardar la nota." }, { status: 500 });
+  return NextResponse.json({ data: row.data }, { status: existing ? 200 : 201 });
 }
