@@ -2,11 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { npcSchema } from "@/lib/validation/rol";
-
-const SELECT =
-  "*, residence:shg_rol_location!shg_rol_npc_residence_location_id_fkey(id, name), " +
-  "origin:shg_rol_location!shg_rol_npc_origin_location_id_fkey(id, name), " +
-  "factions:shg_rol_npc_faction(is_former, faction:shg_rol_faction(id, name, sort_order))";
+import { ROL_NPC_SELECT } from "@/lib/rol/npcSelect";
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const { error } = await requirePermission("rol");
@@ -49,7 +45,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (linkError) return NextResponse.json({ error: "No se pudieron guardar las facciones." }, { status: 500 });
   }
 
-  const { data, error: selectError } = await admin.from("shg_rol_npc").select(SELECT).eq("id", params.id).single();
+  const { data, error: selectError } = await admin.from("shg_rol_npc").select(ROL_NPC_SELECT).eq("id", params.id).single();
   if (selectError) return NextResponse.json({ error: "NPC actualizado, pero no se pudo recargar." }, { status: 500 });
   return NextResponse.json({ data });
 }

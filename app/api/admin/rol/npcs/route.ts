@@ -2,14 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { npcSchema } from "@/lib/validation/rol";
-
-// shg_rol_npc has two FKs into shg_rol_location (residence vs. origin) — the
-// embed must be disambiguated by constraint name, or PostgREST can't tell
-// which column each embed should follow.
-const SELECT =
-  "*, residence:shg_rol_location!shg_rol_npc_residence_location_id_fkey(id, name), " +
-  "origin:shg_rol_location!shg_rol_npc_origin_location_id_fkey(id, name), " +
-  "factions:shg_rol_npc_faction(is_former, faction:shg_rol_faction(id, name, sort_order))";
+import { ROL_NPC_SELECT } from "@/lib/rol/npcSelect";
 
 export async function GET() {
   const { error } = await requirePermission("rol");
@@ -18,7 +11,7 @@ export async function GET() {
   const admin = createAdminClient();
   const { data, error: dbErr } = await admin
     .from("shg_rol_npc")
-    .select(SELECT)
+    .select(ROL_NPC_SELECT)
     .order("name", { ascending: true });
 
   if (dbErr) return NextResponse.json({ error: "Error al obtener los NPCs." }, { status: 500 });
@@ -62,7 +55,7 @@ export async function POST(req: NextRequest) {
     if (linkError) return NextResponse.json({ error: "No se pudieron guardar las facciones." }, { status: 500 });
   }
 
-  const { data, error: selectError } = await admin.from("shg_rol_npc").select(SELECT).eq("id", npc.id).single();
+  const { data, error: selectError } = await admin.from("shg_rol_npc").select(ROL_NPC_SELECT).eq("id", npc.id).single();
   if (selectError) return NextResponse.json({ error: "NPC creado, pero no se pudo recargar." }, { status: 500 });
   return NextResponse.json({ data }, { status: 201 });
 }

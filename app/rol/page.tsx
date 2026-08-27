@@ -5,6 +5,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { computeRank } from "@/lib/rol/rank";
 import { cn } from "@/lib/utils";
 import { GuildImageLightbox } from "@/components/rol/GuildImageLightbox";
+import { GuildStaffSection } from "@/components/rol/GuildStaffSection";
+import { ROL_NPC_SELECT } from "@/lib/rol/npcSelect";
+import { oneOf, type NpcRow } from "@/lib/rol/npc";
 import type { ShgRolGuildFeature, ShgRolGuildRank } from "@/types/database";
 
 export const metadata = { title: "Gremio — Story Hunters Guild" };
@@ -24,7 +27,7 @@ interface RosterCharacter {
 export default async function RolGuildPage() {
   noStore();
   const admin = createAdminClient();
-  const [{ data: guild }, { data: features }, { data: ranks }, { data: characters }] = await Promise.all([
+  const [{ data: guild }, { data: features }, { data: ranks }, { data: characters }, { data: npcs }] = await Promise.all([
     admin.from("shg_rol_guild").select("*").limit(1).maybeSingle(),
     admin.from("shg_rol_guild_feature").select("*").order("sort_order", { ascending: true }),
     admin.from("shg_rol_guild_rank").select("*").order("points_threshold", { ascending: true }),
@@ -32,6 +35,7 @@ export default async function RolGuildPage() {
       .from("shg_rol_character")
       .select("id, name, guild_points, guild_rank_id, sheet_data, owner:shg_users(name)")
       .order("guild_points", { ascending: false }),
+    admin.from("shg_rol_npc").select(ROL_NPC_SELECT).order("name", { ascending: true }),
   ]);
 
   if (!guild) {
@@ -44,6 +48,13 @@ export default async function RolGuildPage() {
 
   const rankById = new Map<string, ShgRolGuildRank>((ranks ?? []).map((r) => [r.id, r]));
   const featureList = (features ?? []) as ShgRolGuildFeature[];
+
+  // Guild Staff = any NPC currently ("Ex-" doesn't count) in the faction
+  // sharing the guild's own name — a GM creates that faction and assigns
+  // staff NPCs to it, same as any other faction.
+  const guildStaff = ((npcs ?? []) as unknown as NpcRow[]).filter((n) =>
+    n.factions.some((fl) => !fl.is_former && oneOf(fl.faction)?.name === guild.name)
+  );
 
   return (
     <main className="max-w-6xl mx-auto px-6 py-14">
@@ -90,6 +101,8 @@ export default async function RolGuildPage() {
           </div>
         </div>
       </div>
+
+      <GuildStaffSection staff={guildStaff} />
 
       <div className="flex items-center justify-between mb-4">
         <h2 className="font-display text-2xl text-parchment">Miembros del gremio</h2>
