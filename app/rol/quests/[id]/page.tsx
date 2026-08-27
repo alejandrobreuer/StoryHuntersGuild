@@ -14,10 +14,12 @@ interface QuestDetail {
     id: string; title: string; description: string; status: RolQuestStatus;
     reward_coin: number; reward_standing: number; reward_supplies: number;
     max_participants: number; scheduled_date: string | null; session_count: number;
+    leader_character_id: string | null;
   };
   participants: { id: string; name: string }[];
   myCharacterId: string | null;
   myApplication: { id: string; status: RolQuestApplicationStatus; character_id: string } | null;
+  leaderVotes: { voter_character_id: string; candidate_character_id: string }[];
   publicNotes: ShgRolQuestNote[];
   myThread: ShgRolQuestNote[];
 }
@@ -74,6 +76,62 @@ function ApplySection({ questId, onChanged }: { questId: string; onChanged: () =
       </Select>
       <Button type="submit" loading={busy}>Postularme</Button>
     </form>
+  );
+}
+
+function LeaderVoteSection({
+  questId, participants, myCharacterId, votes, onChanged,
+}: {
+  questId: string;
+  participants: { id: string; name: string }[];
+  myCharacterId: string;
+  votes: { voter_character_id: string; candidate_character_id: string }[];
+  onChanged: () => void;
+}) {
+  const [busy, setBusy] = React.useState(false);
+  const myVote = votes.find((v) => v.voter_character_id === myCharacterId)?.candidate_character_id ?? null;
+  const tally = new Map<string, number>();
+  for (const v of votes) tally.set(v.candidate_character_id, (tally.get(v.candidate_character_id) ?? 0) + 1);
+
+  async function vote(candidateId: string) {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/rol/quests/${questId}/leader-vote`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ candidate_character_id: candidateId }),
+      });
+      const json = await res.json();
+      if (!res.ok) { toast.error(json.error ?? "Error al votar."); return; }
+      onChanged();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div>
+      <p className="font-body text-xs text-ink-light mb-2">
+        {votes.length}/{participants.length} personajes votaron. Elegí quién lidera la misión:
+      </p>
+      <div className="flex flex-col gap-1.5">
+        {participants.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            disabled={busy}
+            onClick={() => vote(p.id)}
+            className={cn(
+              "flex items-center justify-between gap-2 border px-3 py-1.5 text-left transition-colors disabled:opacity-50",
+              myVote === p.id ? "border-brass bg-brass/10" : "border-border hover:border-brass"
+            )}
+          >
+            <span className="font-body text-sm text-ink-light">{p.name}</span>
+            <span className="font-label text-2xs text-leather-light">{tally.get(p.id) ?? 0} voto(s)</span>
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -134,7 +192,8 @@ export default function RolQuestDetailPage() {
     );
   }
 
-  const { quest, participants, myCharacterId, myApplication, publicNotes, myThread } = detail;
+  const { quest, participants, myCharacterId, myApplication, leaderVotes, publicNotes, myThread } = detail;
+  const leader = quest.leader_character_id ? participants.find((p) => p.id === quest.leader_character_id) : null;
 
   return (
     <main className="max-w-2xl mx-auto px-6 py-14">
@@ -167,6 +226,19 @@ export default function RolQuestDetailPage() {
             </div>
           ) : (
             <ApplySection questId={quest.id} onChanged={load} />
+          )}
+        </section>
+      )}
+
+      {quest.status === "active" && (
+        <section className="surface-parchment p-5 mb-6">
+          <h2 className="font-label text-sm font-bold uppercase tracking-widest text-ink mb-3">Líder de la misión</h2>
+          {leader ? (
+            <p className="font-body text-sm text-ink-light">{leader.name} lidera esta misión.</p>
+          ) : myCharacterId ? (
+            <LeaderVoteSection questId={quest.id} participants={participants} myCharacterId={myCharacterId} votes={leaderVotes} onChanged={load} />
+          ) : (
+            <p className="font-body italic text-ink-light text-sm">Todavía no hay un líder asignado.</p>
           )}
         </section>
       )}

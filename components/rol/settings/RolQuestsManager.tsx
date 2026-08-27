@@ -22,6 +22,7 @@ interface QuestRow {
   max_participants: number;
   scheduled_date: string | null;
   session_count: number;
+  leader_character_id: string | null;
   completed_at: string | null;
   location: { id: string; name: string } | { id: string; name: string }[] | null;
   participants: { character: { id: string; name: string } | { id: string; name: string }[] | null }[];
@@ -31,6 +32,70 @@ interface ApplicationRow {
   id: string;
   status: RolQuestApplicationStatus;
   character: { id: string; name: string; owner: { name: string | null } | { name: string | null }[] | null } | { id: string; name: string; owner: { name: string | null } | { name: string | null }[] | null }[] | null;
+}
+
+interface LeaderVoteRow { voter_character_id: string; candidate_character_id: string }
+
+function LeaderPanel({ quest, onChanged }: { quest: QuestRow; onChanged: () => void }) {
+  const [votes, setVotes] = React.useState<LeaderVoteRow[] | null>(null);
+  const [pick, setPick] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+
+  const load = React.useCallback(async () => {
+    const res = await fetch(`/api/admin/rol/quests/${quest.id}/leader`);
+    const json = await res.json();
+    setVotes(json.data ?? []);
+  }, [quest.id]);
+
+  React.useEffect(() => { load(); }, [load]);
+
+  const candidates = quest.participants.map((p) => oneOf(p.character)).filter((c): c is { id: string; name: string } => Boolean(c));
+
+  async function assign(characterId: string) {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/rol/quests/${quest.id}/leader`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ character_id: characterId }),
+      });
+      const json = await res.json();
+      if (!res.ok) { toast.error(json.error ?? "Error."); return; }
+      toast.success("Líder asignado.");
+      onChanged();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const leader = quest.leader_character_id ? candidates.find((c) => c.id === quest.leader_character_id) : null;
+  const tally = new Map<string, number>();
+  for (const v of votes ?? []) tally.set(v.candidate_character_id, (tally.get(v.candidate_character_id) ?? 0) + 1);
+
+  return (
+    <div>
+      <p className="font-label text-2xs uppercase tracking-widest text-leather-light mb-1.5">Líder de la misión</p>
+      {leader ? (
+        <p className="font-body text-xs text-ink-light mb-2">{leader.name}</p>
+      ) : votes === null ? (
+        <p className="font-body text-xs italic text-ink-light mb-2">Cargando…</p>
+      ) : (
+        <div className="flex flex-col gap-1 mb-2">
+          {candidates.map((c) => (
+            <p key={c.id} className="font-body text-xs text-ink-light">{c.name} — {tally.get(c.id) ?? 0} voto(s)</p>
+          ))}
+          <p className="font-body text-2xs italic text-ink-light">{votes.length}/{candidates.length} votaron.</p>
+        </div>
+      )}
+      <div className="flex gap-2">
+        <Select wrapperClassName="flex-1" value={pick} onChange={(e) => setPick(e.target.value)}>
+          <option value="">{leader ? "Reasignar a…" : "Asignar manualmente…"}</option>
+          {candidates.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </Select>
+        <Button size="sm" disabled={!pick} loading={busy} onClick={() => pick && assign(pick)}>Asignar</Button>
+      </div>
+    </div>
+  );
 }
 
 const STATUS_LABELS: Record<RolQuestStatus, string> = { available: "Disponible", active: "Activa", completed: "Completada" };
@@ -208,7 +273,10 @@ function QuestDetail({ quest, onChanged }: { quest: QuestRow; onChanged: () => v
       )}
 
       {quest.status === "active" && (
-        <Button size="sm" variant="secondary" onClick={handleComplete} loading={busy}>Completar y otorgar recompensas</Button>
+        <>
+          <LeaderPanel quest={quest} onChanged={onChanged} />
+          <Button size="sm" variant="secondary" onClick={handleComplete} loading={busy}>Completar y otorgar recompensas</Button>
+        </>
       )}
 
       {quest.status !== "available" && (

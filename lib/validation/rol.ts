@@ -133,6 +133,14 @@ export const questApplicationDecisionSchema = z.object({
   status: z.enum(["approved", "rejected"]),
 });
 
+export const questLeaderVoteSchema = z.object({
+  candidate_character_id: z.string().uuid(),
+});
+
+export const questLeaderSetSchema = z.object({
+  character_id: z.string().uuid(),
+});
+
 export const questNoteCreateSchema = z.object({
   content:      z.string().min(1).max(5000),
   visibility:   z.enum(["public", "dm_private", "player_private"]),

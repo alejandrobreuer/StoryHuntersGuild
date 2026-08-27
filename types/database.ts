@@ -434,6 +434,8 @@ export interface ShgRolQuest {
   /** Calendar date the mission is meant to run — a plain date, no time. */
   scheduled_date:     string | null;
   session_count:      number;
+  /** Set once the participant vote resolves (or the DM breaks a tie by hand). */
+  leader_character_id: string | null;
   created_at:         string;
   completed_at:       string | null;
   completed_by:       string | null;
@@ -442,6 +444,13 @@ export interface ShgRolQuest {
 export interface ShgRolQuestParticipant {
   quest_id:     string;
   character_id: string;
+}
+
+export interface ShgRolQuestLeaderVote {
+  quest_id:               string;
+  voter_character_id:     string;
+  candidate_character_id: string;
+  voted_at:               string;
 }
 
 export type RolQuestApplicationStatus = "pending" | "approved" | "rejected";

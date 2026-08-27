@@ -47,6 +47,17 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     }
   }
 
+  // Vote tally for leader election — only meaningful while active and
+  // unresolved; every participant (not just the caller) can see live counts.
+  let leaderVotes: { voter_character_id: string; candidate_character_id: string }[] = [];
+  if (quest.status === "active" && !quest.leader_character_id && (myCharacter || isRolAdmin)) {
+    const { data: votes } = await admin
+      .from("shg_rol_quest_leader_vote")
+      .select("voter_character_id, candidate_character_id")
+      .eq("quest_id", params.id);
+    leaderVotes = votes ?? [];
+  }
+
   let publicNotes: unknown[] = [];
   let myThread: unknown[] = [];
   if (myCharacter || isRolAdmin) {
@@ -68,6 +79,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       participants: allParticipants.map((c) => ({ id: c.id, name: c.name })),
       myCharacterId: myCharacter?.id ?? null,
       myApplication,
+      leaderVotes,
       publicNotes,
       myThread,
     },
