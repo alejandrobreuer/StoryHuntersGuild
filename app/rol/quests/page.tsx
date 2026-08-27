@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ScrollText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RolQuestPaperCard } from "@/components/rol/QuestPaperCard";
-import type { RolQuestStatus, ShgRolQuest } from "@/types/database";
+import type { RolQuestStatus, RolQuestApplicationStatus, ShgRolQuest } from "@/types/database";
 
 const STATUS_LABELS: Record<RolQuestStatus, string> = { available: "Disponible", active: "Activa", completed: "Completada" };
 const STATUS_STYLES: Record<RolQuestStatus, string> = {
@@ -14,8 +14,23 @@ const STATUS_STYLES: Record<RolQuestStatus, string> = {
   completed: "bg-leather/10 text-leather",
 };
 
+interface AvailableQuest extends ShgRolQuest {
+  my_application: { status: RolQuestApplicationStatus; character_id: string; character_name: string } | null;
+}
+
+const APPLICATION_LABELS: Record<RolQuestApplicationStatus, string> = {
+  pending: "Postulado — pendiente",
+  approved: "¡Aceptado!",
+  rejected: "No seleccionado",
+};
+const APPLICATION_STYLES: Record<RolQuestApplicationStatus, string> = {
+  pending: "border-brass text-brass",
+  approved: "border-moss text-moss-dark bg-moss/10",
+  rejected: "border-border text-ink-light",
+};
+
 export default function RolQuestsPage() {
-  const [available, setAvailable] = React.useState<ShgRolQuest[]>([]);
+  const [available, setAvailable] = React.useState<AvailableQuest[]>([]);
   const [mine, setMine] = React.useState<ShgRolQuest[]>([]);
   const [loading, setLoading] = React.useState(true);
 
@@ -88,10 +103,20 @@ export default function RolQuestsPage() {
                       <RolQuestPaperCard key={q.id} index={mine.length + i}>
                         <p className="font-label text-sm font-semibold text-ink line-clamp-2">{q.title}</p>
                         <p className="font-body text-xs text-ink-light leading-snug line-clamp-5 shrink-0">{q.description}</p>
+                        <p className="font-body text-2xs text-ink-light shrink-0">
+                          Hasta {q.max_participants}
+                          {q.scheduled_date && <> · {new Date(q.scheduled_date + "T00:00:00").toLocaleDateString("es-AR")}</>}
+                        </p>
                         <div className="mt-1">
-                          <span className="block text-center font-label text-2xs uppercase tracking-wide px-3 py-2 border border-border text-ink-light">
-                            {STATUS_LABELS.available}
-                          </span>
+                          <Link
+                            href={`/rol/quests/${q.id}`}
+                            className={cn(
+                              "block text-center font-label text-2xs uppercase tracking-wide px-3 py-2 border transition-colors no-underline",
+                              q.my_application ? APPLICATION_STYLES[q.my_application.status] : "border-crimson text-crimson hover:bg-crimson/10"
+                            )}
+                          >
+                            {q.my_application ? APPLICATION_LABELS[q.my_application.status] : "Postularme"}
+                          </Link>
                         </div>
                       </RolQuestPaperCard>
                     ))}

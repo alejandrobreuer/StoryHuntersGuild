@@ -25,7 +25,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const { data, error: updateError } = await admin
     .from("shg_rol_quest")
-    .update({ ...parsed.data, location_id: parsed.data.location_id || null })
+    .update({ ...parsed.data, location_id: parsed.data.location_id || null, scheduled_date: parsed.data.scheduled_date || null })
     .eq("id", params.id)
     .select()
     .single();

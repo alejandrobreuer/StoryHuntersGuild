@@ -32,6 +32,21 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: "No tenés acceso a esta misión." }, { status: 403 });
   }
 
+  let myApplication: { id: string; status: string; character_id: string } | null = null;
+  if (quest.status === "available") {
+    const { data: myCharacters } = await admin.from("shg_rol_character").select("id").eq("owner_id", user.id);
+    const myCharacterIds = (myCharacters ?? []).map((c) => c.id);
+    if (myCharacterIds.length > 0) {
+      const { data: application } = await admin
+        .from("shg_rol_quest_application")
+        .select("id, status, character_id")
+        .eq("quest_id", params.id)
+        .in("character_id", myCharacterIds)
+        .maybeSingle();
+      myApplication = application ?? null;
+    }
+  }
+
   let publicNotes: unknown[] = [];
   let myThread: unknown[] = [];
   if (myCharacter || isRolAdmin) {
@@ -52,6 +67,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       quest,
       participants: allParticipants.map((c) => ({ id: c.id, name: c.name })),
       myCharacterId: myCharacter?.id ?? null,
+      myApplication,
       publicNotes,
       myThread,
     },

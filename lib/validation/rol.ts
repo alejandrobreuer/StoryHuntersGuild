@@ -111,16 +111,26 @@ export const locationSchema = z.object({
 // ─── Quests ─────────────────────────────────────────────────────────────────
 
 export const questSchema = z.object({
-  title:            z.string().min(1).max(200),
-  description:      z.string().min(1).max(2000),
-  location_id:      z.string().uuid().nullable().optional(),
-  reward_coin:      z.number().int().min(0).max(1000000).default(0),
-  reward_standing:  z.number().int().min(0).max(1000000).default(0),
-  reward_supplies:  z.number().int().min(0).max(1000000).default(0),
+  title:             z.string().min(1).max(200),
+  description:       z.string().min(1).max(2000),
+  location_id:       z.string().uuid().nullable().optional(),
+  reward_coin:       z.number().int().min(0).max(1000000).default(0),
+  reward_standing:   z.number().int().min(0).max(1000000).default(0),
+  reward_supplies:   z.number().int().min(0).max(1000000).default(0),
+  max_participants:  z.number().int().min(1).max(20).default(4),
+  scheduled_date:    z.string().nullable().optional().or(z.literal("")),
+  session_count:     z.number().int().min(1).max(50).default(1),
 });
 
-export const questInitiateSchema = z.object({
-  character_ids: z.array(z.string().uuid()).min(1),
+// A player applies with exactly one of their own characters — ownership is
+// verified server-side in app/api/rol/quests/[id]/apply/route.ts, never
+// trusted from the client.
+export const questApplySchema = z.object({
+  character_id: z.string().uuid(),
+});
+
+export const questApplicationDecisionSchema = z.object({
+  status: z.enum(["approved", "rejected"]),
 });
 
 export const questNoteCreateSchema = z.object({

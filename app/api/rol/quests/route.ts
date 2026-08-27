@@ -12,12 +12,30 @@ export async function GET() {
 
   const [{ data: available, error: availableErr }, { data: myCharacters }] = await Promise.all([
     admin.from("shg_rol_quest").select("*").eq("status", "available").order("created_at", { ascending: false }),
-    admin.from("shg_rol_character").select("id").eq("owner_id", user.id),
+    admin.from("shg_rol_character").select("id, name").eq("owner_id", user.id),
   ]);
 
   if (availableErr) return NextResponse.json({ error: "Error al obtener las misiones." }, { status: 500 });
 
   const myCharacterIds = (myCharacters ?? []).map((c) => c.id);
+  const myCharacterName = new Map((myCharacters ?? []).map((c) => [c.id, c.name]));
+
+  // My own application (any status) per available quest, so the board can
+  // show "postulado / aceptado / rechazado" instead of a bare Apply button.
+  let myApplicationByQuest = new Map<string, { status: string; character_id: string; character_name: string }>();
+  if (myCharacterIds.length > 0 && (available ?? []).length > 0) {
+    const { data: applications } = await admin
+      .from("shg_rol_quest_application")
+      .select("quest_id, status, character_id")
+      .in("quest_id", (available ?? []).map((q) => q.id))
+      .in("character_id", myCharacterIds);
+
+    myApplicationByQuest = new Map(
+      (applications ?? []).map((a) => [a.quest_id, { status: a.status, character_id: a.character_id, character_name: myCharacterName.get(a.character_id) ?? "" }])
+    );
+  }
+  const availableWithApplication = (available ?? []).map((q) => ({ ...q, my_application: myApplicationByQuest.get(q.id) ?? null }));
+
   let mine: unknown[] = [];
   if (myCharacterIds.length > 0) {
     const { data: participantRows } = await admin
@@ -36,5 +54,5 @@ export async function GET() {
       });
   }
 
-  return NextResponse.json({ data: { available: available ?? [], mine } });
+  return NextResponse.json({ data: { available: availableWithApplication, mine } });
 }

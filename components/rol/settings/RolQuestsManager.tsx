@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Edit2, Trash2, ChevronDown, ChevronUp, Swords } from "lucide-react";
+import { Plus, Edit2, Trash2, ChevronDown, ChevronUp, Swords, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
@@ -9,7 +9,7 @@ import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import type { RolQuestStatus, ShgRolLocation, ShgRolQuestNote } from "@/types/database";
+import type { RolQuestStatus, RolQuestApplicationStatus, ShgRolLocation, ShgRolQuestNote } from "@/types/database";
 
 interface QuestRow {
   id: string;
@@ -19,11 +19,19 @@ interface QuestRow {
   reward_coin: number;
   reward_standing: number;
   reward_supplies: number;
+  max_participants: number;
+  scheduled_date: string | null;
+  session_count: number;
   completed_at: string | null;
   location: { id: string; name: string } | { id: string; name: string }[] | null;
   participants: { character: { id: string; name: string } | { id: string; name: string }[] | null }[];
 }
-interface CharacterOption { id: string; name: string; ownerName: string }
+
+interface ApplicationRow {
+  id: string;
+  status: RolQuestApplicationStatus;
+  character: { id: string; name: string; owner: { name: string | null } | { name: string | null }[] | null } | { id: string; name: string; owner: { name: string | null } | { name: string | null }[] | null }[] | null;
+}
 
 const STATUS_LABELS: Record<RolQuestStatus, string> = { available: "Disponible", active: "Activa", completed: "Completada" };
 const STATUS_STYLES: Record<RolQuestStatus, string> = {
@@ -32,15 +40,18 @@ const STATUS_STYLES: Record<RolQuestStatus, string> = {
   completed: "bg-leather/10 text-leather",
 };
 
-const EMPTY = { title: "", description: "", location_id: "", reward_coin: "0", reward_standing: "0", reward_supplies: "0" };
+const EMPTY = {
+  title: "", description: "", location_id: "", reward_coin: "0", reward_standing: "0", reward_supplies: "0",
+  max_participants: "4", scheduled_date: "", session_count: "1",
+};
 
 function oneOf<T>(v: T | T[] | null): T | null {
   return Array.isArray(v) ? (v[0] ?? null) : v;
 }
 
-function QuestDetail({ quest, characters, onChanged }: { quest: QuestRow; characters: CharacterOption[]; onChanged: () => void }) {
+function QuestDetail({ quest, onChanged }: { quest: QuestRow; onChanged: () => void }) {
   const [notes, setNotes] = React.useState<ShgRolQuestNote[] | null>(null);
-  const [selectedCharacterIds, setSelectedCharacterIds] = React.useState<string[]>([]);
+  const [applications, setApplications] = React.useState<ApplicationRow[] | null>(null);
   const [publicNote, setPublicNote] = React.useState("");
   const [dmNote, setDmNote] = React.useState("");
   const [busy, setBusy] = React.useState(false);
@@ -51,17 +62,35 @@ function QuestDetail({ quest, characters, onChanged }: { quest: QuestRow; charac
     setNotes(json.data ?? []);
   }, [quest.id]);
 
-  React.useEffect(() => { loadNotes(); }, [loadNotes]);
+  const loadApplications = React.useCallback(async () => {
+    const res = await fetch(`/api/admin/rol/quests/${quest.id}/applications`);
+    const json = await res.json();
+    setApplications(json.data ?? []);
+  }, [quest.id]);
 
-  async function handleInitiate() {
-    if (selectedCharacterIds.length === 0) { toast.error("Elegí al menos un personaje."); return; }
+  React.useEffect(() => { loadNotes(); }, [loadNotes]);
+  React.useEffect(() => { if (quest.status === "available") loadApplications(); }, [loadApplications, quest.status]);
+
+  async function decideApplication(appId: string, status: "approved" | "rejected") {
     setBusy(true);
     try {
-      const res = await fetch(`/api/admin/rol/quests/${quest.id}/initiate`, {
-        method: "POST",
+      const res = await fetch(`/api/admin/rol/quests/${quest.id}/applications/${appId}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ character_ids: selectedCharacterIds }),
+        body: JSON.stringify({ status }),
       });
+      const json = await res.json();
+      if (!res.ok) { toast.error(json.error ?? "Error."); return; }
+      loadApplications();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleInitiate() {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/rol/quests/${quest.id}/initiate`, { method: "POST" });
       const json = await res.json();
       if (!res.ok) { toast.error(json.error ?? "Error."); return; }
       toast.success("Misión iniciada.");
@@ -109,27 +138,72 @@ function QuestDetail({ quest, characters, onChanged }: { quest: QuestRow; charac
     playerThreads.set(n.character_id!, list);
   }
 
+  const pendingApplications = (applications ?? []).filter((a) => a.status === "pending");
+  const approvedApplications = (applications ?? []).filter((a) => a.status === "approved");
+
   return (
     <div className="flex flex-col gap-4 pt-3 border-t border-border">
       {quest.status === "available" && (
         <div>
-          <p className="font-label text-2xs uppercase tracking-widest text-leather-light mb-1.5">Iniciar misión — elegí personajes</p>
-          <div className="flex flex-col gap-1 max-h-32 overflow-y-auto border border-border p-2 mb-2">
-            {characters.map((c) => (
-              <label key={c.id} className="flex items-center gap-2 text-xs font-body text-ink-light cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="accent-brass"
-                  checked={selectedCharacterIds.includes(c.id)}
-                  onChange={(e) => setSelectedCharacterIds((ids) =>
-                    e.target.checked ? [...ids, c.id] : ids.filter((id) => id !== c.id)
-                  )}
-                />
-                {c.name} <span className="text-leather-light">({c.ownerName})</span>
-              </label>
-            ))}
-          </div>
-          <Button size="sm" onClick={handleInitiate} loading={busy}>Iniciar misión</Button>
+          <p className="font-label text-2xs uppercase tracking-widest text-leather-light mb-1.5">
+            Postulaciones — {approvedApplications.length}/{quest.max_participants} aprobados
+          </p>
+          {applications === null ? (
+            <p className="font-body text-xs italic text-ink-light">Cargando…</p>
+          ) : (
+            <>
+              {pendingApplications.length === 0 && approvedApplications.length === 0 ? (
+                <p className="font-body text-xs italic text-ink-light mb-2">Todavía nadie se postuló.</p>
+              ) : (
+                <div className="flex flex-col gap-1 mb-2">
+                  {pendingApplications.map((a) => {
+                    const character = oneOf(a.character);
+                    const owner = character ? oneOf(character.owner) : null;
+                    return (
+                      <div key={a.id} className="flex items-center justify-between gap-2 border border-border bg-parchment/40 px-2.5 py-1.5">
+                        <span className="font-body text-xs text-ink-light">
+                          {character?.name ?? "?"} <span className="text-leather-light">({owner?.name ?? "Aventurero"})</span>
+                        </span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            onClick={() => decideApplication(a.id, "approved")}
+                            disabled={busy}
+                            className="p-1 text-leather-light hover:text-moss transition-colors disabled:opacity-40"
+                            title="Aprobar"
+                          >
+                            <Check size={14} />
+                          </button>
+                          <button
+                            onClick={() => decideApplication(a.id, "rejected")}
+                            disabled={busy}
+                            className="p-1 text-leather-light hover:text-crimson transition-colors disabled:opacity-40"
+                            title="Rechazar"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {approvedApplications.map((a) => {
+                    const character = oneOf(a.character);
+                    const owner = character ? oneOf(character.owner) : null;
+                    return (
+                      <div key={a.id} className="flex items-center gap-2 border border-moss/30 bg-moss/5 px-2.5 py-1.5">
+                        <Check size={13} className="text-moss shrink-0" />
+                        <span className="font-body text-xs text-ink-light">
+                          {character?.name ?? "?"} <span className="text-leather-light">({owner?.name ?? "Aventurero"})</span>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <Button size="sm" onClick={handleInitiate} loading={busy} disabled={approvedApplications.length === 0}>
+                Iniciar misión
+              </Button>
+            </>
+          )}
         </div>
       )}
 
@@ -198,7 +272,6 @@ function QuestDetail({ quest, characters, onChanged }: { quest: QuestRow; charac
 export function RolQuestsManager() {
   const [quests, setQuests] = React.useState<QuestRow[]>([]);
   const [locations, setLocations] = React.useState<ShgRolLocation[]>([]);
-  const [characters, setCharacters] = React.useState<CharacterOption[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [editing, setEditing] = React.useState<QuestRow | null>(null);
   const [modalOpen, setModalOpen] = React.useState(false);
@@ -208,12 +281,11 @@ export function RolQuestsManager() {
 
   const load = React.useCallback(async () => {
     setLoading(true);
-    const [questsRes, locRes, charRes] = await Promise.all([
-      fetch("/api/admin/rol/quests"), fetch("/api/admin/rol/locations"), fetch("/api/admin/rol/characters"),
+    const [questsRes, locRes] = await Promise.all([
+      fetch("/api/admin/rol/quests"), fetch("/api/admin/rol/locations"),
     ]);
     setQuests((await questsRes.json()).data ?? []);
     setLocations((await locRes.json()).data ?? []);
-    setCharacters((await charRes.json()).data ?? []);
     setLoading(false);
   }, []);
 
@@ -231,6 +303,7 @@ export function RolQuestsManager() {
       title: q.title, description: q.description,
       location_id: oneOf(q.location)?.id ?? "",
       reward_coin: String(q.reward_coin), reward_standing: String(q.reward_standing), reward_supplies: String(q.reward_supplies),
+      max_participants: String(q.max_participants), scheduled_date: q.scheduled_date ?? "", session_count: String(q.session_count),
     });
     setModalOpen(true);
   }
@@ -246,6 +319,9 @@ export function RolQuestsManager() {
         reward_coin: Number(form.reward_coin) || 0,
         reward_standing: Number(form.reward_standing) || 0,
         reward_supplies: Number(form.reward_supplies) || 0,
+        max_participants: Number(form.max_participants) || 1,
+        scheduled_date: form.scheduled_date || null,
+        session_count: Number(form.session_count) || 1,
       };
       const res = await fetch(editing ? `/api/admin/rol/quests/${editing.id}` : "/api/admin/rol/quests", {
         method: editing ? "PATCH" : "POST",
@@ -305,6 +381,11 @@ export function RolQuestsManager() {
                     <p className="font-body text-2xs text-ink-light mt-0.5">
                       {q.reward_coin} monedas · {q.reward_standing} pts. de gremio · {q.reward_supplies} suministros
                     </p>
+                    <p className="font-body text-2xs text-ink-light mt-0.5">
+                      Hasta {q.max_participants} participantes
+                      {q.scheduled_date && <> · {new Date(q.scheduled_date + "T00:00:00").toLocaleDateString("es-AR")}</>}
+                      {" "}· {q.session_count} {q.session_count === 1 ? "sesión" : "sesiones"}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
@@ -317,7 +398,7 @@ export function RolQuestsManager() {
                   <button onClick={() => handleDelete(q)} className="p-1.5 text-leather-light hover:text-crimson transition-colors"><Trash2 size={15} /></button>
                 </div>
               </div>
-              {expandedId === q.id && <QuestDetail quest={q} characters={characters} onChanged={load} />}
+              {expandedId === q.id && <QuestDetail quest={q} onChanged={load} />}
             </div>
           ))}
         </div>
@@ -335,6 +416,11 @@ export function RolQuestsManager() {
             <Input label="Monedas" type="number" min={0} value={form.reward_coin} onChange={(e) => setForm({ ...form, reward_coin: e.target.value })} />
             <Input label="Pts. de gremio" type="number" min={0} value={form.reward_standing} onChange={(e) => setForm({ ...form, reward_standing: e.target.value })} />
             <Input label="Suministros" type="number" min={0} value={form.reward_supplies} onChange={(e) => setForm({ ...form, reward_supplies: e.target.value })} />
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <Input label="Máx. participantes" type="number" min={1} required value={form.max_participants} onChange={(e) => setForm({ ...form, max_participants: e.target.value })} />
+            <Input label="Fecha (opcional)" type="date" value={form.scheduled_date} onChange={(e) => setForm({ ...form, scheduled_date: e.target.value })} />
+            <Input label="Sesiones" type="number" min={1} required value={form.session_count} onChange={(e) => setForm({ ...form, session_count: e.target.value })} />
           </div>
           <Button type="submit" loading={saving} className="mt-2">Guardar</Button>
         </form>

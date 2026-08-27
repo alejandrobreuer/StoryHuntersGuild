@@ -422,22 +422,38 @@ export interface ShgRolLocation {
 }
 
 export interface ShgRolQuest {
-  id:               string;
-  location_id:      string | null;
-  title:            string;
-  description:      string;
-  status:           RolQuestStatus;
-  reward_coin:      number;
-  reward_standing:  number;
-  reward_supplies:  number;
-  created_at:       string;
-  completed_at:     string | null;
-  completed_by:     string | null;
+  id:                 string;
+  location_id:        string | null;
+  title:              string;
+  description:        string;
+  status:             RolQuestStatus;
+  reward_coin:        number;
+  reward_standing:    number;
+  reward_supplies:    number;
+  max_participants:   number;
+  /** Calendar date the mission is meant to run — a plain date, no time. */
+  scheduled_date:     string | null;
+  session_count:      number;
+  created_at:         string;
+  completed_at:       string | null;
+  completed_by:       string | null;
 }
 
 export interface ShgRolQuestParticipant {
   quest_id:     string;
   character_id: string;
+}
+
+export type RolQuestApplicationStatus = "pending" | "approved" | "rejected";
+
+export interface ShgRolQuestApplication {
+  id:            string;
+  quest_id:      string;
+  character_id:  string;
+  status:        RolQuestApplicationStatus;
+  applied_at:    string;
+  decided_at:    string | null;
+  decided_by:    string | null;
 }
 
 export interface ShgRolQuestNote {

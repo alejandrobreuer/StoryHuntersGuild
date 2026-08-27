@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   const admin = createAdminClient();
   const { data, error: insertError } = await admin
     .from("shg_rol_quest")
-    .insert({ ...parsed.data, location_id: parsed.data.location_id || null })
+    .insert({ ...parsed.data, location_id: parsed.data.location_id || null, scheduled_date: parsed.data.scheduled_date || null })
     .select()
     .single();
 
