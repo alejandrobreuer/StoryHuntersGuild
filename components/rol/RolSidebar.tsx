@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Shield, Map as MapIcon, Swords, Users, ScrollText, Settings } from "lucide-react";
+import { Shield, Map as MapIcon, Swords, Users, ScrollText, Settings, Contact } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const LINKS: { href: string; label: string; icon: typeof Shield; dmOnly?: boolean }[] = [
   { href: "/rol",            label: "Gremio",         icon: Shield },
   { href: "/rol/map",        label: "Mapa",           icon: MapIcon },
   { href: "/rol/quests",     label: "Misiones",       icon: Swords },
+  { href: "/rol/npcs",       label: "NPCs",           icon: Contact },
   { href: "/rol/characters", label: "Mis Personajes", icon: Users },
   { href: "/rol/history",    label: "Historial",      icon: ScrollText },
   { href: "/rol/settings",   label: "Settings",       icon: Settings, dmOnly: true },

@@ -388,17 +388,23 @@ export interface ShgRolMap {
   image_url: string | null;
 }
 
+export type RolIconOutlineColor = "black" | "red" | "white";
+
 export interface ShgRolLocation {
-  id:          string;
-  map_id:      string;
-  name:        string;
-  type:        string;
-  description: string;
-  x_pct:       number;
-  y_pct:       number;
-  discovered:  boolean;
-  icon_url:    string | null;
-  created_at:  string;
+  id:                 string;
+  map_id:             string;
+  name:               string;
+  type:               string;
+  description:        string;
+  x_pct:              number;
+  y_pct:              number;
+  discovered:         boolean;
+  /** Outlined variant baked by lib/rol/iconOutline.ts — what markers actually render. */
+  icon_url:           string | null;
+  /** Pristine pre-outline upload, kept so the outline can be regenerated without re-uploading art. */
+  icon_source_url:    string | null;
+  icon_outline_color: RolIconOutlineColor;
+  created_at:         string;
 }
 
 export interface ShgRolQuest {
@@ -429,6 +435,28 @@ export interface ShgRolQuestNote {
   author_kind:  "player" | "admin";
   content:      string;
   created_at:   string;
+}
+
+// ─── NPCs & factions ────────────────────────────────────────────────────────
+
+export type RolNpcStanding = "hostile" | "unfriendly" | "neutral" | "friendly" | "allied";
+
+export interface ShgRolFaction {
+  id:          string;
+  name:        string;
+  description: string | null;
+  created_at:  string;
+}
+
+export interface ShgRolNpc {
+  id:                     string;
+  name:                   string;
+  description:            string;
+  residence_location_id:  string | null;
+  faction_id:             string | null;
+  standing:               RolNpcStanding;
+  created_at:             string;
+  updated_at:             string;
 }
 
 // ─── Session payloads (signed into the shg_session / shg_admin_session cookies) ──

@@ -89,13 +89,15 @@ export const guildRankSchema = z.object({
 // ─── Map / locations ────────────────────────────────────────────────────────
 
 export const locationSchema = z.object({
-  name:        z.string().min(1).max(200),
-  type:        z.string().min(1).max(100),
-  description: z.string().min(1).max(2000),
-  x_pct:       z.number().min(0).max(100),
-  y_pct:       z.number().min(0).max(100),
-  discovered:  z.boolean().default(false),
-  icon_url:    z.string().url().nullable().optional().or(z.literal("")),
+  name:                z.string().min(1).max(200),
+  type:                z.string().min(1).max(100),
+  description:         z.string().min(1).max(2000),
+  x_pct:               z.number().min(0).max(100),
+  y_pct:               z.number().min(0).max(100),
+  discovered:          z.boolean().default(false),
+  icon_url:            z.string().url().nullable().optional().or(z.literal("")),
+  icon_source_url:     z.string().url().nullable().optional().or(z.literal("")),
+  icon_outline_color:  z.enum(["black", "red", "white"]).default("black"),
 });
 
 // ─── Quests ─────────────────────────────────────────────────────────────────
@@ -124,4 +126,19 @@ export const questNoteCreateSchema = z.object({
 
 export const playerQuestNoteCreateSchema = z.object({
   content: z.string().min(1).max(5000),
+});
+
+// ─── NPCs & factions ────────────────────────────────────────────────────────
+
+export const factionSchema = z.object({
+  name:        z.string().min(1).max(200),
+  description: z.string().max(2000).nullable().optional().or(z.literal("")),
+});
+
+export const npcSchema = z.object({
+  name:                  z.string().min(1).max(200),
+  description:           z.string().min(1).max(2000),
+  residence_location_id: z.string().uuid().nullable().optional(),
+  faction_id:            z.string().uuid().nullable().optional(),
+  standing:              z.enum(["hostile", "unfriendly", "neutral", "friendly", "allied"]).default("neutral"),
 });
