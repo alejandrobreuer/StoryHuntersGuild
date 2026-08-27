@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Contact } from "lucide-react";
+import { Contact, X, ZoomIn } from "lucide-react";
 import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
 import { cn } from "@/lib/utils";
@@ -35,7 +35,7 @@ function NpcPortrait({ npc, className }: { npc: NpcRow; className?: string }) {
     <img src={npc.portrait_url} alt="" className={cn("object-cover", className)} />
   ) : (
     <div className={cn("flex items-center justify-center bg-brass/15", className)}>
-      <Contact size={28} className="text-brass" />
+      <Contact size={36} className="text-brass" />
     </div>
   );
 }
@@ -44,20 +44,38 @@ function NpcDetailModal({ npc, onClose }: { npc: NpcRow; onClose: () => void }) 
   const residence = oneOf(npc.residence);
   const origin = oneOf(npc.origin);
   const bodyImage = npc.full_body_url ?? npc.portrait_url;
+  const [lightboxOpen, setLightboxOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!lightboxOpen) return;
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setLightboxOpen(false);
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [lightboxOpen]);
 
   return (
     <Modal open onClose={onClose} title={npc.name} className="max-w-2xl">
-      <div className="grid sm:grid-cols-[160px_1fr] gap-5">
-        <div className="relative w-full aspect-[3/4] shrink-0 overflow-hidden border border-brass/30 bg-parchment-dark/30">
-          {bodyImage ? (
-            // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, size unknown ahead of render
-            <img src={bodyImage} alt="" className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <Contact size={40} className="text-leather-light" />
-            </div>
-          )}
-        </div>
+      <div className="grid sm:grid-cols-[200px_1fr] gap-5">
+        {bodyImage ? (
+          <button
+            type="button"
+            onClick={() => setLightboxOpen(true)}
+            aria-label="Ver imagen en tamaño completo"
+            className="group relative w-full shrink-0 overflow-hidden border border-brass/30 bg-parchment-dark/30 cursor-zoom-in"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- user-uploaded, size unknown ahead of render; object-contain so nothing is cropped */}
+            <img src={bodyImage} alt="" className="w-full h-auto max-h-96 object-contain transition-opacity group-hover:opacity-90" />
+            <span className="absolute bottom-2 right-2 flex items-center justify-center size-8 rounded-full bg-ink/70 text-parchment opacity-0 group-hover:opacity-100 transition-opacity">
+              <ZoomIn size={16} />
+            </span>
+          </button>
+        ) : (
+          <div className="relative w-full aspect-[3/4] shrink-0 border border-brass/30 bg-parchment-dark/30 flex items-center justify-center">
+            <Contact size={40} className="text-leather-light" />
+          </div>
+        )}
 
         <div className="min-w-0">
           <span className={cn("inline-block font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm mb-2", badgeClassForStanding(npc.standing))}>
@@ -92,6 +110,28 @@ function NpcDetailModal({ npc, onClose }: { npc: NpcRow; onClose: () => void }) 
           <p className="font-body text-sm text-ink-light whitespace-pre-line">{npc.description}</p>
         </div>
       </div>
+
+      {lightboxOpen && bodyImage && (
+        <div
+          className="fixed inset-0 z-[300] flex items-center justify-center bg-ink/90 p-4"
+          onClick={() => setLightboxOpen(false)}
+        >
+          <button
+            onClick={() => setLightboxOpen(false)}
+            aria-label="Cerrar"
+            className="absolute top-4 right-4 text-parchment hover:text-brass-bright transition-colors"
+          >
+            <X size={28} />
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element -- must render at its natural aspect ratio, full scale */}
+          <img
+            src={bodyImage}
+            alt=""
+            className="max-w-full max-h-full object-contain shadow-parchment-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </Modal>
   );
 }
@@ -176,7 +216,7 @@ export default function RolNpcsPage() {
                 className="surface-parchment p-5 text-left cursor-pointer hover:shadow-parchment-lg transition-shadow"
               >
                 <div className="flex items-start gap-3">
-                  <NpcPortrait npc={n} className="size-14 shrink-0 rounded-full border border-brass/30" />
+                  <NpcPortrait npc={n} className="size-24 shrink-0 rounded-full border border-brass/30" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap mb-1">
                       <p className="font-label text-base font-bold text-ink">{n.name}</p>
