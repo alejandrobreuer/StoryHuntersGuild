@@ -1,11 +1,10 @@
 import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
-import { Lock, Unlock, Shield } from "lucide-react";
+import { Shield } from "lucide-react";
 import { getAdminUser } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { computeRank } from "@/lib/rol/rank";
-import { cn } from "@/lib/utils";
-import { GuildImageLightbox } from "@/components/rol/GuildImageLightbox";
+import { GuildFeaturesDrawer } from "@/components/rol/GuildFeaturesDrawer";
 import { GuildStaffSection } from "@/components/rol/GuildStaffSection";
 import { ROL_NPC_SELECT } from "@/lib/rol/npcSelect";
 import { oneOf, type NpcRow } from "@/lib/rol/npc";
@@ -65,99 +64,68 @@ export default async function RolGuildPage() {
   );
 
   return (
-    <main className="max-w-6xl mx-auto px-6 py-14">
-      <div className="grid md:grid-cols-2 gap-10 mb-14">
+    <>
+      <section className="relative min-h-screen overflow-hidden flex items-end">
         {guild.image_url ? (
-          <GuildImageLightbox src={guild.image_url} alt={guild.name} />
+          // eslint-disable-next-line @next/next/no-img-element -- full-bleed hero, fills its container by design
+          <img src={guild.image_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
         ) : (
-          <div className="relative aspect-square surface-parchment overflow-hidden flex items-center justify-center">
-            <Shield size={64} className="text-leather-light" />
+          <div className="absolute inset-0 flex items-center justify-center bg-[#1c1810]">
+            <Shield size={96} className="text-leather-light/40" />
           </div>
         )}
+        <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/55 to-ink/10" />
 
-        <div>
-          <h1 className="font-display text-3xl text-parchment mb-1">{guild.name}</h1>
+        <GuildFeaturesDrawer features={featureList} statuses={(statuses ?? []) as ShgRolGuildStatus[]} />
+
+        <div className="relative z-10 w-full max-w-6xl mx-auto px-6 pb-14 pt-24">
+          <h1 className="font-display text-4xl text-parchment mb-1">{guild.name}</h1>
           <p className="font-label text-xs uppercase tracking-widest text-brass-light mb-4">
             {guild.supplies} suministros del gremio
             {currentStatus && <> · Estado: {currentStatus.name}</>}
           </p>
 
           {guild.description && (
-            <div className="surface-parchment p-4 mb-6">
+            <div className="surface-parchment p-4 max-w-xl">
               <p className="font-label text-2xs font-bold uppercase tracking-widest text-brass mb-1.5">Novedades del gremio</p>
               <p className="font-body text-sm text-ink-light whitespace-pre-line">{guild.description}</p>
             </div>
           )}
+        </div>
+      </section>
 
-          <div className="flex flex-col gap-3">
-            {featureList.length === 0 ? (
-              <p className="font-body italic text-parchment-dark text-sm">Todavía no hay funciones cargadas.</p>
-            ) : (
-              featureList.map((f) => {
-                const requiredStatus = f.guild_status_id ? statusById.get(f.guild_status_id) : null;
-                return (
-                  <div
-                    key={f.id}
-                    className={cn("surface-parchment p-4", !f.unlocked && "opacity-40 grayscale")}
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      {f.unlocked ? <Unlock size={14} className="text-moss shrink-0" /> : <Lock size={14} className="text-leather-light shrink-0" />}
-                      <p className="font-label text-sm font-bold text-ink">{f.title}</p>
-                    </div>
-                    <p className="font-body text-xs text-ink-light">{f.description}</p>
-                    {f.benefit && <p className="font-body text-xs text-brass mt-1.5">{f.benefit}</p>}
-                    {(f.cost_supplies > 0 || requiredStatus) && (
-                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                        {f.cost_supplies > 0 && (
-                          <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-leather/10 text-leather">
-                            {f.supplies_allocated}/{f.cost_supplies} suministros
-                          </span>
-                        )}
-                        {requiredStatus && (
-                          <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-moss/10 text-moss-dark">
-                            Requiere: {requiredStatus.name}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })
-            )}
+      <main className="max-w-6xl mx-auto px-6 py-14">
+        <GuildStaffSection staff={guildStaff} />
+
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-display text-2xl text-parchment">Miembros del gremio</h2>
+          <Link href="/rol/characters" className="font-label text-xs uppercase tracking-widest text-brass hover:text-brass-bright underline">
+            Mis personajes →
+          </Link>
+        </div>
+
+        {(characters ?? []).length === 0 ? (
+          <p className="font-body italic text-parchment-dark">Todavía no hay aventureros en el gremio.</p>
+        ) : (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {(characters as unknown as RosterCharacter[]).map((c) => {
+              const owner = Array.isArray(c.owner) ? c.owner[0] : c.owner;
+              const rank = c.guild_rank_id ? rankById.get(c.guild_rank_id) : computeRank(c.guild_points, ranks ?? []);
+              const summary = c.sheet_data?.identity || c.sheet_data?.theme || "";
+              return (
+                <div key={c.id} className="surface-parchment p-4">
+                  <p className="font-label text-sm font-bold text-ink">{c.name}</p>
+                  <p className="font-body text-xs text-ink-light mb-1">{owner?.name || "Aventurero"}</p>
+                  {rank && (
+                    <p className="font-label text-2xs uppercase tracking-wide text-brass mb-1">{rank.name}</p>
+                  )}
+                  {summary && <p className="font-body text-xs text-ink-light line-clamp-2">{summary}</p>}
+                </div>
+              );
+            })}
           </div>
-        </div>
-      </div>
-
-      <GuildStaffSection staff={guildStaff} />
-
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="font-display text-2xl text-parchment">Miembros del gremio</h2>
-        <Link href="/rol/characters" className="font-label text-xs uppercase tracking-widest text-brass hover:text-brass-bright underline">
-          Mis personajes →
-        </Link>
-      </div>
-
-      {(characters ?? []).length === 0 ? (
-        <p className="font-body italic text-parchment-dark">Todavía no hay aventureros en el gremio.</p>
-      ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {(characters as unknown as RosterCharacter[]).map((c) => {
-            const owner = Array.isArray(c.owner) ? c.owner[0] : c.owner;
-            const rank = c.guild_rank_id ? rankById.get(c.guild_rank_id) : computeRank(c.guild_points, ranks ?? []);
-            const summary = c.sheet_data?.identity || c.sheet_data?.theme || "";
-            return (
-              <div key={c.id} className="surface-parchment p-4">
-                <p className="font-label text-sm font-bold text-ink">{c.name}</p>
-                <p className="font-body text-xs text-ink-light mb-1">{owner?.name || "Aventurero"}</p>
-                {rank && (
-                  <p className="font-label text-2xs uppercase tracking-wide text-brass mb-1">{rank.name}</p>
-                )}
-                {summary && <p className="font-body text-xs text-ink-light line-clamp-2">{summary}</p>}
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </main>
+        )}
+      </main>
+    </>
   );
 }
