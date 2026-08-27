@@ -10,7 +10,11 @@ export async function GET() {
   const admin = createAdminClient();
   const { data, error: dbErr } = await admin
     .from("shg_rol_npc")
-    .select("*, residence:shg_rol_location(id, name), faction:shg_rol_faction(id, name)")
+    .select(
+      "*, residence:shg_rol_location!shg_rol_npc_residence_location_id_fkey(id, name), " +
+      "origin:shg_rol_location!shg_rol_npc_origin_location_id_fkey(id, name), " +
+      "factions:shg_rol_npc_faction(is_former, faction:shg_rol_faction(id, name))"
+    )
     .order("name", { ascending: true });
 
   if (dbErr) return NextResponse.json({ error: "Error al obtener los NPCs." }, { status: 500 });

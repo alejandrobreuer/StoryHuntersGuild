@@ -452,11 +452,22 @@ export interface ShgRolNpc {
   id:                     string;
   name:                   string;
   description:            string;
+  /** Where they live now. */
   residence_location_id:  string | null;
-  faction_id:             string | null;
+  /** Where they're from — distinct from residence. */
+  origin_location_id:     string | null;
   standing:               RolNpcStanding;
+  portrait_url:           string | null;
+  full_body_url:          string | null;
   created_at:             string;
   updated_at:             string;
+}
+
+export interface ShgRolNpcFaction {
+  npc_id:     string;
+  faction_id: string;
+  /** True when the NPC used to belong to this faction but no longer does — shown as "Ex-<faction>". */
+  is_former:  boolean;
 }
 
 // ─── Session payloads (signed into the shg_session / shg_admin_session cookies) ──

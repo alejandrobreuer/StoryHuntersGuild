@@ -3,7 +3,13 @@ import { requirePermission } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { npcSchema } from "@/lib/validation/rol";
 
-const SELECT = "*, residence:shg_rol_location(id, name), faction:shg_rol_faction(id, name)";
+// shg_rol_npc has two FKs into shg_rol_location (residence vs. origin) — the
+// embed must be disambiguated by constraint name, or PostgREST can't tell
+// which column each embed should follow.
+const SELECT =
+  "*, residence:shg_rol_location!shg_rol_npc_residence_location_id_fkey(id, name), " +
+  "origin:shg_rol_location!shg_rol_npc_origin_location_id_fkey(id, name), " +
+  "factions:shg_rol_npc_faction(is_former, faction:shg_rol_faction(id, name))";
 
 export async function GET() {
   const { error } = await requirePermission("rol");
@@ -32,17 +38,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Datos inválidos." }, { status: 422 });
   }
 
+  const { factions, ...npcFields } = parsed.data;
   const admin = createAdminClient();
-  const { data, error: insertError } = await admin
+
+  const { data: npc, error: insertError } = await admin
     .from("shg_rol_npc")
     .insert({
-      ...parsed.data,
-      residence_location_id: parsed.data.residence_location_id || null,
-      faction_id: parsed.data.faction_id || null,
+      ...npcFields,
+      residence_location_id: npcFields.residence_location_id || null,
+      origin_location_id: npcFields.origin_location_id || null,
+      portrait_url: npcFields.portrait_url || null,
+      full_body_url: npcFields.full_body_url || null,
     })
-    .select(SELECT)
+    .select("id")
     .single();
 
-  if (insertError) return NextResponse.json({ error: "No se pudo crear el NPC." }, { status: 500 });
+  if (insertError || !npc) return NextResponse.json({ error: "No se pudo crear el NPC." }, { status: 500 });
+
+  if (factions.length > 0) {
+    const { error: linkError } = await admin
+      .from("shg_rol_npc_faction")
+      .insert(factions.map((f) => ({ npc_id: npc.id, faction_id: f.faction_id, is_former: f.is_former })));
+    if (linkError) return NextResponse.json({ error: "No se pudieron guardar las facciones." }, { status: 500 });
+  }
+
+  const { data, error: selectError } = await admin.from("shg_rol_npc").select(SELECT).eq("id", npc.id).single();
+  if (selectError) return NextResponse.json({ error: "NPC creado, pero no se pudo recargar." }, { status: 500 });
   return NextResponse.json({ data }, { status: 201 });
 }

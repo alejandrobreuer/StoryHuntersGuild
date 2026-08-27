@@ -135,10 +135,18 @@ export const factionSchema = z.object({
   description: z.string().max(2000).nullable().optional().or(z.literal("")),
 });
 
+export const npcFactionLinkSchema = z.object({
+  faction_id: z.string().uuid(),
+  is_former:  z.boolean().default(false),
+});
+
 export const npcSchema = z.object({
   name:                  z.string().min(1).max(200),
   description:           z.string().min(1).max(2000),
   residence_location_id: z.string().uuid().nullable().optional(),
-  faction_id:            z.string().uuid().nullable().optional(),
+  origin_location_id:    z.string().uuid().nullable().optional(),
   standing:              z.enum(["hostile", "unfriendly", "neutral", "friendly", "allied"]).default("neutral"),
+  portrait_url:          z.string().url().nullable().optional().or(z.literal("")),
+  full_body_url:         z.string().url().nullable().optional().or(z.literal("")),
+  factions:              z.array(npcFactionLinkSchema).max(20).default([]),
 });

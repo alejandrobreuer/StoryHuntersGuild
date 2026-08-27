@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Edit2, Trash2, Flag, Contact } from "lucide-react";
+import { Plus, Edit2, Trash2, Flag, Contact, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
@@ -12,20 +12,37 @@ import { cn } from "@/lib/utils";
 import { NPC_STANDINGS, labelForStanding, badgeClassForStanding } from "@/lib/rol/npcStandings";
 import type { ShgRolFaction, ShgRolLocation, RolNpcStanding } from "@/types/database";
 
+interface NpcFactionLink {
+  is_former: boolean;
+  faction:   { id: string; name: string } | { id: string; name: string }[] | null;
+}
+
 interface NpcRow {
-  id:          string;
-  name:        string;
-  description: string;
-  standing:    RolNpcStanding;
-  residence:   { id: string; name: string } | { id: string; name: string }[] | null;
-  faction:     { id: string; name: string } | { id: string; name: string }[] | null;
+  id:             string;
+  name:           string;
+  description:    string;
+  standing:       RolNpcStanding;
+  portrait_url:   string | null;
+  full_body_url:  string | null;
+  residence:      { id: string; name: string } | { id: string; name: string }[] | null;
+  origin:         { id: string; name: string } | { id: string; name: string }[] | null;
+  factions:       NpcFactionLink[];
+}
+
+interface FactionLinkForm {
+  faction_id: string;
+  is_former:  boolean;
 }
 
 function oneOf<T>(v: T | T[] | null): T | null {
   return Array.isArray(v) ? (v[0] ?? null) : v;
 }
 
-const EMPTY_NPC = { name: "", description: "", residence_location_id: "", faction_id: "", standing: "neutral" as RolNpcStanding };
+const EMPTY_NPC = {
+  name: "", description: "", residence_location_id: "", origin_location_id: "",
+  standing: "neutral" as RolNpcStanding, portrait_url: "", full_body_url: "",
+  factions: [] as FactionLinkForm[],
+};
 const EMPTY_FACTION = { name: "", description: "" };
 
 function FactionsPanel({ factions, onChanged }: { factions: ShgRolFaction[]; onChanged: () => void }) {
@@ -66,7 +83,7 @@ function FactionsPanel({ factions, onChanged }: { factions: ShgRolFaction[]; onC
   }
 
   async function handleDelete(f: ShgRolFaction) {
-    if (!confirm(`¿Eliminar la facción "${f.name}"? Los NPCs que la tengan asignada quedarán sin facción.`)) return;
+    if (!confirm(`¿Eliminar la facción "${f.name}"? Los NPCs que la tengan asignada la perderán.`)) return;
     const res = await fetch(`/api/admin/rol/factions/${f.id}`, { method: "DELETE" });
     if (res.ok) { toast.success("Facción eliminada."); onChanged(); }
     else toast.error("No se pudo eliminar.");
@@ -102,6 +119,116 @@ function FactionsPanel({ factions, onChanged }: { factions: ShgRolFaction[]; onC
           <Button type="submit" loading={saving} className="mt-2">Guardar</Button>
         </form>
       </Modal>
+    </div>
+  );
+}
+
+// A GM marks a link "Ex-" when the NPC used to belong to that faction but no
+// longer does — the same faction can't be added twice (current vs. former is
+// one flag per link, not two separate memberships).
+function FactionPicker({
+  factions, value, onChange,
+}: {
+  factions: ShgRolFaction[];
+  value: FactionLinkForm[];
+  onChange: (next: FactionLinkForm[]) => void;
+}) {
+  const available = factions.filter((f) => !value.some((v) => v.faction_id === f.id));
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">Facciones</label>
+      {value.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          {value.map((v) => {
+            const faction = factions.find((f) => f.id === v.faction_id);
+            return (
+              <div key={v.faction_id} className="flex items-center gap-2 border border-border bg-parchment/60 px-3 py-1.5">
+                <span className="font-body text-sm text-ink flex-1">
+                  {v.is_former ? `Ex-${faction?.name ?? "?"}` : faction?.name ?? "?"}
+                </span>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="accent-brass"
+                    checked={v.is_former}
+                    onChange={(e) => onChange(value.map((x) => (x.faction_id === v.faction_id ? { ...x, is_former: e.target.checked } : x)))}
+                  />
+                  <span className="font-label text-2xs uppercase tracking-wide text-leather-light">Ex-</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => onChange(value.filter((x) => x.faction_id !== v.faction_id))}
+                  className="text-leather-light hover:text-crimson"
+                  aria-label="Quitar facción"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {available.length > 0 && (
+        <Select
+          value=""
+          onChange={(e) => {
+            if (e.target.value) onChange([...value, { faction_id: e.target.value, is_former: false }]);
+          }}
+        >
+          <option value="">+ Agregar facción…</option>
+          {available.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+        </Select>
+      )}
+    </div>
+  );
+}
+
+function ImageUploadField({ label, value, onChange }: { label: string; value: string; onChange: (url: string) => void }) {
+  const [uploading, setUploading] = React.useState(false);
+
+  async function handleUpload(file: File) {
+    setUploading(true);
+    try {
+      const body = new FormData();
+      body.set("file", file);
+      const res = await fetch("/api/admin/media", { method: "POST", body });
+      const json = await res.json();
+      if (!res.ok) { toast.error(json.error ?? "Error al subir imagen."); return; }
+      onChange(json.data.url);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">{label}</label>
+      <div className="flex items-center gap-3">
+        <div className="relative w-14 h-16 shrink-0 bg-parchment-dark/40 border border-brass/30 flex items-center justify-center overflow-hidden">
+          {value ? (
+            // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, size unknown ahead of render
+            <img src={value} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <Contact size={20} className="text-leather-light" />
+          )}
+        </div>
+        <label className="flex items-center gap-2 border border-dashed border-border px-3 py-2 cursor-pointer hover:border-brass transition-colors text-xs font-body text-ink-light flex-1">
+          <Upload size={14} />
+          {uploading ? "Subiendo…" : value ? "Cambiar" : "Subir"}
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="hidden"
+            onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])}
+          />
+        </label>
+        {value && (
+          <button type="button" onClick={() => onChange("")} className="text-leather-light hover:text-crimson" aria-label={`Quitar ${label.toLowerCase()}`}>
+            <X size={16} />
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -143,8 +270,13 @@ export function NpcsManager() {
       name: n.name,
       description: n.description,
       residence_location_id: oneOf(n.residence)?.id ?? "",
-      faction_id: oneOf(n.faction)?.id ?? "",
+      origin_location_id: oneOf(n.origin)?.id ?? "",
       standing: n.standing,
+      portrait_url: n.portrait_url ?? "",
+      full_body_url: n.full_body_url ?? "",
+      factions: n.factions
+        .map((fl) => ({ faction_id: oneOf(fl.faction)?.id ?? "", is_former: fl.is_former }))
+        .filter((f) => f.faction_id),
     });
     setModalOpen(true);
   }
@@ -157,8 +289,11 @@ export function NpcsManager() {
         name: form.name,
         description: form.description,
         residence_location_id: form.residence_location_id || null,
-        faction_id: form.faction_id || null,
+        origin_location_id: form.origin_location_id || null,
         standing: form.standing,
+        portrait_url: form.portrait_url || null,
+        full_body_url: form.full_body_url || null,
+        factions: form.factions,
       };
       const res = await fetch(editing ? `/api/admin/rol/npcs/${editing.id}` : "/api/admin/rol/npcs", {
         method: editing ? "PATCH" : "POST",
@@ -199,13 +334,18 @@ export function NpcsManager() {
         <div className="flex flex-col gap-3">
           {npcs.map((n) => {
             const residence = oneOf(n.residence);
-            const faction = oneOf(n.faction);
+            const origin = oneOf(n.origin);
             return (
               <div key={n.id} className="surface-parchment p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-start gap-3 min-w-0">
-                    <div className="relative size-9 shrink-0 rounded-full bg-brass/15 flex items-center justify-center">
-                      <Contact size={16} className="text-brass" />
+                    <div className="relative size-9 shrink-0 rounded-full bg-brass/15 flex items-center justify-center overflow-hidden">
+                      {n.portrait_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, size unknown ahead of render
+                        <img src={n.portrait_url} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <Contact size={16} className="text-brass" />
+                      )}
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
@@ -215,14 +355,29 @@ export function NpcsManager() {
                         </span>
                         {residence && (
                           <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-leather/10 text-leather">
-                            {residence.name}
+                            Vive en {residence.name}
                           </span>
                         )}
-                        {faction && (
-                          <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-moss/10 text-moss-dark">
-                            {faction.name}
+                        {origin && (
+                          <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-leather/10 text-leather">
+                            De {origin.name}
                           </span>
                         )}
+                        {n.factions.map((fl) => {
+                          const faction = oneOf(fl.faction);
+                          if (!faction) return null;
+                          return (
+                            <span
+                              key={faction.id}
+                              className={cn(
+                                "font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm",
+                                fl.is_former ? "bg-border/40 text-ink-light" : "bg-moss/10 text-moss-dark"
+                              )}
+                            >
+                              {fl.is_former ? `Ex-${faction.name}` : faction.name}
+                            </span>
+                          );
+                        })}
                       </div>
                       <p className="font-body text-xs text-ink-light line-clamp-2">{n.description}</p>
                     </div>
@@ -238,18 +393,29 @@ export function NpcsManager() {
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar NPC" : "Nuevo NPC"}>
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar NPC" : "Nuevo NPC"} className="max-w-lg">
         <form onSubmit={handleSave} className="flex flex-col gap-3">
           <Input label="Nombre" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <Textarea label="Descripción" required rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-          <Select label="Residencia (opcional)" value={form.residence_location_id} onChange={(e) => setForm({ ...form, residence_location_id: e.target.value })}>
-            <option value="">Ninguna</option>
-            {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-          </Select>
-          <Select label="Facción (opcional)" value={form.faction_id} onChange={(e) => setForm({ ...form, faction_id: e.target.value })}>
-            <option value="">Ninguna</option>
-            {factions.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-          </Select>
+
+          <div className="grid grid-cols-2 gap-3">
+            <ImageUploadField label="Retrato" value={form.portrait_url} onChange={(url) => setForm((f) => ({ ...f, portrait_url: url }))} />
+            <ImageUploadField label="Cuerpo completo" value={form.full_body_url} onChange={(url) => setForm((f) => ({ ...f, full_body_url: url }))} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Select label="Residencia actual (opcional)" value={form.residence_location_id} onChange={(e) => setForm({ ...form, residence_location_id: e.target.value })}>
+              <option value="">Ninguna</option>
+              {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+            </Select>
+            <Select label="Origen (opcional)" value={form.origin_location_id} onChange={(e) => setForm({ ...form, origin_location_id: e.target.value })}>
+              <option value="">Ninguno</option>
+              {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+            </Select>
+          </div>
+
+          <FactionPicker factions={factions} value={form.factions} onChange={(next) => setForm({ ...form, factions: next })} />
+
           <Select
             label="Actitud hacia el gremio"
             required
