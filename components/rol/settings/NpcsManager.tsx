@@ -44,7 +44,7 @@ const EMPTY_NPC = {
   standing: "neutral" as RolNpcStanding, portrait_url: "", full_body_url: "",
   factions: [] as FactionLinkForm[], tags: [] as string[],
 };
-const EMPTY_FACTION = { name: "", description: "" };
+const EMPTY_FACTION = { name: "", description: "", sort_order: "0" };
 const EMPTY_TAG = { name: "" };
 
 function FactionsPanel({ factions, onChanged }: { factions: ShgRolFaction[]; onChanged: () => void }) {
@@ -61,7 +61,7 @@ function FactionsPanel({ factions, onChanged }: { factions: ShgRolFaction[]; onC
 
   function openEdit(f: ShgRolFaction) {
     setEditing(f);
-    setForm({ name: f.name, description: f.description ?? "" });
+    setForm({ name: f.name, description: f.description ?? "", sort_order: String(f.sort_order) });
     setModalOpen(true);
   }
 
@@ -72,7 +72,7 @@ function FactionsPanel({ factions, onChanged }: { factions: ShgRolFaction[]; onC
       const res = await fetch(editing ? `/api/admin/rol/factions/${editing.id}` : "/api/admin/rol/factions", {
         method: editing ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, sort_order: Number(form.sort_order) || 0 }),
       });
       const json = await res.json();
       if (!res.ok) { toast.error(json.error ?? "Error al guardar."); return; }
@@ -106,6 +106,7 @@ function FactionsPanel({ factions, onChanged }: { factions: ShgRolFaction[]; onC
         <div className="flex flex-wrap gap-2">
           {factions.map((f) => (
             <div key={f.id} className="flex items-center gap-1.5 border border-border bg-parchment/60 pl-3 pr-1 py-1.5">
+              <span className="font-label text-2xs text-leather-light">#{f.sort_order}</span>
               <span className="font-label text-xs font-semibold text-ink">{f.name}</span>
               <button onClick={() => openEdit(f)} className="p-1 text-leather-light hover:text-brass transition-colors"><Edit2 size={13} /></button>
               <button onClick={() => handleDelete(f)} className="p-1 text-leather-light hover:text-crimson transition-colors"><Trash2 size={13} /></button>
@@ -118,6 +119,12 @@ function FactionsPanel({ factions, onChanged }: { factions: ShgRolFaction[]; onC
         <form onSubmit={handleSave} className="flex flex-col gap-3">
           <Input label="Nombre" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <Textarea label="Descripción (opcional)" rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          <Input
+            label="Orden (menor = primero)"
+            type="number"
+            value={form.sort_order}
+            onChange={(e) => setForm({ ...form, sort_order: e.target.value })}
+          />
           <Button type="submit" loading={saving} className="mt-2">Guardar</Button>
         </form>
       </Modal>

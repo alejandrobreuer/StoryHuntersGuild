@@ -133,6 +133,7 @@ export const playerQuestNoteCreateSchema = z.object({
 export const factionSchema = z.object({
   name:        z.string().min(1).max(200),
   description: z.string().max(2000).nullable().optional().or(z.literal("")),
+  sort_order:  z.number().int().default(0),
 });
 
 export const npcFactionLinkSchema = z.object({

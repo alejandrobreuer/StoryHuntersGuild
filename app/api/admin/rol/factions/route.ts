@@ -11,6 +11,7 @@ export async function GET() {
   const { data, error: dbErr } = await admin
     .from("shg_rol_faction")
     .select("*")
+    .order("sort_order", { ascending: true })
     .order("name", { ascending: true });
 
   if (dbErr) return NextResponse.json({ error: "Error al obtener las facciones." }, { status: 500 });

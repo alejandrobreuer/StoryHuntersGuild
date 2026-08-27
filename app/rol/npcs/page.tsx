@@ -14,9 +14,15 @@ interface GalleryImage {
   label: string;
 }
 
+interface FactionRef {
+  id:         string;
+  name:       string;
+  sort_order: number;
+}
+
 interface NpcFactionLink {
   is_former: boolean;
-  faction:   { id: string; name: string } | { id: string; name: string }[] | null;
+  faction:   FactionRef | FactionRef[] | null;
 }
 
 interface NpcRow {
@@ -280,14 +286,16 @@ export default function RolNpcsPage() {
   }, [npcs]);
 
   const factions = React.useMemo(() => {
-    const seen = new Map<string, string>();
+    const seen = new Map<string, FactionRef>();
     for (const n of npcs) {
       for (const fl of n.factions) {
         const f = oneOf(fl.faction);
-        if (f) seen.set(f.id, f.name);
+        if (f) seen.set(f.id, f);
       }
     }
-    return Array.from(seen.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+    return Array.from(seen.values())
+      .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name))
+      .map((f) => [f.id, f.name] as const);
   }, [npcs]);
 
   // One section per current faction (an NPC with several shows up in each);
@@ -300,28 +308,28 @@ export default function RolNpcsPage() {
       return true;
     });
 
-    const byFaction = new Map<string, { id: string; name: string; npcs: NpcRow[] }>();
+    const byFaction = new Map<string, { id: string; name: string; sort_order: number; npcs: NpcRow[] }>();
     const unaffiliated: NpcRow[] = [];
 
     for (const n of filtered) {
       const currentFactions = n.factions
         .filter((fl) => !fl.is_former)
         .map((fl) => oneOf(fl.faction))
-        .filter((f): f is { id: string; name: string } => Boolean(f));
+        .filter((f): f is FactionRef => Boolean(f));
 
       if (currentFactions.length === 0) {
         unaffiliated.push(n);
         continue;
       }
       for (const f of currentFactions) {
-        const group = byFaction.get(f.id) ?? { id: f.id, name: f.name, npcs: [] };
+        const group = byFaction.get(f.id) ?? { id: f.id, name: f.name, sort_order: f.sort_order, npcs: [] };
         group.npcs.push(n);
         byFaction.set(f.id, group);
       }
     }
 
-    const sorted = Array.from(byFaction.values()).sort((a, b) => a.name.localeCompare(b.name));
-    if (unaffiliated.length > 0) sorted.push({ id: "none", name: "Sin facción", npcs: unaffiliated });
+    const sorted = Array.from(byFaction.values()).sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name));
+    if (unaffiliated.length > 0) sorted.push({ id: "none", name: "Sin facción", sort_order: Infinity, npcs: unaffiliated });
     return sorted;
   }, [npcs, residenceFilter, factionFilter]);
 

@@ -13,7 +13,7 @@ export async function GET() {
     .select(
       "*, residence:shg_rol_location!shg_rol_npc_residence_location_id_fkey(id, name), " +
       "origin:shg_rol_location!shg_rol_npc_origin_location_id_fkey(id, name), " +
-      "factions:shg_rol_npc_faction(is_former, faction:shg_rol_faction(id, name))"
+      "factions:shg_rol_npc_faction(is_former, faction:shg_rol_faction(id, name, sort_order))"
     )
     .order("name", { ascending: true });
 
