@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
 import { Lock, Unlock, Shield } from "lucide-react";
+import { getAdminUser } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { computeRank } from "@/lib/rol/rank";
 import { cn } from "@/lib/utils";
@@ -26,6 +27,9 @@ interface RosterCharacter {
 // signed-in player before this ever renders.
 export default async function RolGuildPage() {
   noStore();
+  const adminUser = await getAdminUser();
+  const isRolAdmin = Boolean(adminUser?.permissions.rol);
+
   const admin = createAdminClient();
   const [{ data: guild }, { data: features }, { data: ranks }, { data: characters }, { data: npcs }] = await Promise.all([
     admin.from("shg_rol_guild").select("*").limit(1).maybeSingle(),
@@ -51,9 +55,10 @@ export default async function RolGuildPage() {
 
   // Guild Staff = any NPC currently ("Ex-" doesn't count) in the faction
   // sharing the guild's own name — a GM creates that faction and assigns
-  // staff NPCs to it, same as any other faction.
+  // staff NPCs to it, same as any other faction. Hidden NPCs are excluded
+  // for regular players, same as the DM-only visibility on /rol/npcs.
   const guildStaff = ((npcs ?? []) as unknown as NpcRow[]).filter((n) =>
-    n.factions.some((fl) => !fl.is_former && oneOf(fl.faction)?.name === guild.name)
+    (isRolAdmin || !n.hidden) && n.factions.some((fl) => !fl.is_former && oneOf(fl.faction)?.name === guild.name)
   );
 
   return (

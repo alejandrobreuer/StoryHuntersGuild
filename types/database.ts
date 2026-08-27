@@ -462,6 +462,8 @@ export interface ShgRolNpc {
   full_body_url:          string | null;
   /** Descriptive role tags (merchant, militia, ...) — independent of faction. */
   tags:                   string[];
+  /** GM-only: hidden NPCs never appear in a player-facing response. */
+  hidden:                 boolean;
   created_at:             string;
   updated_at:             string;
 }

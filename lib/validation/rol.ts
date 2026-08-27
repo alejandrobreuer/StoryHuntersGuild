@@ -159,4 +159,5 @@ export const npcSchema = z.object({
   full_body_url:         z.string().url().nullable().optional().or(z.literal("")),
   factions:              z.array(npcFactionLinkSchema).max(20).default([]),
   tags:                  z.array(z.string().min(1).max(100)).max(20).default([]),
+  hidden:                z.boolean().default(false),
 });

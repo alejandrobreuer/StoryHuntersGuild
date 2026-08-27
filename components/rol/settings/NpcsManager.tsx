@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Edit2, Trash2, Flag, Tag, Contact, Upload, X } from "lucide-react";
+import { Plus, Edit2, Trash2, Flag, Tag, Contact, Upload, X, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
@@ -28,6 +28,7 @@ interface NpcRow {
   origin:         { id: string; name: string } | { id: string; name: string }[] | null;
   factions:       NpcFactionLink[];
   tags:           string[];
+  hidden:         boolean;
 }
 
 interface FactionLinkForm {
@@ -42,7 +43,7 @@ function oneOf<T>(v: T | T[] | null): T | null {
 const EMPTY_NPC = {
   name: "", description: "", residence_location_id: "", origin_location_id: "",
   standing: "neutral" as RolNpcStanding, portrait_url: "", full_body_url: "",
-  factions: [] as FactionLinkForm[], tags: [] as string[],
+  factions: [] as FactionLinkForm[], tags: [] as string[], hidden: false,
 };
 const EMPTY_FACTION = { name: "", description: "", sort_order: "0" };
 const EMPTY_TAG = { name: "" };
@@ -404,6 +405,7 @@ export function NpcsManager() {
         .map((fl) => ({ faction_id: oneOf(fl.faction)?.id ?? "", is_former: fl.is_former }))
         .filter((f) => f.faction_id),
       tags: n.tags,
+      hidden: n.hidden,
     });
     setModalOpen(true);
   }
@@ -422,6 +424,7 @@ export function NpcsManager() {
         full_body_url: form.full_body_url || null,
         factions: form.factions,
         tags: form.tags,
+        hidden: form.hidden,
       };
       const res = await fetch(editing ? `/api/admin/rol/npcs/${editing.id}` : "/api/admin/rol/npcs", {
         method: editing ? "PATCH" : "POST",
@@ -445,6 +448,32 @@ export function NpcsManager() {
     else toast.error("No se pudo eliminar.");
   }
 
+  // The PATCH endpoint takes the full npc record (not a partial patch, so
+  // faction/tag lists always stay in sync with what's on screen) — rebuild
+  // it from the row instead of opening the edit modal just to flip one flag.
+  async function toggleHidden(n: NpcRow) {
+    const res = await fetch(`/api/admin/rol/npcs/${n.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: n.name,
+        description: n.description,
+        residence_location_id: oneOf(n.residence)?.id ?? null,
+        origin_location_id: oneOf(n.origin)?.id ?? null,
+        standing: n.standing,
+        portrait_url: n.portrait_url,
+        full_body_url: n.full_body_url,
+        factions: n.factions
+          .map((fl) => ({ faction_id: oneOf(fl.faction)?.id ?? "", is_former: fl.is_former }))
+          .filter((f) => f.faction_id),
+        tags: n.tags,
+        hidden: !n.hidden,
+      }),
+    });
+    if (res.ok) { toast.success(n.hidden ? "NPC visible para jugadores." : "NPC oculto para jugadores."); load(); }
+    else toast.error("No se pudo actualizar.");
+  }
+
   return (
     <div>
       <FactionsPanel factions={factions} onChanged={load} />
@@ -465,7 +494,7 @@ export function NpcsManager() {
             const residence = oneOf(n.residence);
             const origin = oneOf(n.origin);
             return (
-              <div key={n.id} className="surface-parchment p-4">
+              <div key={n.id} className={cn("surface-parchment p-4", n.hidden && "opacity-60")}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-start gap-3 min-w-0">
                     <div className="relative size-9 shrink-0 rounded-full bg-brass/15 flex items-center justify-center overflow-hidden">
@@ -482,6 +511,11 @@ export function NpcsManager() {
                         <span className={cn("font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm", badgeClassForStanding(n.standing))}>
                           {labelForStanding(n.standing)}
                         </span>
+                        {n.hidden && (
+                          <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-crimson/10 text-crimson">
+                            Oculto
+                          </span>
+                        )}
                         {residence && (
                           <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-leather/10 text-leather">
                             Vive en {residence.name}
@@ -517,6 +551,13 @@ export function NpcsManager() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => toggleHidden(n)}
+                      className="p-1.5 text-leather-light hover:text-brass transition-colors"
+                      title={n.hidden ? "Mostrar a los jugadores" : "Ocultar a los jugadores"}
+                    >
+                      {n.hidden ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
                     <button onClick={() => openEdit(n)} className="p-1.5 text-leather-light hover:text-brass transition-colors"><Edit2 size={15} /></button>
                     <button onClick={() => handleDelete(n)} className="p-1.5 text-leather-light hover:text-crimson transition-colors"><Trash2 size={15} /></button>
                   </div>
@@ -559,6 +600,14 @@ export function NpcsManager() {
           >
             {NPC_STANDINGS.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
           </Select>
+
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={form.hidden} onChange={(e) => setForm({ ...form, hidden: e.target.checked })} className="accent-brass" />
+            <span className={cn("font-label text-xs uppercase tracking-wide", form.hidden ? "text-crimson" : "text-leather-light")}>
+              {form.hidden ? "Oculto para jugadores" : "Visible para jugadores"}
+            </span>
+          </label>
+
           <Button type="submit" loading={saving} className="mt-2">Guardar</Button>
         </form>
       </Modal>

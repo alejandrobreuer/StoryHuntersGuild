@@ -32,6 +32,7 @@ export interface NpcRow {
   origin:         NpcLocationRef | NpcLocationRef[] | null;
   factions:       NpcFactionLink[];
   tags:           string[];
+  hidden:         boolean;
 }
 
 export function oneOf<T>(v: T | T[] | null): T | null {
