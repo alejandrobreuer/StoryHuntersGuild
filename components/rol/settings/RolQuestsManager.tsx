@@ -124,6 +124,7 @@ function QuestDetail({ quest, onChanged }: { quest: QuestRow; onChanged: () => v
   const [applications, setApplications] = React.useState<ApplicationRow[] | null>(null);
   const [publicNote, setPublicNote] = React.useState("");
   const [dmNote, setDmNote] = React.useState("");
+  const [historySummary, setHistorySummary] = React.useState("");
   const [busy, setBusy] = React.useState(false);
 
   const loadNotes = React.useCallback(async () => {
@@ -188,7 +189,11 @@ function QuestDetail({ quest, onChanged }: { quest: QuestRow; onChanged: () => v
     if (!confirm("¿Finalizar esta misión? Los suministros sin asignar pasan al fondo general del gremio.")) return;
     setBusy(true);
     try {
-      const res = await fetch(`/api/admin/rol/quests/${quest.id}/finish`, { method: "POST" });
+      const res = await fetch(`/api/admin/rol/quests/${quest.id}/finish`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ history_summary: historySummary }),
+      });
       const json = await res.json();
       if (!res.ok) { toast.error(json.error ?? "Error."); return; }
       toast.success("Misión finalizada.");
@@ -302,6 +307,14 @@ function QuestDetail({ quest, onChanged }: { quest: QuestRow; onChanged: () => v
           <p className="font-body text-xs text-ink-light mb-2">
             {quest.supplies_pool_remaining} suministros sin asignar todavía por el líder.
           </p>
+          <Textarea
+            label="Resumen para el historial (opcional)"
+            rows={3}
+            placeholder="¿Qué pasó en esta misión?"
+            value={historySummary}
+            onChange={(e) => setHistorySummary(e.target.value)}
+            wrapperClassName="mb-2"
+          />
           <Button size="sm" variant="secondary" onClick={handleFinish} loading={busy}>Finalizar misión</Button>
         </div>
       )}

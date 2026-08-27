@@ -442,6 +442,8 @@ export interface ShgRolQuest {
   accepted_by:        string | null;
   /** Set to reward_supplies at Accept; decreases as the leader allocates it to features. */
   supplies_pool_remaining: number;
+  /** DM-written summary, set when Finishing — the one authored piece of the history record. */
+  history_summary:    string | null;
   created_at:         string;
   completed_at:       string | null;
   completed_by:       string | null;

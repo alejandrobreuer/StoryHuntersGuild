@@ -146,6 +146,10 @@ export const questSupplyAllocateSchema = z.object({
   amount:     z.number().int().min(1),
 });
 
+export const questFinishSchema = z.object({
+  history_summary: z.string().max(4000).nullable().optional().or(z.literal("")),
+});
+
 export const questNoteCreateSchema = z.object({
   content:      z.string().min(1).max(5000),
   visibility:   z.enum(["public", "dm_private", "player_private"]),
