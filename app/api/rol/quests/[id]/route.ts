@@ -58,6 +58,26 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     leaderVotes = votes ?? [];
   }
 
+  const isLeader = Boolean(myCharacter && quest.leader_character_id === myCharacter.id);
+
+  // Features the leader can currently allocate reward supplies to: not
+  // already unlocked, and eligible at the guild's CURRENT Guild Status
+  // (mirrors the eligibility check inside shg_rol_allocate_quest_supplies()).
+  let eligibleFeatures: { id: string; title: string; cost_supplies: number; supplies_allocated: number }[] = [];
+  if (quest.status === "accepted" && (isLeader || isRolAdmin)) {
+    const [{ data: guild }, { data: statuses }, { data: features }] = await Promise.all([
+      admin.from("shg_rol_guild").select("current_guild_status_id").limit(1).maybeSingle(),
+      admin.from("shg_rol_guild_status").select("id, sort_order"),
+      admin.from("shg_rol_guild_feature").select("id, title, guild_status_id, cost_supplies, supplies_allocated, unlocked"),
+    ]);
+    const statusSort = new Map((statuses ?? []).map((s) => [s.id, s.sort_order]));
+    const currentSort = guild?.current_guild_status_id ? statusSort.get(guild.current_guild_status_id) : undefined;
+    eligibleFeatures = (features ?? [])
+      .filter((f) => !f.unlocked)
+      .filter((f) => !f.guild_status_id || (currentSort !== undefined && (statusSort.get(f.guild_status_id) ?? Infinity) <= currentSort))
+      .map((f) => ({ id: f.id, title: f.title, cost_supplies: f.cost_supplies, supplies_allocated: f.supplies_allocated }));
+  }
+
   let publicNotes: unknown[] = [];
   let myThread: unknown[] = [];
   if (myCharacter || isRolAdmin) {
@@ -80,6 +100,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       myCharacterId: myCharacter?.id ?? null,
       myApplication,
       leaderVotes,
+      isLeader,
+      eligibleFeatures,
       publicNotes,
       myThread,
     },

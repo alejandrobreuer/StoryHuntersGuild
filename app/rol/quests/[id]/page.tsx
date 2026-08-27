@@ -14,19 +14,23 @@ interface QuestDetail {
     id: string; title: string; description: string; status: RolQuestStatus;
     reward_coin: number; reward_standing: number; reward_supplies: number;
     max_participants: number; scheduled_date: string | null; session_count: number;
-    leader_character_id: string | null;
+    leader_character_id: string | null; supplies_pool_remaining: number;
   };
   participants: { id: string; name: string }[];
   myCharacterId: string | null;
   myApplication: { id: string; status: RolQuestApplicationStatus; character_id: string } | null;
   leaderVotes: { voter_character_id: string; candidate_character_id: string }[];
+  isLeader: boolean;
+  eligibleFeatures: { id: string; title: string; cost_supplies: number; supplies_allocated: number }[];
   publicNotes: ShgRolQuestNote[];
   myThread: ShgRolQuestNote[];
 }
 
 interface CharacterOption { id: string; name: string }
 
-const STATUS_LABELS: Record<RolQuestStatus, string> = { available: "Disponible", active: "Activa", completed: "Completada" };
+const STATUS_LABELS: Record<RolQuestStatus, string> = {
+  available: "Disponible", active: "Activa", turned_in: "Entregada", accepted: "Aceptada", completed: "Completada",
+};
 const APPLICATION_LABELS: Record<RolQuestApplicationStatus, string> = {
   pending: "Tu postulación está pendiente de revisión.",
   approved: "¡Fuiste aceptado en esta misión!",
@@ -135,12 +139,76 @@ function LeaderVoteSection({
   );
 }
 
+function AllocateSection({
+  questId, remaining, features, onChanged,
+}: {
+  questId: string;
+  remaining: number;
+  features: { id: string; title: string; cost_supplies: number; supplies_allocated: number }[];
+  onChanged: () => void;
+}) {
+  const [amounts, setAmounts] = React.useState<Record<string, string>>({});
+  const [busy, setBusy] = React.useState(false);
+
+  async function allocate(featureId: string) {
+    const amount = Number(amounts[featureId]) || 0;
+    if (amount <= 0) { toast.error("Ingresá una cantidad."); return; }
+    if (amount > remaining) { toast.error("No tenés tantos suministros disponibles."); return; }
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/rol/quests/${questId}/allocate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ feature_id: featureId, amount }),
+      });
+      const json = await res.json();
+      if (!res.ok) { toast.error(json.error ?? "Error al asignar."); return; }
+      toast.success("Suministros asignados.");
+      setAmounts((a) => ({ ...a, [featureId]: "" }));
+      onChanged();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div>
+      <p className="font-body text-sm text-ink-light mb-3">
+        Tenés <strong>{remaining}</strong> suministros para asignar a funciones del gremio.
+      </p>
+      {features.length === 0 ? (
+        <p className="font-body italic text-ink-light text-sm">No hay funciones elegibles para el estado actual del gremio.</p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {features.map((f) => (
+            <div key={f.id} className="flex items-center gap-2 border border-border px-3 py-2 flex-wrap">
+              <span className="font-body text-sm text-ink-light flex-1 min-w-[8rem]">
+                {f.title} <span className="text-leather-light">({f.supplies_allocated}/{f.cost_supplies})</span>
+              </span>
+              <Input
+                type="number"
+                min={1}
+                max={remaining}
+                wrapperClassName="w-24"
+                value={amounts[f.id] ?? ""}
+                onChange={(e) => setAmounts((a) => ({ ...a, [f.id]: e.target.value }))}
+              />
+              <Button size="sm" disabled={busy || remaining <= 0} onClick={() => allocate(f.id)}>Asignar</Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function RolQuestDetailPage() {
   const params = useParams<{ id: string }>();
   const [detail, setDetail] = React.useState<QuestDetail | null | undefined>(undefined);
   const [note, setNote] = React.useState("");
   const [posting, setPosting] = React.useState(false);
   const [withdrawing, setWithdrawing] = React.useState(false);
+  const [turningIn, setTurningIn] = React.useState(false);
 
   const load = React.useCallback(async () => {
     const res = await fetch(`/api/rol/quests/${params.id}`);
@@ -169,6 +237,20 @@ export default function RolQuestDetailPage() {
     }
   }
 
+  async function handleTurnIn() {
+    if (!confirm("¿Entregar esta misión al DM?")) return;
+    setTurningIn(true);
+    try {
+      const res = await fetch(`/api/rol/quests/${params.id}/turn-in`, { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) { toast.error(json.error ?? "Error al entregar la misión."); return; }
+      toast.success("Misión entregada.");
+      load();
+    } finally {
+      setTurningIn(false);
+    }
+  }
+
   async function handleWithdraw() {
     if (!confirm("¿Retirar tu postulación?")) return;
     setWithdrawing(true);
@@ -192,7 +274,7 @@ export default function RolQuestDetailPage() {
     );
   }
 
-  const { quest, participants, myCharacterId, myApplication, leaderVotes, publicNotes, myThread } = detail;
+  const { quest, participants, myCharacterId, myApplication, leaderVotes, isLeader, eligibleFeatures, publicNotes, myThread } = detail;
   const leader = quest.leader_character_id ? participants.find((p) => p.id === quest.leader_character_id) : null;
 
   return (
@@ -234,11 +316,40 @@ export default function RolQuestDetailPage() {
         <section className="surface-parchment p-5 mb-6">
           <h2 className="font-label text-sm font-bold uppercase tracking-widest text-ink mb-3">Líder de la misión</h2>
           {leader ? (
-            <p className="font-body text-sm text-ink-light">{leader.name} lidera esta misión.</p>
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <p className="font-body text-sm text-ink-light">{leader.name} lidera esta misión.</p>
+              {isLeader && (
+                <Button size="sm" onClick={handleTurnIn} loading={turningIn}>Entregar misión</Button>
+              )}
+            </div>
           ) : myCharacterId ? (
             <LeaderVoteSection questId={quest.id} participants={participants} myCharacterId={myCharacterId} votes={leaderVotes} onChanged={load} />
           ) : (
             <p className="font-body italic text-ink-light text-sm">Todavía no hay un líder asignado.</p>
+          )}
+        </section>
+      )}
+
+      {quest.status === "turned_in" && (
+        <section className="surface-parchment p-5 mb-6">
+          <p className="font-body text-sm text-ink-light">
+            {leader?.name ?? "El líder"} entregó esta misión — esperando que el DM la acepte.
+          </p>
+        </section>
+      )}
+
+      {quest.status === "accepted" && (
+        <section className="surface-parchment p-5 mb-6">
+          <h2 className="font-label text-sm font-bold uppercase tracking-widest text-ink mb-3">Recompensas</h2>
+          <p className="font-body text-sm text-ink-light mb-3">
+            {quest.reward_standing} pts. de gremio otorgados a cada participante.
+          </p>
+          {isLeader ? (
+            <AllocateSection questId={quest.id} remaining={quest.supplies_pool_remaining} features={eligibleFeatures} onChanged={load} />
+          ) : (
+            <p className="font-body italic text-ink-light text-sm">
+              {leader?.name ?? "El líder"} está asignando los {quest.supplies_pool_remaining} suministros restantes a funciones del gremio.
+            </p>
           )}
         </section>
       )}

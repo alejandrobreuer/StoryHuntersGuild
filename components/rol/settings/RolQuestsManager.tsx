@@ -23,6 +23,7 @@ interface QuestRow {
   scheduled_date: string | null;
   session_count: number;
   leader_character_id: string | null;
+  supplies_pool_remaining: number;
   completed_at: string | null;
   location: { id: string; name: string } | { id: string; name: string }[] | null;
   participants: { character: { id: string; name: string } | { id: string; name: string }[] | null }[];
@@ -98,10 +99,14 @@ function LeaderPanel({ quest, onChanged }: { quest: QuestRow; onChanged: () => v
   );
 }
 
-const STATUS_LABELS: Record<RolQuestStatus, string> = { available: "Disponible", active: "Activa", completed: "Completada" };
+const STATUS_LABELS: Record<RolQuestStatus, string> = {
+  available: "Disponible", active: "Activa", turned_in: "Entregada", accepted: "Aceptada", completed: "Completada",
+};
 const STATUS_STYLES: Record<RolQuestStatus, string> = {
   available: "bg-brass/15 text-brass",
   active: "bg-moss/15 text-moss-dark",
+  turned_in: "bg-brass/15 text-brass",
+  accepted: "bg-moss/15 text-moss-dark",
   completed: "bg-leather/10 text-leather",
 };
 
@@ -165,14 +170,28 @@ function QuestDetail({ quest, onChanged }: { quest: QuestRow; onChanged: () => v
     }
   }
 
-  async function handleComplete() {
-    if (!confirm("¿Completar esta misión y otorgar las recompensas?")) return;
+  async function handleAccept() {
+    if (!confirm("¿Aceptar la entrega? Se otorgarán los puntos de gremio y el líder podrá asignar los suministros.")) return;
     setBusy(true);
     try {
-      const res = await fetch(`/api/admin/rol/quests/${quest.id}/complete`, { method: "POST" });
+      const res = await fetch(`/api/admin/rol/quests/${quest.id}/accept`, { method: "POST" });
       const json = await res.json();
       if (!res.ok) { toast.error(json.error ?? "Error."); return; }
-      toast.success("Misión completada y recompensas otorgadas.");
+      toast.success("Entrega aceptada.");
+      onChanged();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleFinish() {
+    if (!confirm("¿Finalizar esta misión? Los suministros sin asignar pasan al fondo general del gremio.")) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/rol/quests/${quest.id}/finish`, { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) { toast.error(json.error ?? "Error."); return; }
+      toast.success("Misión finalizada.");
       onChanged();
     } finally {
       setBusy(false);
@@ -272,11 +291,19 @@ function QuestDetail({ quest, onChanged }: { quest: QuestRow; onChanged: () => v
         </div>
       )}
 
-      {quest.status === "active" && (
-        <>
-          <LeaderPanel quest={quest} onChanged={onChanged} />
-          <Button size="sm" variant="secondary" onClick={handleComplete} loading={busy}>Completar y otorgar recompensas</Button>
-        </>
+      {quest.status === "active" && <LeaderPanel quest={quest} onChanged={onChanged} />}
+
+      {quest.status === "turned_in" && (
+        <Button size="sm" variant="secondary" onClick={handleAccept} loading={busy}>Aceptar entrega</Button>
+      )}
+
+      {quest.status === "accepted" && (
+        <div>
+          <p className="font-body text-xs text-ink-light mb-2">
+            {quest.supplies_pool_remaining} suministros sin asignar todavía por el líder.
+          </p>
+          <Button size="sm" variant="secondary" onClick={handleFinish} loading={busy}>Finalizar misión</Button>
+        </div>
       )}
 
       {quest.status !== "available" && (

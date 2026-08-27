@@ -7,10 +7,14 @@ import { cn } from "@/lib/utils";
 import { RolQuestPaperCard } from "@/components/rol/QuestPaperCard";
 import type { RolQuestStatus, RolQuestApplicationStatus, ShgRolQuest } from "@/types/database";
 
-const STATUS_LABELS: Record<RolQuestStatus, string> = { available: "Disponible", active: "Activa", completed: "Completada" };
+const STATUS_LABELS: Record<RolQuestStatus, string> = {
+  available: "Disponible", active: "Activa", turned_in: "Entregada", accepted: "Aceptada", completed: "Completada",
+};
 const STATUS_STYLES: Record<RolQuestStatus, string> = {
   available: "bg-brass/15 text-brass",
   active: "bg-moss/15 text-moss-dark",
+  turned_in: "bg-brass/15 text-brass",
+  accepted: "bg-moss/15 text-moss-dark",
   completed: "bg-leather/10 text-leather",
 };
 

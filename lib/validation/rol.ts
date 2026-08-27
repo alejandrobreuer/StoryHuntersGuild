@@ -141,6 +141,11 @@ export const questLeaderSetSchema = z.object({
   character_id: z.string().uuid(),
 });
 
+export const questSupplyAllocateSchema = z.object({
+  feature_id: z.string().uuid(),
+  amount:     z.number().int().min(1),
+});
+
 export const questNoteCreateSchema = z.object({
   content:      z.string().min(1).max(5000),
   visibility:   z.enum(["public", "dm_private", "player_private"]),

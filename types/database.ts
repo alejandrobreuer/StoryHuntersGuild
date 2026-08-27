@@ -337,7 +337,7 @@ export interface ShgSetting {
 // (an shg_admin_user with perm_rol), many players (shg_users). Distinct from
 // the unrelated ShgQuest/ShgRank gamification system above.
 
-export type RolQuestStatus   = "available" | "active" | "completed";
+export type RolQuestStatus   = "available" | "active" | "turned_in" | "accepted" | "completed";
 export type RolNoteVisibility = "public" | "dm_private" | "player_private";
 
 export interface ShgRolGuild {
@@ -436,6 +436,12 @@ export interface ShgRolQuest {
   session_count:      number;
   /** Set once the participant vote resolves (or the DM breaks a tie by hand). */
   leader_character_id: string | null;
+  turned_in_at:       string | null;
+  turned_in_by:       string | null;
+  accepted_at:        string | null;
+  accepted_by:        string | null;
+  /** Set to reward_supplies at Accept; decreases as the leader allocates it to features. */
+  supplies_pool_remaining: number;
   created_at:         string;
   completed_at:       string | null;
   completed_by:       string | null;
@@ -444,6 +450,14 @@ export interface ShgRolQuest {
 export interface ShgRolQuestParticipant {
   quest_id:     string;
   character_id: string;
+}
+
+export interface ShgRolQuestSupplyAllocation {
+  id:           string;
+  quest_id:     string;
+  feature_id:   string;
+  amount:       number;
+  allocated_at: string;
 }
 
 export interface ShgRolQuestLeaderVote {
