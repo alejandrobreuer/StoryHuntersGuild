@@ -341,24 +341,30 @@ export type RolQuestStatus   = "available" | "active" | "completed";
 export type RolNoteVisibility = "public" | "dm_private" | "player_private";
 
 export interface ShgRolGuild {
-  id:          string;
-  name:        string;
-  image_url:   string | null;
-  description: string | null;
-  supplies:    number;
-  created_at:  string;
-  updated_at:  string;
+  id:                       string;
+  name:                     string;
+  image_url:                string | null;
+  description:              string | null;
+  supplies:                 number;
+  /** GM-advanced tier — see ShgRolGuildStatus. Not computed from any number. */
+  current_guild_status_id:  string | null;
+  created_at:               string;
+  updated_at:               string;
 }
 
 export interface ShgRolGuildFeature {
-  id:          string;
-  guild_id:    string;
-  title:       string;
-  description: string;
-  benefit:     string | null;
-  unlocked:    boolean;
-  sort_order:  number;
-  created_at:  string;
+  id:                  string;
+  guild_id:            string;
+  title:               string;
+  description:         string;
+  benefit:             string | null;
+  unlocked:            boolean;
+  sort_order:          number;
+  /** Minimum Guild Status tier required for this feature to be eligible for supply allocation. */
+  guild_status_id:     string | null;
+  cost_supplies:       number;
+  supplies_allocated:  number;
+  created_at:          string;
 }
 
 export interface ShgRolGuildRank {
@@ -367,6 +373,14 @@ export interface ShgRolGuildRank {
   name:             string;
   points_threshold: number;
   sort_order:        number;
+}
+
+export interface ShgRolGuildStatus {
+  id:         string;
+  guild_id:   string;
+  name:       string;
+  sort_order: number;
+  created_at: string;
 }
 
 export interface ShgRolCharacter {

@@ -32,7 +32,12 @@ export async function PATCH(req: NextRequest) {
 
   const { data, error: updateError } = await admin
     .from("shg_rol_guild")
-    .update({ ...parsed.data, image_url: parsed.data.image_url || null, description: parsed.data.description || null })
+    .update({
+      ...parsed.data,
+      image_url: parsed.data.image_url || null,
+      description: parsed.data.description || null,
+      current_guild_status_id: parsed.data.current_guild_status_id || null,
+    })
     .eq("id", existing.id)
     .select()
     .single();

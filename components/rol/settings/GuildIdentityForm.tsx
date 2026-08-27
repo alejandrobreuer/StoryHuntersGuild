@@ -6,31 +6,38 @@ import { Upload, Shield } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
+import { Select } from "@/components/ui/Select";
 import { toast } from "sonner";
-import type { ShgRolGuild } from "@/types/database";
+import type { ShgRolGuild, ShgRolGuildStatus } from "@/types/database";
 
-export function GuildIdentityForm() {
+export function GuildIdentityForm({ refreshKey }: { refreshKey?: number } = {}) {
   const [guild, setGuild] = React.useState<ShgRolGuild | null>(null);
-  const [form, setForm] = React.useState({ name: "", image_url: "", description: "", supplies: "0" });
+  const [statuses, setStatuses] = React.useState<ShgRolGuildStatus[]>([]);
+  const [form, setForm] = React.useState({ name: "", image_url: "", description: "", supplies: "0", current_guild_status_id: "" });
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [uploading, setUploading] = React.useState(false);
 
   const load = React.useCallback(async () => {
     setLoading(true);
-    const res = await fetch("/api/admin/rol/guild");
-    const json = await res.json();
-    if (json.data) {
-      setGuild(json.data);
+    const [guildRes, statusRes] = await Promise.all([
+      fetch("/api/admin/rol/guild"),
+      fetch("/api/admin/rol/guild-statuses"),
+    ]);
+    const guildJson = await guildRes.json();
+    setStatuses((await statusRes.json()).data ?? []);
+    if (guildJson.data) {
+      setGuild(guildJson.data);
       setForm({
-        name: json.data.name, image_url: json.data.image_url ?? "",
-        description: json.data.description ?? "", supplies: String(json.data.supplies),
+        name: guildJson.data.name, image_url: guildJson.data.image_url ?? "",
+        description: guildJson.data.description ?? "", supplies: String(guildJson.data.supplies),
+        current_guild_status_id: guildJson.data.current_guild_status_id ?? "",
       });
     }
     setLoading(false);
   }, []);
 
-  React.useEffect(() => { load(); }, [load]);
+  React.useEffect(() => { load(); }, [load, refreshKey]);
 
   async function handleImageUpload(file: File) {
     setUploading(true);
@@ -56,6 +63,7 @@ export function GuildIdentityForm() {
         body: JSON.stringify({
           name: form.name, image_url: form.image_url, description: form.description,
           supplies: Number(form.supplies) || 0,
+          current_guild_status_id: form.current_guild_status_id || null,
         }),
       });
       const json = await res.json();
@@ -88,6 +96,14 @@ export function GuildIdentityForm() {
         value={form.supplies}
         onChange={(e) => setForm({ ...form, supplies: e.target.value })}
       />
+      <Select
+        label="Estado del gremio"
+        value={form.current_guild_status_id}
+        onChange={(e) => setForm({ ...form, current_guild_status_id: e.target.value })}
+      >
+        <option value="">Ninguno</option>
+        {statuses.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+      </Select>
       <div className="flex flex-col gap-1.5">
         <label className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">Imagen del gremio</label>
         <div className="flex items-center gap-3">

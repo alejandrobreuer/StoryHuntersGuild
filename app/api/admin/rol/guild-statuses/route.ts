@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { guildFeatureSchema } from "@/lib/validation/rol";
+import { guildStatusSchema } from "@/lib/validation/rol";
 
 export async function GET() {
   const { error } = await requirePermission("rol");
@@ -9,11 +9,11 @@ export async function GET() {
 
   const admin = createAdminClient();
   const { data, error: dbErr } = await admin
-    .from("shg_rol_guild_feature")
+    .from("shg_rol_guild_status")
     .select("*")
     .order("sort_order", { ascending: true });
 
-  if (dbErr) return NextResponse.json({ error: "Error al obtener las funciones del gremio." }, { status: 500 });
+  if (dbErr) return NextResponse.json({ error: "Error al obtener los estados del gremio." }, { status: 500 });
   return NextResponse.json({ data });
 }
 
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   try { body = await req.json(); }
   catch { return NextResponse.json({ error: "Body inválido." }, { status: 400 }); }
 
-  const parsed = guildFeatureSchema.safeParse(body);
+  const parsed = guildStatusSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Datos inválidos." }, { status: 422 });
   }
@@ -35,16 +35,11 @@ export async function POST(req: NextRequest) {
   if (!guild) return NextResponse.json({ error: "El gremio no fue inicializado." }, { status: 404 });
 
   const { data, error: insertError } = await admin
-    .from("shg_rol_guild_feature")
-    .insert({
-      ...parsed.data,
-      benefit: parsed.data.benefit || null,
-      guild_status_id: parsed.data.guild_status_id || null,
-      guild_id: guild.id,
-    })
+    .from("shg_rol_guild_status")
+    .insert({ ...parsed.data, guild_id: guild.id })
     .select()
     .single();
 
-  if (insertError) return NextResponse.json({ error: "No se pudo crear la función." }, { status: 500 });
+  if (insertError) return NextResponse.json({ error: "No se pudo crear el estado." }, { status: 500 });
   return NextResponse.json({ data }, { status: 201 });
 }

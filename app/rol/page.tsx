@@ -9,7 +9,7 @@ import { GuildImageLightbox } from "@/components/rol/GuildImageLightbox";
 import { GuildStaffSection } from "@/components/rol/GuildStaffSection";
 import { ROL_NPC_SELECT } from "@/lib/rol/npcSelect";
 import { oneOf, type NpcRow } from "@/lib/rol/npc";
-import type { ShgRolGuildFeature, ShgRolGuildRank } from "@/types/database";
+import type { ShgRolGuildFeature, ShgRolGuildRank, ShgRolGuildStatus } from "@/types/database";
 
 export const metadata = { title: "Gremio — Story Hunters Guild" };
 export const dynamic = "force-dynamic";
@@ -31,9 +31,10 @@ export default async function RolGuildPage() {
   const isRolAdmin = Boolean(adminUser?.permissions.rol);
 
   const admin = createAdminClient();
-  const [{ data: guild }, { data: features }, { data: ranks }, { data: characters }, { data: npcs }] = await Promise.all([
+  const [{ data: guild }, { data: features }, { data: statuses }, { data: ranks }, { data: characters }, { data: npcs }] = await Promise.all([
     admin.from("shg_rol_guild").select("*").limit(1).maybeSingle(),
     admin.from("shg_rol_guild_feature").select("*").order("sort_order", { ascending: true }),
+    admin.from("shg_rol_guild_status").select("*").order("sort_order", { ascending: true }),
     admin.from("shg_rol_guild_rank").select("*").order("points_threshold", { ascending: true }),
     admin
       .from("shg_rol_character")
@@ -52,6 +53,8 @@ export default async function RolGuildPage() {
 
   const rankById = new Map<string, ShgRolGuildRank>((ranks ?? []).map((r) => [r.id, r]));
   const featureList = (features ?? []) as ShgRolGuildFeature[];
+  const statusById = new Map<string, ShgRolGuildStatus>((statuses ?? []).map((s) => [s.id, s]));
+  const currentStatus = guild.current_guild_status_id ? statusById.get(guild.current_guild_status_id) : null;
 
   // Guild Staff = any NPC currently ("Ex-" doesn't count) in the faction
   // sharing the guild's own name — a GM creates that faction and assigns
@@ -76,6 +79,7 @@ export default async function RolGuildPage() {
           <h1 className="font-display text-3xl text-parchment mb-1">{guild.name}</h1>
           <p className="font-label text-xs uppercase tracking-widest text-brass-light mb-4">
             {guild.supplies} suministros del gremio
+            {currentStatus && <> · Estado: {currentStatus.name}</>}
           </p>
 
           {guild.description && (
@@ -89,19 +93,36 @@ export default async function RolGuildPage() {
             {featureList.length === 0 ? (
               <p className="font-body italic text-parchment-dark text-sm">Todavía no hay funciones cargadas.</p>
             ) : (
-              featureList.map((f) => (
-                <div
-                  key={f.id}
-                  className={cn("surface-parchment p-4", !f.unlocked && "opacity-40 grayscale")}
-                >
-                  <div className="flex items-center gap-2 mb-1">
-                    {f.unlocked ? <Unlock size={14} className="text-moss shrink-0" /> : <Lock size={14} className="text-leather-light shrink-0" />}
-                    <p className="font-label text-sm font-bold text-ink">{f.title}</p>
+              featureList.map((f) => {
+                const requiredStatus = f.guild_status_id ? statusById.get(f.guild_status_id) : null;
+                return (
+                  <div
+                    key={f.id}
+                    className={cn("surface-parchment p-4", !f.unlocked && "opacity-40 grayscale")}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      {f.unlocked ? <Unlock size={14} className="text-moss shrink-0" /> : <Lock size={14} className="text-leather-light shrink-0" />}
+                      <p className="font-label text-sm font-bold text-ink">{f.title}</p>
+                    </div>
+                    <p className="font-body text-xs text-ink-light">{f.description}</p>
+                    {f.benefit && <p className="font-body text-xs text-brass mt-1.5">{f.benefit}</p>}
+                    {(f.cost_supplies > 0 || requiredStatus) && (
+                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                        {f.cost_supplies > 0 && (
+                          <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-leather/10 text-leather">
+                            {f.supplies_allocated}/{f.cost_supplies} suministros
+                          </span>
+                        )}
+                        {requiredStatus && (
+                          <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-moss/10 text-moss-dark">
+                            Requiere: {requiredStatus.name}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <p className="font-body text-xs text-ink-light">{f.description}</p>
-                  {f.benefit && <p className="font-body text-xs text-brass mt-1.5">{f.benefit}</p>}
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>

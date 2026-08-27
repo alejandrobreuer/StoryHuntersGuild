@@ -4,6 +4,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 import { GuildIdentityForm } from "./GuildIdentityForm";
 import { GuildFeaturesManager } from "./GuildFeaturesManager";
+import { GuildStatusManager } from "./GuildStatusManager";
 import { GuildRanksManager } from "./GuildRanksManager";
 import { LocationsManager } from "./LocationsManager";
 import { RolQuestsManager } from "./RolQuestsManager";
@@ -20,6 +21,9 @@ type TabKey = (typeof TABS)[number]["key"];
 
 export function RolSettingsTabs() {
   const [tab, setTab] = React.useState<TabKey>("guild");
+  // Bumped whenever the Guild Status catalog changes, so the identity form's
+  // and features manager's status dropdowns pick up new/renamed tiers.
+  const [statusRefresh, setStatusRefresh] = React.useState(0);
 
   return (
     <div>
@@ -43,8 +47,9 @@ export function RolSettingsTabs() {
 
       {tab === "guild" && (
         <div className="flex flex-col gap-6 max-w-2xl">
-          <GuildIdentityForm />
-          <GuildFeaturesManager />
+          <GuildIdentityForm refreshKey={statusRefresh} />
+          <GuildStatusManager onChanged={() => setStatusRefresh((n) => n + 1)} />
+          <GuildFeaturesManager refreshKey={statusRefresh} />
           <GuildRanksManager />
         </div>
       )}
