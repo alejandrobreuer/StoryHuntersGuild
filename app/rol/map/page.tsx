@@ -3,7 +3,7 @@
 import * as React from "react";
 import { ZoomIn, ZoomOut, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { iconForLocationType, labelForLocationType } from "@/lib/rol/locationTypes";
+import { iconForLocationType, labelForLocationType, scaleForLocationType } from "@/lib/rol/locationTypes";
 import type { ShgRolLocation, ShgRolMap } from "@/types/database";
 
 const MIN_ZOOM = 1;
@@ -16,6 +16,10 @@ function clamp(n: number, min: number, max: number): number {
 
 function LocationMarker({ location, onSelect }: { location: ShgRolLocation; onSelect: () => void }) {
   const Icon = iconForLocationType(location.type);
+  const scale = scaleForLocationType(location.type);
+  const box = Math.round(56 * scale);
+  const img = Math.round(44 * scale);
+  const icon = Math.round(30 * scale);
   return (
     <button
       onClick={onSelect}
@@ -23,12 +27,12 @@ function LocationMarker({ location, onSelect }: { location: ShgRolLocation; onSe
       className="absolute -translate-x-1/2 -translate-y-1/2 hover:scale-110 transition-transform"
       style={{ left: `${location.x_pct}%`, top: `${location.y_pct}%` }}
     >
-      <div className="relative flex items-center justify-center w-14 h-14">
+      <div className="relative flex items-center justify-center" style={{ width: box, height: box }}>
         {location.icon_url ? (
           // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, size unknown ahead of render
-          <img src={location.icon_url} alt="" className="w-11 h-11 object-contain drop-shadow-lg" />
+          <img src={location.icon_url} alt="" className="object-contain drop-shadow-lg" style={{ width: img, height: img }} />
         ) : (
-          <Icon size={30} className="text-crimson drop-shadow-lg" fill="currentColor" />
+          <Icon size={icon} className="text-crimson drop-shadow-lg" fill="currentColor" />
         )}
       </div>
     </button>

@@ -36,7 +36,12 @@ export async function POST(req: NextRequest) {
 
   const { data, error: insertError } = await admin
     .from("shg_rol_location")
-    .insert({ ...parsed.data, icon_url: parsed.data.icon_url || null, map_id: map.id })
+    .insert({
+      ...parsed.data,
+      icon_url: parsed.data.icon_url || null,
+      icon_source_url: parsed.data.icon_source_url || null,
+      map_id: map.id,
+    })
     .select()
     .single();
 

@@ -9,10 +9,14 @@ import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { LOCATION_TYPES, iconForLocationType, labelForLocationType, type RolLocationType } from "@/lib/rol/locationTypes";
-import type { ShgRolLocation, ShgRolMap } from "@/types/database";
+import { LOCATION_TYPES, iconForLocationType, labelForLocationType, scaleForLocationType, type RolLocationType } from "@/lib/rol/locationTypes";
+import { ICON_OUTLINE_COLORS } from "@/lib/rol/iconOutlineColors";
+import type { ShgRolLocation, ShgRolMap, RolIconOutlineColor } from "@/types/database";
 
-const EMPTY = { name: "", type: "", description: "", x_pct: "50", y_pct: "50", discovered: false, icon_url: "" };
+const EMPTY = {
+  name: "", type: "", description: "", x_pct: "50", y_pct: "50", discovered: false,
+  icon_url: "", icon_source_url: "", icon_outline_color: "black" as RolIconOutlineColor,
+};
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 3;
 const ZOOM_STEP = 0.25;
@@ -41,6 +45,10 @@ function PaletteItem({ type, onPointerDownStart }: { type: RolLocationType; onPo
 
 function LocationPin({ location, onStartMove }: { location: ShgRolLocation; onStartMove: (e: React.PointerEvent) => void }) {
   const Icon = iconForLocationType(location.type);
+  const scale = scaleForLocationType(location.type);
+  const box = Math.round(56 * scale);
+  const img = Math.round(44 * scale);
+  const icon = Math.round(30 * scale);
   return (
     <div
       title={location.name}
@@ -51,12 +59,12 @@ function LocationPin({ location, onStartMove }: { location: ShgRolLocation; onSt
       )}
       style={{ left: `${location.x_pct}%`, top: `${location.y_pct}%` }}
     >
-      <div className="relative flex items-center justify-center w-14 h-14">
+      <div className="relative flex items-center justify-center" style={{ width: box, height: box }}>
         {location.icon_url ? (
           // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, size unknown ahead of render
-          <img src={location.icon_url} alt="" className="w-11 h-11 object-contain drop-shadow-lg" draggable={false} />
+          <img src={location.icon_url} alt="" className="object-contain drop-shadow-lg" style={{ width: img, height: img }} draggable={false} />
         ) : (
-          <Icon size={30} className="text-crimson drop-shadow-lg" fill="currentColor" />
+          <Icon size={icon} className="text-crimson drop-shadow-lg" fill="currentColor" />
         )}
       </div>
     </div>
@@ -231,14 +239,37 @@ export function LocationsManager() {
     }
   }
 
+  // Uploads the pristine art + bakes its first outlined variant in one call
+  // (see app/api/admin/rol/locations/icon/route.ts) — icon_url ends up
+  // pointing at the outlined PNG, icon_source_url at the untouched original.
   async function handleIconUpload(file: File) {
     setUploadingIcon(true);
     try {
       const body = new FormData();
       body.set("file", file);
-      const res = await fetch("/api/admin/media", { method: "POST", body });
+      body.set("color", form.icon_outline_color);
+      const res = await fetch("/api/admin/rol/locations/icon", { method: "POST", body });
       const json = await res.json();
       if (!res.ok) { toast.error(json.error ?? "Error al subir imagen."); return; }
+      setForm((f) => ({ ...f, icon_url: json.data.url, icon_source_url: json.data.sourceUrl }));
+    } finally {
+      setUploadingIcon(false);
+    }
+  }
+
+  // Re-bakes the outline from the already-stored source — no re-upload needed.
+  async function handleOutlineColorChange(color: RolIconOutlineColor) {
+    setForm((f) => ({ ...f, icon_outline_color: color }));
+    if (!form.icon_source_url) return;
+    setUploadingIcon(true);
+    try {
+      const res = await fetch("/api/admin/rol/locations/icon", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source_url: form.icon_source_url, color }),
+      });
+      const json = await res.json();
+      if (!res.ok) { toast.error(json.error ?? "Error al recolorear el contorno."); return; }
       setForm((f) => ({ ...f, icon_url: json.data.url }));
     } finally {
       setUploadingIcon(false);
@@ -256,7 +287,8 @@ export function LocationsManager() {
     setForm({
       name: l.name, type: l.type, description: l.description,
       x_pct: String(l.x_pct), y_pct: String(l.y_pct), discovered: l.discovered,
-      icon_url: l.icon_url ?? "",
+      icon_url: l.icon_url ?? "", icon_source_url: l.icon_source_url ?? "",
+      icon_outline_color: l.icon_outline_color,
     });
     setModalOpen(true);
   }
@@ -453,7 +485,10 @@ export function LocationsManager() {
 
           <div className="flex flex-col gap-1.5">
             <label className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">Ícono personalizado (opcional)</label>
-            <p className="text-2xs text-ink-light font-body -mt-0.5">PNG con fondo transparente recomendado. Si no subís uno, se usa el ícono del tipo.</p>
+            <p className="text-2xs text-ink-light font-body -mt-0.5">
+              PNG o WebP con transparencia real. Se le agrega automáticamente un contorno pegado a su silueta,
+              para que no se pierda contra el mapa. Si no subís uno, se usa el ícono del tipo.
+            </p>
             <div className="flex items-center gap-3">
               <div className="relative size-12 shrink-0 bg-parchment-dark/40 border border-brass/30 flex items-center justify-center overflow-hidden">
                 {form.icon_url ? (
@@ -465,7 +500,7 @@ export function LocationsManager() {
               </div>
               <label className="flex items-center gap-2 border border-dashed border-border px-3 py-2 cursor-pointer hover:border-brass transition-colors text-xs font-body text-ink-light flex-1">
                 <Upload size={14} />
-                {uploadingIcon ? "Subiendo…" : form.icon_url ? "Cambiar ícono" : "Subir ícono"}
+                {uploadingIcon ? "Procesando…" : form.icon_url ? "Cambiar ícono" : "Subir ícono"}
                 <input
                   type="file"
                   accept="image/png,image/webp"
@@ -474,10 +509,34 @@ export function LocationsManager() {
                 />
               </label>
               {form.icon_url && (
-                <button type="button" onClick={() => setForm((f) => ({ ...f, icon_url: "" }))} className="text-leather-light hover:text-crimson" aria-label="Quitar ícono">
+                <button
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, icon_url: "", icon_source_url: "" }))}
+                  className="text-leather-light hover:text-crimson"
+                  aria-label="Quitar ícono"
+                >
                   <X size={16} />
                 </button>
               )}
+            </div>
+
+            <div className="flex items-center gap-2 mt-1">
+              <span className="font-label text-2xs uppercase tracking-wide text-leather-light">Color del contorno</span>
+              {ICON_OUTLINE_COLORS.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  title={c.label}
+                  aria-label={c.label}
+                  disabled={uploadingIcon}
+                  onClick={() => handleOutlineColorChange(c.id)}
+                  className={cn(
+                    "size-6 rounded-full border-2 transition-shadow disabled:opacity-50",
+                    form.icon_outline_color === c.id ? "border-brass shadow-glow" : "border-border"
+                  )}
+                  style={{ backgroundColor: c.hex }}
+                />
+              ))}
             </div>
           </div>
 
