@@ -140,6 +140,14 @@ export const npcFactionLinkSchema = z.object({
   is_former:  z.boolean().default(false),
 });
 
+// Predefined role tags (merchant, militia, ...) — a separate catalog from
+// factions, enforced the same way shg_tags/shg_games.tags is (see
+// 009_shg_tags.sql / 024_shg_rol_npc_tags.sql): the array here is just
+// names, but the DB rejects any name not present in shg_rol_npc_tag.
+export const npcTagSchema = z.object({
+  name: z.string().min(1).max(100),
+});
+
 export const npcSchema = z.object({
   name:                  z.string().min(1).max(200),
   description:           z.string().min(1).max(2000),
@@ -149,4 +157,5 @@ export const npcSchema = z.object({
   portrait_url:          z.string().url().nullable().optional().or(z.literal("")),
   full_body_url:         z.string().url().nullable().optional().or(z.literal("")),
   factions:              z.array(npcFactionLinkSchema).max(20).default([]),
+  tags:                  z.array(z.string().min(1).max(100)).max(20).default([]),
 });

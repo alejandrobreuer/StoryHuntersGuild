@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Edit2, Trash2, Flag, Contact, Upload, X } from "lucide-react";
+import { Plus, Edit2, Trash2, Flag, Tag, Contact, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
@@ -10,7 +10,7 @@ import { Modal } from "@/components/ui/Modal";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { NPC_STANDINGS, labelForStanding, badgeClassForStanding } from "@/lib/rol/npcStandings";
-import type { ShgRolFaction, ShgRolLocation, RolNpcStanding } from "@/types/database";
+import type { ShgRolFaction, ShgRolNpcTag, ShgRolLocation, RolNpcStanding } from "@/types/database";
 
 interface NpcFactionLink {
   is_former: boolean;
@@ -27,6 +27,7 @@ interface NpcRow {
   residence:      { id: string; name: string } | { id: string; name: string }[] | null;
   origin:         { id: string; name: string } | { id: string; name: string }[] | null;
   factions:       NpcFactionLink[];
+  tags:           string[];
 }
 
 interface FactionLinkForm {
@@ -41,9 +42,10 @@ function oneOf<T>(v: T | T[] | null): T | null {
 const EMPTY_NPC = {
   name: "", description: "", residence_location_id: "", origin_location_id: "",
   standing: "neutral" as RolNpcStanding, portrait_url: "", full_body_url: "",
-  factions: [] as FactionLinkForm[],
+  factions: [] as FactionLinkForm[], tags: [] as string[],
 };
 const EMPTY_FACTION = { name: "", description: "" };
+const EMPTY_TAG = { name: "" };
 
 function FactionsPanel({ factions, onChanged }: { factions: ShgRolFaction[]; onChanged: () => void }) {
   const [editing, setEditing] = React.useState<ShgRolFaction | null>(null);
@@ -184,6 +186,120 @@ function FactionPicker({
   );
 }
 
+// A separate catalog from factions — plain descriptive role tags (merchant,
+// militia, ...) any NPC can carry any number of, with no "Ex-" concept.
+function TagsPanel({ tags, onChanged }: { tags: ShgRolNpcTag[]; onChanged: () => void }) {
+  const [editing, setEditing] = React.useState<ShgRolNpcTag | null>(null);
+  const [modalOpen, setModalOpen] = React.useState(false);
+  const [form, setForm] = React.useState(EMPTY_TAG);
+  const [saving, setSaving] = React.useState(false);
+
+  function openNew() {
+    setEditing(null);
+    setForm(EMPTY_TAG);
+    setModalOpen(true);
+  }
+
+  function openEdit(t: ShgRolNpcTag) {
+    setEditing(t);
+    setForm({ name: t.name });
+    setModalOpen(true);
+  }
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const res = await fetch(editing ? `/api/admin/rol/npc-tags/${editing.id}` : "/api/admin/rol/npc-tags", {
+        method: editing ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const json = await res.json();
+      if (!res.ok) { toast.error(json.error ?? "Error al guardar."); return; }
+      toast.success("Tag guardado.");
+      setModalOpen(false);
+      onChanged();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(t: ShgRolNpcTag) {
+    if (!confirm(`¿Eliminar el tag "${t.name}"? Los NPCs que lo tengan lo perderán.`)) return;
+    const res = await fetch(`/api/admin/rol/npc-tags/${t.id}`, { method: "DELETE" });
+    if (res.ok) { toast.success("Tag eliminado."); onChanged(); }
+    else toast.error("No se pudo eliminar.");
+  }
+
+  return (
+    <div className="surface-parchment p-5 mb-6">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="font-label text-sm font-bold uppercase tracking-widest text-ink flex items-center gap-1.5">
+          <Tag size={14} /> Tags (rol/ocupación)
+        </h2>
+        <Button size="sm" onClick={openNew}><Plus size={14} className="mr-1" />Nuevo tag</Button>
+      </div>
+
+      {tags.length === 0 ? (
+        <p className="font-body italic text-ink-light text-sm">Todavía no hay tags cargados — ej. mercader, milicia.</p>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {tags.map((t) => (
+            <div key={t.id} className="flex items-center gap-1.5 border border-border bg-parchment/60 pl-3 pr-1 py-1.5">
+              <span className="font-label text-xs font-semibold text-ink">{t.name}</span>
+              <button onClick={() => openEdit(t)} className="p-1 text-leather-light hover:text-brass transition-colors"><Edit2 size={13} /></button>
+              <button onClick={() => handleDelete(t)} className="p-1 text-leather-light hover:text-crimson transition-colors"><Trash2 size={13} /></button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar tag" : "Nuevo tag"}>
+        <form onSubmit={handleSave} className="flex flex-col gap-3">
+          <Input label="Nombre" required value={form.name} onChange={(e) => setForm({ name: e.target.value })} />
+          <Button type="submit" loading={saving} className="mt-2">Guardar</Button>
+        </form>
+      </Modal>
+    </div>
+  );
+}
+
+function TagPicker({
+  tags, value, onChange,
+}: {
+  tags: ShgRolNpcTag[];
+  value: string[];
+  onChange: (next: string[]) => void;
+}) {
+  function toggle(name: string) {
+    onChange(value.includes(name) ? value.filter((t) => t !== name) : [...value, name]);
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">Tags</label>
+      {tags.length === 0 ? (
+        <p className="font-body text-xs text-ink-light">Todavía no hay tags predefinidos — cargalos arriba primero.</p>
+      ) : (
+        <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto border border-border p-2 bg-parchment/40">
+          {tags.map((t) => (
+            <button
+              key={t.id} type="button" onClick={() => toggle(t.name)}
+              className={cn(
+                "font-label text-2xs px-2.5 py-1 border rounded-sm transition-colors",
+                value.includes(t.name) ? "bg-brass text-parchment border-brass" : "border-border text-ink-light hover:border-brass"
+              )}
+            >
+              {t.name}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ImageUploadField({ label, value, onChange }: { label: string; value: string; onChange: (url: string) => void }) {
   const [uploading, setUploading] = React.useState(false);
 
@@ -236,6 +352,7 @@ function ImageUploadField({ label, value, onChange }: { label: string; value: st
 export function NpcsManager() {
   const [npcs, setNpcs] = React.useState<NpcRow[]>([]);
   const [factions, setFactions] = React.useState<ShgRolFaction[]>([]);
+  const [npcTags, setNpcTags] = React.useState<ShgRolNpcTag[]>([]);
   const [locations, setLocations] = React.useState<ShgRolLocation[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [editing, setEditing] = React.useState<NpcRow | null>(null);
@@ -245,13 +362,15 @@ export function NpcsManager() {
 
   const load = React.useCallback(async () => {
     setLoading(true);
-    const [npcRes, facRes, locRes] = await Promise.all([
+    const [npcRes, facRes, tagRes, locRes] = await Promise.all([
       fetch("/api/admin/rol/npcs"),
       fetch("/api/admin/rol/factions"),
+      fetch("/api/admin/rol/npc-tags"),
       fetch("/api/admin/rol/locations"),
     ]);
     setNpcs((await npcRes.json()).data ?? []);
     setFactions((await facRes.json()).data ?? []);
+    setNpcTags((await tagRes.json()).data ?? []);
     setLocations((await locRes.json()).data ?? []);
     setLoading(false);
   }, []);
@@ -277,6 +396,7 @@ export function NpcsManager() {
       factions: n.factions
         .map((fl) => ({ faction_id: oneOf(fl.faction)?.id ?? "", is_former: fl.is_former }))
         .filter((f) => f.faction_id),
+      tags: n.tags,
     });
     setModalOpen(true);
   }
@@ -294,6 +414,7 @@ export function NpcsManager() {
         portrait_url: form.portrait_url || null,
         full_body_url: form.full_body_url || null,
         factions: form.factions,
+        tags: form.tags,
       };
       const res = await fetch(editing ? `/api/admin/rol/npcs/${editing.id}` : "/api/admin/rol/npcs", {
         method: editing ? "PATCH" : "POST",
@@ -320,6 +441,7 @@ export function NpcsManager() {
   return (
     <div>
       <FactionsPanel factions={factions} onChanged={load} />
+      <TagsPanel tags={npcTags} onChanged={load} />
 
       <div className="flex items-center justify-between mb-4">
         <h1 className="font-display text-2xl text-parchment">NPCs</h1>
@@ -378,6 +500,11 @@ export function NpcsManager() {
                             </span>
                           );
                         })}
+                        {n.tags.map((tag) => (
+                          <span key={tag} className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-brass/10 text-brass">
+                            {tag}
+                          </span>
+                        ))}
                       </div>
                       <p className="font-body text-xs text-ink-light line-clamp-2">{n.description}</p>
                     </div>
@@ -415,6 +542,7 @@ export function NpcsManager() {
           </div>
 
           <FactionPicker factions={factions} value={form.factions} onChange={(next) => setForm({ ...form, factions: next })} />
+          <TagPicker tags={npcTags} value={form.tags} onChange={(next) => setForm({ ...form, tags: next })} />
 
           <Select
             label="Actitud hacia el gremio"

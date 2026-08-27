@@ -29,6 +29,7 @@ interface NpcRow {
   residence:      { id: string; name: string } | { id: string; name: string }[] | null;
   origin:         { id: string; name: string } | { id: string; name: string }[] | null;
   factions:       NpcFactionLink[];
+  tags:           string[];
 }
 
 function oneOf<T>(v: T | T[] | null): T | null {
@@ -163,7 +164,7 @@ function NpcDetailModal({ npc, onClose }: { npc: NpcRow; onClose: () => void }) 
             {residence && <p><span className="text-leather-light">Reside en:</span> {residence.name}</p>}
           </div>
 
-          {npc.factions.length > 0 && (
+          {(npc.factions.length > 0 || npc.tags.length > 0) && (
             <div className="flex flex-wrap gap-1.5 mb-3">
               {npc.factions.map((fl) => {
                 const faction = oneOf(fl.faction);
@@ -180,6 +181,11 @@ function NpcDetailModal({ npc, onClose }: { npc: NpcRow; onClose: () => void }) 
                   </span>
                 );
               })}
+              {npc.tags.map((tag) => (
+                <span key={tag} className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-brass/10 text-brass">
+                  {tag}
+                </span>
+              ))}
             </div>
           )}
 
@@ -303,6 +309,11 @@ export default function RolNpcsPage() {
                           </span>
                         );
                       })}
+                      {n.tags.map((tag) => (
+                        <span key={tag} className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-brass/10 text-brass">
+                          {tag}
+                        </span>
+                      ))}
                     </div>
                   </div>
                 </div>

@@ -459,8 +459,17 @@ export interface ShgRolNpc {
   standing:               RolNpcStanding;
   portrait_url:           string | null;
   full_body_url:          string | null;
+  /** Descriptive role tags (merchant, militia, ...) — independent of faction. */
+  tags:                   string[];
   created_at:             string;
   updated_at:             string;
+}
+
+export interface ShgRolNpcTag {
+  id:         string;
+  name:       string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ShgRolNpcFaction {
