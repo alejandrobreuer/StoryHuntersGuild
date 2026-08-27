@@ -47,7 +47,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const { data, error: updateError } = await admin
     .from("shg_rol_character")
-    .update({ name: parsed.data.name, sheet_data: parsed.data.sheet_data })
+    .update({
+      name: parsed.data.name,
+      sheet_data: parsed.data.sheet_data,
+      portrait_url: parsed.data.portrait_url || null,
+      full_body_url: parsed.data.full_body_url || null,
+    })
     .eq("id", params.id)
     .select()
     .single();

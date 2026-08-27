@@ -83,3 +83,26 @@ export const fabulaPointUses: string[] = [
 export const fabulaPointsNote =
   "Each character starts with 3 Fabula Points. There's no upper limit, but spending them (not " +
   "hoarding) is one of the main ways your group earns Experience Points and levels up.";
+
+// "INVENTORY POINTS" (p.28) — examples given in the rulebook; the actual set
+// is player/DM-defined, this is just a sensible starter list players can
+// pick from (or the DM can add more via... nowhere yet, this is a static
+// reference list, not a GM-managed catalog — out of scope for this pass).
+export interface FUIpItem {
+  name: string;
+  ipCost: number;
+  effect: string;
+}
+
+export const ipItems: FUIpItem[] = [
+  { name: "Remedio", ipCost: 3, effect: "Recuperás 50 Puntos de Vida." },
+  { name: "Elixir", ipCost: 3, effect: "Recuperás 50 Puntos de Mente." },
+  { name: "Tónico", ipCost: 2, effect: "Curás un estado alterado a elección." },
+];
+
+// "GLOSSARY" — new-player-facing terms referenced constantly elsewhere on
+// the sheet but never defined there (per character-sheet-logic-spec.md).
+export const glossary: { term: string; definition: string }[] = [
+  { term: "HR (High Roll)", definition: "En una Verificación tirás dos dados y sumás sus resultados — el HR es el más alto de los dos por sí solo, usado en muchas fórmulas de daño y efectos." },
+  { term: "Crisis", definition: "Cuando tus Puntos de Vida caen a la mitad de tu máximo (redondeado hacia abajo) o menos, entrás en Crisis — algunos efectos y habilidades cambian su comportamiento mientras estás así." },
+];

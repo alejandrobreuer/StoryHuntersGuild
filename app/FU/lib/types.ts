@@ -4,6 +4,7 @@
  */
 import type { DieSize } from "../data/types";
 import type { BondEmotionId } from "../data/bonds";
+import type { AffinityStatus } from "../data/affinities";
 
 export interface FUCharacterAttributes {
   dexterity: DieSize;
@@ -45,11 +46,15 @@ export interface FUCharacter {
   createdAt: string;
   updatedAt: string;
 
-  level: number; // always 5 for v1
+  level: number; // 5 at creation, grows via XP — see xp below
 
   identity: string;
   theme: string;
   origin: string;
+  /** Personal Trait (freeform) — distinct from a Bond's traits. */
+  trait: string;
+  /** Freeform quirks/flavor, separate from Trait. */
+  quirks: string;
 
   classLevels: FUCharacterClassLevel[];
   attributes: FUCharacterAttributes;
@@ -63,6 +68,8 @@ export interface FUCharacter {
   bonds: FUBond[];
 
   equipment: FUCharacterEquipment;
+  /** Owned but not equipped — item ids from data/equipment.ts. */
+  backpack: string[];
   zenit: number;
 
   name: string;
@@ -70,6 +77,17 @@ export interface FUCharacter {
   appearance: string;
 
   fabulaPoints: number;
+
+  /** Current HP/MP/IP — max is always derived (see lib/derivedStats.ts), only the "remaining" values are stored. */
+  currentHp: number;
+  currentMp: number;
+  currentIp: number;
+
+  /** Accumulated XP not yet spent on a level-up (see lib/derivedStats.ts's XP_PER_LEVEL). */
+  xp: number;
+
+  /** Per-element affinity — an element missing from this map defaults to "normal". */
+  elementalAffinities: Partial<Record<string, AffinityStatus>>;
 }
 
 /**

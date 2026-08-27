@@ -199,6 +199,19 @@ export function rollSavings(): number {
   return (d6() + d6()) * 10;
 }
 
+// ---------------------------------------------------------------------------
+// Experience & Leveling (Fabula_Ultima_Guide.pdf, "EXPERIENCE POINTS", p.36)
+// ---------------------------------------------------------------------------
+
+/** XP needed to gain a level — crossing this threshold spends 10 XP for +1 level. */
+export const XP_PER_LEVEL = 10;
+/** Every character gains this much automatically at the end of a session. */
+export const SESSION_XP = 5;
+
+/** How many class levels a character can invest in a single non-mastered class before it's "maxed" for this simplified model. */
+export const MAX_CLASS_LEVEL = 10;
+export const MAX_CLASSES = 3;
+
 /** Which weapon/armor/shield categories a set of classes unlocks purchase of. */
 export function equipCapabilities(classes: FUClass[]) {
   let melee = false;

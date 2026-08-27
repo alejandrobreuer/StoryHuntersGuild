@@ -14,6 +14,8 @@ interface CharacterRow {
   name: string;
   sheet_data: FUCharacter;
   guild_points: number;
+  portrait_url: string | null;
+  full_body_url: string | null;
 }
 
 export default function RolCharacterPage() {
@@ -34,18 +36,35 @@ export default function RolCharacterPage() {
 
   React.useEffect(() => { load(); }, [load]);
 
-  async function handleUpdate(updated: FUCharacter) {
+  // Always sends the character's FULL current state — sheet_data and both
+  // image urls — regardless of which one actually changed, so a sheet edit
+  // never silently wipes out the portrait/full-body images and vice versa.
+  async function save(next: Partial<Pick<CharacterRow, "sheet_data" | "portrait_url" | "full_body_url">>) {
     if (!character) return;
-    setCharacter({ ...character, sheet_data: updated });
+    const merged = { ...character, ...next };
+    setCharacter(merged);
     const res = await fetch(`/api/rol/characters/${params.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: updated.name || character.name, sheet_data: updated }),
+      body: JSON.stringify({
+        name: merged.sheet_data.name || merged.name,
+        sheet_data: merged.sheet_data,
+        portrait_url: merged.portrait_url,
+        full_body_url: merged.full_body_url,
+      }),
     });
     if (!res.ok) {
       const json = await res.json();
       toast.error(json.error ?? "No se pudo guardar.");
     }
+  }
+
+  function handleUpdate(updated: FUCharacter) {
+    save({ sheet_data: updated });
+  }
+
+  function handleImagesChange(portraitUrl: string | null, fullBodyUrl: string | null) {
+    save({ portrait_url: portraitUrl, full_body_url: fullBodyUrl });
   }
 
   if (character === undefined) return null;
@@ -60,27 +79,34 @@ export default function RolCharacterPage() {
   const currentRank = computeRank(character.guild_points, ranks);
   const upcoming = nextRank(character.guild_points, ranks);
 
-  return (
-    <>
-      <div className="mx-auto max-w-7xl px-4 pt-8 md:px-8">
-        <div className="surface-parchment p-5">
-          <div className="flex items-center justify-between mb-1">
-            <span className="font-label text-xs uppercase tracking-wide text-brass">{currentRank ? currentRank.name : "Sin rango"}</span>
-            <span className="font-body text-xs text-ink-light">{character.guild_points} pts. de gremio</span>
-          </div>
-          {upcoming ? (
-            <>
-              <ProgressBar value={character.guild_points} max={upcoming.points_threshold} />
-              <p className="font-body text-2xs text-ink-light mt-1">
-                {upcoming.points_threshold - character.guild_points} puntos para {upcoming.name}
-              </p>
-            </>
-          ) : (
-            <p className="font-body text-2xs text-ink-light mt-1">Rango máximo alcanzado.</p>
-          )}
-        </div>
+  const guildStanding = (
+    <div className="mt-5 pt-4 border-t border-border">
+      <div className="flex items-center justify-between mb-1">
+        <span className="font-label text-xs uppercase tracking-wide text-brass">{currentRank ? currentRank.name : "Sin rango"}</span>
+        <span className="font-body text-xs text-ink-light">{character.guild_points} pts. de gremio</span>
       </div>
-      <CharacterSheet character={character.sheet_data} backHref="/rol/characters" onUpdate={handleUpdate} />
-    </>
+      {upcoming ? (
+        <>
+          <ProgressBar value={character.guild_points} max={upcoming.points_threshold} />
+          <p className="font-body text-2xs text-ink-light mt-1">
+            {upcoming.points_threshold - character.guild_points} puntos para {upcoming.name}
+          </p>
+        </>
+      ) : (
+        <p className="font-body text-2xs text-ink-light mt-1">Rango máximo alcanzado.</p>
+      )}
+    </div>
+  );
+
+  return (
+    <CharacterSheet
+      character={character.sheet_data}
+      portraitUrl={character.portrait_url}
+      fullBodyUrl={character.full_body_url}
+      backHref="/rol/characters"
+      onUpdate={handleUpdate}
+      onImagesChange={handleImagesChange}
+      guildStanding={guildStanding}
+    />
   );
 }

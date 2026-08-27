@@ -13,7 +13,8 @@ import { Step5Attributes } from "@/components/rol/character/steps/Step5Attribute
 import { Step6DerivedStats } from "@/components/rol/character/steps/Step6DerivedStats";
 import { Step7Equipment } from "@/components/rol/character/steps/Step7Equipment";
 import { Step8Finishing } from "@/components/rol/character/steps/Step8Finishing";
-import { calcSpent } from "@/app/FU/lib/derivedStats";
+import { calcSpent, calcHP, calcMP, calcIP } from "@/app/FU/lib/derivedStats";
+import { classesById } from "@/app/FU/data/classes";
 import { CHARACTER_LEVEL, STARTING_BUDGET, STARTING_FABULA_POINTS, type FUCharacter } from "@/app/FU/lib/types";
 import { toast } from "sonner";
 
@@ -56,21 +57,31 @@ function WizardInner() {
     try {
       const now = new Date().toISOString();
       const leftover = Math.max(0, STARTING_BUDGET - calcSpent(draft.equipment));
+      const classLevels = draft.classLevels.filter((cl) => cl.levels > 0);
+      const classes = classLevels.map((cl) => classesById[cl.classId]).filter((c): c is NonNullable<typeof c> => Boolean(c));
       const sheet_data: Omit<FUCharacter, "id" | "createdAt" | "updatedAt"> = {
         level: CHARACTER_LEVEL,
         identity: draft.identity,
         theme: draft.theme,
         origin: draft.origin,
-        classLevels: draft.classLevels.filter((cl) => cl.levels > 0),
+        trait: "",
+        quirks: "",
+        classLevels,
         attributes: draft.attributes,
         statusEffects: [],
         bonds: [],
         equipment: draft.equipment,
+        backpack: [],
         zenit: leftover + (draft.savingsRoll ?? 0),
         name: draft.name,
         pronouns: draft.pronouns,
         appearance: draft.appearance,
         fabulaPoints: STARTING_FABULA_POINTS,
+        currentHp: calcHP(draft.attributes.might, classes).value,
+        currentMp: calcMP(draft.attributes.willpower, classes).value,
+        currentIp: calcIP(classes).value,
+        xp: 0,
+        elementalAffinities: {},
       };
 
       const res = await fetch("/api/rol/characters", {

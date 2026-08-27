@@ -10,6 +10,8 @@ const dieSizeSchema = z.union([z.literal(6), z.literal(8), z.literal(10), z.lite
 
 const bondEmotionSchema = z.enum(["admiration", "inferiority", "loyalty", "mistrust", "affection", "hatred"]);
 
+const affinityStatusSchema = z.enum(["normal", "resistant", "vulnerable", "immune", "absorb"]);
+
 const attributesSchema = z.object({
   dexterity: dieSizeSchema,
   insight:   dieSizeSchema,
@@ -17,9 +19,11 @@ const attributesSchema = z.object({
   willpower: dieSizeSchema,
 });
 
+// Per-class level cap of 10 mirrors the rulebook's own class-level cap
+// (before Mastery, out of scope here) — see MAX_CLASS_LEVEL in derivedStats.ts.
 const classLevelSchema = z.object({
   classId:     z.string().min(1),
-  levels:      z.number().int().min(1).max(5),
+  levels:      z.number().int().min(1).max(10),
   skillsTaken: z.array(z.string()),
 });
 
@@ -35,11 +39,14 @@ const bondSchema = z.object({
 });
 
 export const fuCharacterSheetSchema = z.object({
-  level: z.number().int().min(1).max(5),
+  // 3 classes × MAX_CLASS_LEVEL(10) is the highest a character can reach in this model.
+  level: z.number().int().min(1).max(30),
 
   identity: z.string(),
   theme:    z.string(),
   origin:   z.string(),
+  trait:    z.string().max(500).default(""),
+  quirks:   z.string().max(1000).default(""),
 
   classLevels:   z.array(classLevelSchema).min(1).max(3),
   attributes:    attributesSchema,
@@ -47,6 +54,7 @@ export const fuCharacterSheetSchema = z.object({
   bonds:         z.array(bondSchema).max(6),
 
   equipment: equipmentSchema,
+  backpack:  z.array(z.string()).max(50).default([]),
   zenit:     z.number().int().min(0),
 
   name:       z.string().min(1),
@@ -54,13 +62,23 @@ export const fuCharacterSheetSchema = z.object({
   appearance: z.string(),
 
   fabulaPoints: z.number().int().min(0),
+
+  currentHp: z.number().int().min(0).default(0),
+  currentMp: z.number().int().min(0).default(0),
+  currentIp: z.number().int().min(0).default(0),
+
+  xp: z.number().int().min(0).default(0),
+
+  elementalAffinities: z.record(z.string(), affinityStatusSchema).default({}),
 });
 
 export type RolCharacterSheet = z.infer<typeof fuCharacterSheetSchema>;
 
 export const characterSchema = z.object({
-  name:       z.string().min(1).max(200),
-  sheet_data: fuCharacterSheetSchema,
+  name:           z.string().min(1).max(200),
+  sheet_data:     fuCharacterSheetSchema,
+  portrait_url:   z.string().url().nullable().optional().or(z.literal("")),
+  full_body_url:  z.string().url().nullable().optional().or(z.literal("")),
 });
 
 // ─── Guild config ─────────────────────────────────────────────────────────────

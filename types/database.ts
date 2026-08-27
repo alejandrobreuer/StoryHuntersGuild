@@ -392,6 +392,8 @@ export interface ShgRolCharacter {
   sheet_data:     Record<string, unknown>;
   guild_rank_id:  string | null;
   guild_points:   number;
+  portrait_url:   string | null;
+  full_body_url:  string | null;
   created_at:     string;
   updated_at:     string;
 }
@@ -481,6 +483,7 @@ export interface ShgRolQuestApplication {
   decided_by:    string | null;
 }
 
+/** One editable document per thread (public / dm_private / one per participant's player_private) — saving overwrites content+author+updated_at in place. */
 export interface ShgRolQuestNote {
   id:           string;
   quest_id:     string;
@@ -490,6 +493,7 @@ export interface ShgRolQuestNote {
   author_kind:  "player" | "admin";
   content:      string;
   created_at:   string;
+  updated_at:   string;
 }
 
 // ─── NPCs & factions ────────────────────────────────────────────────────────

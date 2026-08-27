@@ -71,16 +71,27 @@ function WizardInner() {
       identity: draft.identity,
       theme: draft.theme,
       origin: draft.origin,
+      trait: "",
+      quirks: "",
       classLevels: draft.classLevels.filter((cl) => cl.levels > 0),
       attributes: draft.attributes,
       statusEffects: [],
       bonds: [],
       equipment: draft.equipment,
+      backpack: [],
       zenit: leftover + (draft.savingsRoll ?? 0),
       name: draft.name,
       pronouns: draft.pronouns,
       appearance: draft.appearance,
       fabulaPoints: STARTING_FABULA_POINTS,
+      // This standalone app/FU/ tool predates the /rol sheet rework and
+      // doesn't display current HP/MP/IP or leveling — only the live /rol
+      // character sheet (components/rol/character/CharacterSheet.tsx) does.
+      currentHp: 0,
+      currentMp: 0,
+      currentIp: 0,
+      xp: 0,
+      elementalAffinities: {},
     };
     saveCharacter(character);
     router.push(`/FU/character/${character.id}`);
