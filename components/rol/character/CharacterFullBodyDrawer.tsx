@@ -8,7 +8,19 @@ import { cn } from "@/lib/utils";
 // without ever permanently eating sheet width. Controlled by the parent so
 // the toggle button (absolutely positioned over the header) and the panel
 // stay in sync — see character-sheet-reference.html's .portrait-drawer.
-export function CharacterFullBodyDrawer({ imageUrl, open, onToggle }: { imageUrl: string | null; open: boolean; onToggle: () => void }) {
+export function CharacterFullBodyDrawer({
+  imageUrl,
+  open,
+  onToggle,
+  onUpload,
+  uploading,
+}: {
+  imageUrl: string | null;
+  open: boolean;
+  onToggle: () => void;
+  onUpload: (file: File) => void;
+  uploading: boolean;
+}) {
   return (
     <>
       <button
@@ -29,14 +41,25 @@ export function CharacterFullBodyDrawer({ imageUrl, open, onToggle }: { imageUrl
         )}
       >
         <div className="w-40 p-3">
-          {imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, size unknown ahead of render
-            <img src={imageUrl} alt="" className="w-full h-auto" />
-          ) : (
-            <div className="aspect-[3/4] flex items-center justify-center bg-parchment-dark/40 border border-dashed border-brass/40">
-              <User size={28} className="text-leather-light" />
-            </div>
-          )}
+          <div className="relative">
+            {imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, size unknown ahead of render
+              <img src={imageUrl} alt="" className="w-full h-auto" />
+            ) : (
+              <div className="aspect-[3/4] flex items-center justify-center bg-parchment-dark/40 border border-dashed border-brass/40">
+                <User size={28} className="text-leather-light" />
+              </div>
+            )}
+            <label className="absolute inset-0 flex items-center justify-center bg-ink/0 hover:bg-ink/50 text-transparent hover:text-parchment transition-colors cursor-pointer text-2xs font-label uppercase text-center">
+              {uploading ? "…" : "Cambiar"}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                onChange={(e) => e.target.files?.[0] && onUpload(e.target.files[0])}
+              />
+            </label>
+          </div>
         </div>
       </div>
     </>

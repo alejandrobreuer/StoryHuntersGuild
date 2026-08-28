@@ -376,7 +376,9 @@ export function NpcsManager() {
       fetch("/api/admin/rol/npc-tags"),
       fetch("/api/admin/rol/locations"),
     ]);
-    setNpcs((await npcRes.json()).data ?? []);
+    const npcJson = await npcRes.json();
+    if (!npcRes.ok) toast.error(npcJson.error ?? "No se pudieron cargar los NPCs.");
+    setNpcs(npcJson.data ?? []);
     setFactions((await facRes.json()).data ?? []);
     setNpcTags((await tagRes.json()).data ?? []);
     setLocations((await locRes.json()).data ?? []);

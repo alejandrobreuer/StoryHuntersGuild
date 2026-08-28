@@ -66,6 +66,17 @@ function Panel({ title, className, children }: { title: string; className?: stri
   );
 }
 
+/** Filled/empty dots showing how many more levels a repeatable Skill can still take (single-take Skills, max 1, don't get dots at all). */
+function SkillLevelDots({ current, max }: { current: number; max: number }) {
+  return (
+    <span className="inline-flex items-center gap-0.5">
+      {Array.from({ length: max }).map((_, i) => (
+        <span key={i} className={cn("inline-block size-1.5 rounded-full", i < current ? "bg-brass" : "bg-border")} />
+      ))}
+    </span>
+  );
+}
+
 function StatTile({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="text-center rounded-sm border border-border px-2 py-2">
@@ -452,18 +463,21 @@ function ClassesAccordion({ character, onUpdate }: { character: FUCharacter; onU
               <p className="font-body text-sm font-semibold text-ink">
                 {cls.name} <span className="font-label text-2xs font-normal text-ink-light">Nv {cl.levels}{cl.levels >= MAX_CLASS_LEVEL && " (máx — masterizada)"} · libre: {cls.freeBenefits.map((b) => b.text).join(", ")}</span>
               </p>
-              <p className="text-xs text-ink-light font-body mt-0.5">
-                {Array.from(counts.entries()).map(([name, count], i) => {
+              <div className="mt-1 space-y-1">
+                {Array.from(counts.entries()).map(([name, count]) => {
                   const skill = cls.skills.find((s) => s.name === name);
-                  const maxed = skill && count >= skill.maxLevel;
+                  const max = skill?.maxLevel ?? 1;
                   return (
-                    <React.Fragment key={name}>
-                      {i > 0 && ", "}
-                      {name} ({count}{skill && skill.maxLevel > 1 ? `/${skill.maxLevel}` : ""}){maxed && <span className="text-brass font-semibold"> máx</span>}
-                    </React.Fragment>
+                    <div key={name} className="flex items-center justify-between gap-2 text-xs text-ink font-body">
+                      <span>{name}</span>
+                      <span className="flex items-center gap-1.5 shrink-0">
+                        <span className="font-label text-2xs text-ink-light">Nv {count}</span>
+                        {max > 1 && <SkillLevelDots current={count} max={max} />}
+                      </span>
+                    </div>
                   );
                 })}
-              </p>
+              </div>
             </div>
           );
         })}
@@ -889,11 +903,11 @@ function CharacterSheetInner({
   const stats = calcDerivedStats(character.level, character.attributes, character.equipment, classes, character.statusEffects, ref);
   const inCrisis = character.currentHp <= stats.crisis.value;
   const canLevelUp = character.xp >= XP_PER_LEVEL && character.classLevels.length > 0 && character.classLevels.some((cl) => cl.levels < MAX_CLASS_LEVEL);
-  const [uploadingPortrait, setUploadingPortrait] = React.useState(false);
+  const [uploadingImage, setUploadingImage] = React.useState(false);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
 
   async function uploadImage(file: File, kind: "portrait" | "full_body") {
-    setUploadingPortrait(true);
+    setUploadingImage(true);
     try {
       const body = new FormData();
       body.set("file", file);
@@ -903,7 +917,7 @@ function CharacterSheetInner({
       if (kind === "portrait") onImagesChange(json.data.url, fullBodyUrl);
       else onImagesChange(portraitUrl, json.data.url);
     } finally {
-      setUploadingPortrait(false);
+      setUploadingImage(false);
     }
   }
 
@@ -933,7 +947,13 @@ function CharacterSheetInner({
       )}
 
       <div className="relative flex surface-parchment overflow-hidden mt-2">
-        <CharacterFullBodyDrawer imageUrl={fullBodyUrl} open={drawerOpen} onToggle={() => setDrawerOpen((o) => !o)} />
+        <CharacterFullBodyDrawer
+          imageUrl={fullBodyUrl}
+          open={drawerOpen}
+          onToggle={() => setDrawerOpen((o) => !o)}
+          onUpload={(file) => uploadImage(file, "full_body")}
+          uploading={uploadingImage}
+        />
 
         <div className="min-w-0 flex-1 p-3.5 md:p-5 lg:p-7 space-y-3.5">
           {/* Header */}
@@ -946,7 +966,7 @@ function CharacterSheetInner({
                 <User size={32} className="text-leather-light" />
               )}
               <label className="absolute inset-0 flex items-center justify-center bg-ink/0 hover:bg-ink/50 text-transparent hover:text-parchment transition-colors cursor-pointer text-2xs font-label uppercase text-center">
-                {uploadingPortrait ? "…" : "Cambiar"}
+                {uploadingImage ? "…" : "Cambiar"}
                 <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => e.target.files?.[0] && uploadImage(e.target.files[0], "portrait")} />
               </label>
             </div>
@@ -960,16 +980,6 @@ function CharacterSheetInner({
                 <span className="text-moss">Identidad</span> {character.identity} · <span className="text-moss">Tema</span> {character.theme} · <span className="text-moss">Origen</span> {character.origin}
               </p>
             </div>
-          </div>
-
-          {/* XP */}
-          <div className="pl-6">
-            <div className="flex items-center gap-2">
-              <StatBar label="XP" value={character.xp} max={XP_PER_LEVEL} color="brass" />
-              <StepAdjuster onChange={adjustXp} />
-            </div>
-            {canLevelUp && <p className="mt-1 font-label text-2xs uppercase tracking-wide text-brass-bright">¡Podés subir de nivel!</p>}
-            {canLevelUp && <LevelUpControl character={character} onLevelUp={levelUp} />}
           </div>
 
           {/* Vista General / Acciones de Inventario / Estados — Vista General
@@ -986,6 +996,12 @@ function CharacterSheetInner({
                   <StatBar label="PM" value={character.currentMp} max={stats.mp.value} color="blue" />
                   <AmountAdjuster onApply={adjustMp} />
                 </div>
+                <div className="flex items-center gap-2">
+                  <StatBar label="XP" value={character.xp} max={XP_PER_LEVEL} color="brass" />
+                  <StepAdjuster onChange={adjustXp} />
+                </div>
+                {canLevelUp && <p className="font-label text-2xs uppercase tracking-wide text-brass-bright">¡Podés subir de nivel!</p>}
+                {canLevelUp && <LevelUpControl character={character} onLevelUp={levelUp} />}
               </div>
 
               <div className="mt-3">

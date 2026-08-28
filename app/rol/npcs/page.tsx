@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Contact } from "lucide-react";
+import { toast } from "sonner";
 import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/utils";
 import { labelForStanding, badgeClassForStanding } from "@/lib/rol/npcStandings";
@@ -71,11 +72,13 @@ export default function RolNpcsPage() {
 
   React.useEffect(() => {
     fetch("/api/rol/npcs")
-      .then((r) => r.json())
-      .then((json) => {
+      .then(async (r) => {
+        const json = await r.json();
+        if (!r.ok) { toast.error(json.error ?? "No se pudieron cargar los NPCs."); return; }
         setNpcs(json.data ?? []);
-        setLoading(false);
-      });
+      })
+      .catch(() => toast.error("No se pudieron cargar los NPCs."))
+      .finally(() => setLoading(false));
   }, []);
 
   const residences = React.useMemo(() => {
