@@ -75,6 +75,16 @@ function StatTile({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
+/** Single-step +/- pair, no amount box — for XP, which only ever moves 1 at a time in play. */
+function StepAdjuster({ onChange }: { onChange: (delta: number) => void }) {
+  return (
+    <div className="flex items-center gap-1 shrink-0">
+      <button type="button" onClick={() => onChange(-1)} aria-label="Restar" className="flex size-7 items-center justify-center rounded-full border border-border text-sm leading-none text-ink hover:border-crimson hover:text-crimson">−</button>
+      <button type="button" onClick={() => onChange(1)} aria-label="Sumar" className="flex size-7 items-center justify-center rounded-full border border-border text-sm leading-none text-ink hover:border-moss hover:text-moss">+</button>
+    </div>
+  );
+}
+
 /** Amount box + Add/Remove buttons — lets the player apply any delta to HP/MP/Zenit instead of stepping by 1. */
 function AmountAdjuster({ onApply }: { onApply: (delta: number) => void }) {
   const [amount, setAmount] = React.useState("");
@@ -910,6 +920,9 @@ function CharacterSheetInner({
   function adjustMp(delta: number) {
     onUpdate({ ...character, currentMp: Math.max(0, Math.min(stats.mp.value, character.currentMp + delta)), updatedAt: new Date().toISOString() });
   }
+  function adjustXp(delta: number) {
+    onUpdate({ ...character, xp: Math.max(0, character.xp + delta), updatedAt: new Date().toISOString() });
+  }
 
   return (
     <div className="w-full px-3 py-5 md:px-6">
@@ -951,19 +964,18 @@ function CharacterSheetInner({
 
           {/* XP */}
           <div className="pl-6">
-            <div className="flex items-center justify-between font-label text-2xs uppercase tracking-wide text-ink-light">
-              <span>XP {character.xp}/{XP_PER_LEVEL}</span>
-              {canLevelUp && <span className="text-brass-bright">¡Podés subir de nivel!</span>}
+            <div className="flex items-center gap-2">
+              <StatBar label="XP" value={character.xp} max={XP_PER_LEVEL} color="brass" />
+              <StepAdjuster onChange={adjustXp} />
             </div>
-            <div className="relative mt-1 h-1.5 overflow-hidden rounded-full bg-parchment-dark/40">
-              <div className="h-full rounded-full bg-brass transition-all duration-500" style={{ width: `${Math.min(100, (character.xp / XP_PER_LEVEL) * 100)}%` }} />
-            </div>
+            {canLevelUp && <p className="mt-1 font-label text-2xs uppercase tracking-wide text-brass-bright">¡Podés subir de nivel!</p>}
             {canLevelUp && <LevelUpControl character={character} onLevelUp={levelUp} />}
           </div>
 
-          {/* Vista General / Acciones de Inventario / Estados */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-start">
-            <Panel title="Vista General">
+          {/* Vista General / Acciones de Inventario / Estados — Vista General
+              takes half the row, the other two split the remaining half. */}
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 items-start">
+            <Panel title="Vista General" className="lg:col-span-2">
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <StatBar label="PV" value={character.currentHp} max={stats.hp.value} color="moss" markerAt={stats.crisis.value} />
