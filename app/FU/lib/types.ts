@@ -65,6 +65,8 @@ export interface FUCharacter {
   attributes: FUCharacterAttributes;
   /** Active status effect ids (see data/statusEffects.ts) — empty when healthy. */
   statusEffects: string[];
+  /** Heroic Skill ids taken (see data/referenceDataType.ts) — one is earned per mastered class (level 10). */
+  heroicSkills: string[];
   /**
    * Bonds emerge through play rather than at creation (per the rulebook),
    * so unlike everything else here this starts empty and is only ever

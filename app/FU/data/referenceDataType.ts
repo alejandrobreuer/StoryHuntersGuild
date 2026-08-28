@@ -10,6 +10,14 @@ import type { FUClass, FUWeapon, FUArmor, FUShield } from "./types";
 import type { FUStatusEffect } from "./statusEffects";
 import type { FUIpItem } from "./reference";
 
+export interface FUHeroicSkill {
+  id: string;
+  name: string;
+  /** Freeform prose (e.g. "You must have mastered the Darkblade Class") — null = open to anyone who's mastered any class. */
+  requirement: string | null;
+  description: string;
+}
+
 export interface FUReferenceData {
   classes: FUClass[];
   classesById: Record<string, FUClass>;
@@ -18,4 +26,5 @@ export interface FUReferenceData {
   shields: FUShield[];
   statusEffects: FUStatusEffect[];
   ipItems: FUIpItem[];
+  heroicSkills: FUHeroicSkill[];
 }

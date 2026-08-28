@@ -17,7 +17,7 @@ import type {
 } from "./types";
 import type { FUStatusEffect, AttributeKey } from "./statusEffects";
 import type { FUIpItem } from "./reference";
-import type { FUReferenceData } from "./referenceDataType";
+import type { FUReferenceData, FUHeroicSkill } from "./referenceDataType";
 
 export async function loadReferenceData(): Promise<FUReferenceData> {
   const admin = createAdminClient();
@@ -32,6 +32,7 @@ export async function loadReferenceData(): Promise<FUReferenceData> {
     { data: armorShieldRows, error: armorShieldErr },
     { data: statusEffectRows, error: statusEffectErr },
     { data: inventoryItemRows, error: inventoryItemErr },
+    { data: heroicSkillRows, error: heroicSkillErr },
   ] = await Promise.all([
     admin.from("shg_fu_class").select("*").order("sort_order"),
     admin.from("shg_fu_skill").select("*").order("sort_order"),
@@ -42,9 +43,10 @@ export async function loadReferenceData(): Promise<FUReferenceData> {
     admin.from("shg_fu_armor_shield").select("*").order("sort_order"),
     admin.from("shg_fu_status_effect").select("*").order("sort_order"),
     admin.from("shg_fu_inventory_item").select("*").order("sort_order"),
+    admin.from("shg_fu_heroic_skill").select("*").order("sort_order"),
   ]);
 
-  const firstError = classErr ?? skillErr ?? spellErr ?? arcanumErr ?? inventionErr ?? weaponErr ?? armorShieldErr ?? statusEffectErr ?? inventoryItemErr;
+  const firstError = classErr ?? skillErr ?? spellErr ?? arcanumErr ?? inventionErr ?? weaponErr ?? armorShieldErr ?? statusEffectErr ?? inventoryItemErr ?? heroicSkillErr;
   if (firstError) throw new Error(`Failed to load Fabula Ultima reference data: ${firstError.message}`);
 
   const classes: FUClass[] = (classRows ?? []).map((row) => {
@@ -160,5 +162,12 @@ export async function loadReferenceData(): Promise<FUReferenceData> {
     effect: i.effect,
   }));
 
-  return { classes, classesById, weapons, armors, shields, statusEffects, ipItems };
+  const heroicSkills: FUHeroicSkill[] = (heroicSkillRows ?? []).map((h) => ({
+    id: h.id,
+    name: h.name,
+    requirement: h.requirement,
+    description: h.description,
+  }));
+
+  return { classes, classesById, weapons, armors, shields, statusEffects, ipItems, heroicSkills };
 }

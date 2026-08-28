@@ -70,6 +70,7 @@ function WizardInner() {
         classLevels,
         attributes: draft.attributes,
         statusEffects: [],
+        heroicSkills: [],
         bonds: [],
         equipment: draft.equipment,
         backpack: [],

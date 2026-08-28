@@ -392,6 +392,78 @@ function ClassesAccordion({ character, onUpdate }: { character: FUCharacter; onU
   );
 }
 
+/**
+ * Mastering a class (reaching level MAX_CLASS_LEVEL) grants one free choice
+ * of Heroic Skill, per Reference/fabula_ultima_data_rules.txt — modeled as a
+ * derived "earned vs. spent" count (mastered-class count vs. heroicSkills
+ * taken) rather than a one-time prompt at the exact level-up moment, so it
+ * also works for characters that were already mastered before this existed.
+ */
+function HeroicSkillsAccordion({ character, onUpdate }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void }) {
+  const ref = useReferenceDataContext();
+  const earned = character.classLevels.filter((cl) => cl.levels >= MAX_CLASS_LEVEL).length;
+  const spent = character.heroicSkills.length;
+  const available = earned - spent;
+
+  const taken = character.heroicSkills.map((id) => ref.heroicSkills.find((h) => h.id === id)).filter((h): h is NonNullable<typeof h> => Boolean(h));
+  const untaken = ref.heroicSkills.filter((h) => !character.heroicSkills.includes(h.id));
+
+  const [pickId, setPickId] = React.useState("");
+  const picked = ref.heroicSkills.find((h) => h.id === pickId);
+
+  function take() {
+    if (!pickId || available <= 0) return;
+    onUpdate({ ...character, heroicSkills: [...character.heroicSkills, pickId], updatedAt: new Date().toISOString() });
+    setPickId("");
+  }
+
+  return (
+    <Accordion title="Habilidades Heroicas" summary={`${spent}/${earned} elegidas`}>
+      {taken.length === 0 ? (
+        <p className="text-sm text-ink-light font-body">Todavía no elegiste ninguna.</p>
+      ) : (
+        <div className="space-y-1.5">
+          {taken.map((h) => (
+            <div key={h.id} className="rounded-sm border border-border px-2.5 py-2">
+              <span className="font-body text-sm font-semibold text-ink">{h.name}</span>
+              <p className="mt-0.5 text-xs leading-snug text-ink-light font-body">{h.description}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {available > 0 ? (
+        <div className="mt-3 pt-3 border-t border-border/60 flex flex-col gap-1.5">
+          <p className="font-label text-2xs uppercase tracking-wide text-brass-bright">
+            {available} elección(es) disponible(s) — masterizaste {earned} clase(s)
+          </p>
+          <select value={pickId} onChange={(e) => setPickId(e.target.value)} className="border border-border bg-parchment/60 px-2 py-1 text-xs text-ink font-body">
+            <option value="">Elegí una Habilidad Heroica…</option>
+            {untaken.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
+          </select>
+          {picked && (
+            <p className="text-2xs text-ink-light font-body">
+              {picked.requirement ?? "Disponible para cualquiera que haya masterizado una clase."}
+            </p>
+          )}
+          <button
+            type="button"
+            disabled={!pickId}
+            onClick={take}
+            className="self-start font-label text-2xs uppercase tracking-wide border border-brass bg-brass/10 px-3 py-1 text-brass-bright hover:bg-brass/20 transition-colors disabled:opacity-30"
+          >
+            Elegir
+          </button>
+        </div>
+      ) : (
+        <p className="mt-3 pt-3 border-t border-border/60 text-2xs text-ink-light font-body">
+          Masterizá una clase (nivel {MAX_CLASS_LEVEL}) para ganar una elección de Habilidad Heroica.
+        </p>
+      )}
+    </Accordion>
+  );
+}
+
 function BondEditor({ bond, onChange, onRemove }: { bond: FUBond; onChange: (bond: FUBond) => void; onRemove: () => void }) {
   const [editing, setEditing] = React.useState(false);
 
@@ -859,6 +931,7 @@ function CharacterSheetInner({
             <EquipmentAccordion character={character} onUpdate={onUpdate} />
             <AffinitiesAccordion character={character} onUpdate={onUpdate} />
             <ClassesAccordion character={character} onUpdate={onUpdate} />
+            <HeroicSkillsAccordion character={character} onUpdate={onUpdate} />
             <BondsAccordion character={character} onUpdate={onUpdate} />
             <TraitsGuildAccordion character={character} onUpdate={onUpdate} guildStanding={guildStanding} />
           </div>
