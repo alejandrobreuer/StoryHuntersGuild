@@ -11,27 +11,11 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { cn } from "@/lib/utils";
-import type { FUArmor, FUShield, FUWeapon } from "@/app/FU/data/types";
 import { equipCapabilities, findEquipmentItem } from "@/app/FU/lib/derivedStats";
+import { weaponCardData, armorCardData, shieldCardData } from "@/app/FU/lib/equipmentDisplay";
 import { selectedClasses, useWizard } from "@/app/FU/lib/wizardState";
 import { useReferenceDataContext } from "@/app/FU/lib/ReferenceDataContext";
-import { EquipmentCard, type EquipmentCardData } from "./EquipmentCard";
-
-function weaponCardData(w: FUWeapon): EquipmentCardData {
-  return {
-    id: w.id, name: w.name, cost: w.cost, martial: w.martial,
-    statLine: `${w.accuracy} → ${w.damage}`,
-    notes: `${w.handedness === "two-handed" ? "Dos manos" : "Una mano"} · ${w.range === "melee" ? "Cuerpo a cuerpo" : "A distancia"} · ${w.category}. ${w.notes}`,
-  };
-}
-function armorCardData(a: FUArmor): EquipmentCardData {
-  const def = "fixed" in a.defense ? `${a.defense.fixed}` : `DES${a.defense.dexPlus ? ` +${a.defense.dexPlus}` : ""}`;
-  const mdef = "fixed" in a.magicDefense ? `${a.magicDefense.fixed}` : `PER${a.magicDefense.insPlus ? ` +${a.magicDefense.insPlus}` : ""}`;
-  return { id: a.id, name: a.name, cost: a.cost, martial: a.martial, statLine: `Def ${def} · Def.M ${mdef} · Ini ${a.initiative}`, notes: a.notes };
-}
-function shieldCardData(s: FUShield): EquipmentCardData {
-  return { id: s.id, name: s.name, cost: s.cost, martial: s.martial, statLine: `Def +${s.defenseBonus} · Def.M +${s.magicDefenseBonus}`, notes: s.notes };
-}
+import { EquipmentCard } from "./EquipmentCard";
 
 type ShopTab = "weapons" | "armor" | "shields";
 const TAB_LABELS: Record<ShopTab, string> = { weapons: "Armas", armor: "Armaduras", shields: "Escudos" };

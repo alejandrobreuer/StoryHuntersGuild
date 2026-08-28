@@ -4,15 +4,9 @@ import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { EquipmentCardData } from "@/app/FU/lib/equipmentDisplay";
 
-export interface EquipmentCardData {
-  id: string;
-  name: string;
-  cost: number | null;
-  martial: boolean;
-  statLine: string;
-  notes: string;
-}
+export type { EquipmentCardData };
 
 /** Ported from app/FU. When `dragId` is given it's dnd-kit draggable; otherwise a static display card. */
 export function EquipmentCard({

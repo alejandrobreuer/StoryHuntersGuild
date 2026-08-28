@@ -15,6 +15,7 @@ import {
   XP_PER_LEVEL, MAX_CLASS_LEVEL, MAX_CLASSES,
 } from "@/app/FU/lib/derivedStats";
 import type { FUBond, FUCharacter, FUCharacterAttributes } from "@/app/FU/lib/types";
+import { equipmentCardData, type EquipmentCardData } from "@/app/FU/lib/equipmentDisplay";
 import { ReferenceDataProvider, useReferenceDataContext } from "@/app/FU/lib/ReferenceDataContext";
 import { InfoDisclosure } from "./InfoDisclosure";
 import { SkillText } from "./SkillText";
@@ -154,17 +155,21 @@ function FabulaPointsPanel({ character, onUpdate }: { character: FUCharacter; on
   );
 }
 
-/** One equip slot's display — an item name + unequip button, an empty "Vacío" placeholder, or a grayed-out note (the off hand when a two-handed weapon occupies both). */
-function SlotDisplay({ label, itemName, note, onUnequip }: { label: string; itemName?: string; note?: string; onUnequip?: () => void }) {
+/** One equip slot's display — item name + stat line/notes + unequip button, an empty "Vacío" placeholder, or a grayed-out note (the off hand when a two-handed weapon occupies both). */
+function SlotDisplay({ label, item, note, onUnequip }: { label: string; item?: EquipmentCardData; note?: string; onUnequip?: () => void }) {
   return (
     <div className={cn("rounded-sm border px-2 py-1.5", note ? "border-border/40 bg-parchment-dark/20 opacity-60" : "border-border")}>
       <div className="font-label text-2xs uppercase tracking-wide text-ink-light">{label}</div>
       {note ? (
         <p className="text-2xs italic text-ink-light font-body mt-0.5">{note}</p>
-      ) : itemName ? (
-        <div className="flex items-center justify-between gap-1 mt-0.5">
-          <span className="font-body text-xs text-ink truncate">{itemName}</span>
-          {onUnequip && <button type="button" onClick={onUnequip} className="font-label text-2xs uppercase text-leather-light hover:text-crimson shrink-0">Quitar</button>}
+      ) : item ? (
+        <div className="mt-0.5">
+          <div className="flex items-center justify-between gap-1">
+            <span className="font-body text-xs font-semibold text-ink truncate">{item.name}</span>
+            {onUnequip && <button type="button" onClick={onUnequip} className="font-label text-2xs uppercase text-leather-light hover:text-crimson shrink-0">Quitar</button>}
+          </div>
+          <p className="text-2xs text-moss font-body">{item.statLine}</p>
+          {item.notes && <p className="text-2xs text-ink-light font-body">{item.notes}</p>}
         </div>
       ) : (
         <p className="text-2xs text-ink-light font-body mt-0.5">Vacío</p>
@@ -321,6 +326,46 @@ function ActionsReferencePanel() {
           </div>
         ))}
       </div>
+    </Panel>
+  );
+}
+
+// Weapon accuracy formulas use these 3-letter attribute tokens (e.g. "【DEX + INS】+1").
+const ATTACK_TOKEN_TO_ATTRIBUTE: Record<string, AttributeKey> = { DEX: "dexterity", INS: "insight", MIG: "might", WLP: "willpower" };
+
+/** Substitutes each attribute token in an accuracy formula with its current (status-effect-adjusted) die size, keeping the token itself visible — "【DEX + INS】+1" → "【DEX d8 + INS d10】+1". */
+function resolveAccuracyFormula(formula: string, current: FUCharacterAttributes): string {
+  return formula.replace(/\b(DEX|INS|MIG|WLP)\b/g, (token) => {
+    const key = ATTACK_TOKEN_TO_ATTRIBUTE[token];
+    return key ? `${token} d${current[key]}` : token;
+  });
+}
+
+/** Every equipped weapon's attack info — accuracy Check (with current dice resolved) and damage — falling back to Unarmed Strike when nothing's equipped. */
+function CombatPanel({ character, current }: { character: FUCharacter; current: FUCharacterAttributes }) {
+  const ref = useReferenceDataContext();
+  const equippedWeapons = character.equipment.weapons
+    .map((id) => ref.weapons.find((w) => w.id === id))
+    .filter((w): w is NonNullable<typeof w> => Boolean(w));
+  const unarmed = ref.weapons.find((w) => w.id === "unarmed-strike");
+  const displayWeapons = equippedWeapons.length > 0 ? equippedWeapons : unarmed ? [unarmed] : [];
+
+  return (
+    <Panel title="Combate">
+      {displayWeapons.length === 0 ? (
+        <p className="text-sm text-ink-light font-body">Sin arma equipada.</p>
+      ) : (
+        <div className="space-y-1.5">
+          {displayWeapons.map((w) => (
+            <div key={w.id} className="rounded-sm border border-border px-2.5 py-2">
+              <span className="font-body text-sm font-semibold text-ink">{w.name}</span>
+              <p className="mt-0.5 text-xs text-ink font-body"><strong className="text-moss">Precisión:</strong> {resolveAccuracyFormula(w.accuracy, current)}</p>
+              <p className="text-xs text-ink font-body"><strong className="text-moss">Daño:</strong> {w.damage}</p>
+              {w.notes && <p className="mt-0.5 text-2xs text-ink-light font-body">{w.notes}</p>}
+            </div>
+          ))}
+        </div>
+      )}
     </Panel>
   );
 }
@@ -780,18 +825,18 @@ function InventarioPanel({ character, onUpdate }: { character: FUCharacter; onUp
       <div className="grid grid-cols-2 gap-2">
         <SlotDisplay
           label="Mano derecha"
-          itemName={mainHand?.name}
+          item={mainHand ? equipmentCardData(mainHand) : undefined}
           onUnequip={mainHand ? () => moveToBackpack("weapon", mainHand.id) : undefined}
         />
         <SlotDisplay
           label="Mano izquierda"
-          itemName={offHandItem?.name}
+          item={offHandItem ? equipmentCardData(offHandItem) : undefined}
           note={isTwoHanded ? "Ocupada por arma a dos manos" : undefined}
           onUnequip={offHandItem ? () => moveToBackpack(offHandWeapon ? "weapon" : "shield", offHandItem.id) : undefined}
         />
         <SlotDisplay
           label="Armadura"
-          itemName={equippedArmor?.name}
+          item={equippedArmor ? equipmentCardData(equippedArmor) : undefined}
           onUnequip={equippedArmor ? () => moveToBackpack("armor", equippedArmor.id) : undefined}
         />
         <div className="rounded-sm border border-border px-2 py-1.5">
@@ -809,9 +854,12 @@ function InventarioPanel({ character, onUpdate }: { character: FUCharacter; onUp
         <div className="mt-2 pt-2 border-t border-border/60">
           <p className="font-label text-2xs uppercase tracking-wide text-ink-light mb-1">Mochila</p>
           {backpackItems.map(({ id, item }) => item && (
-            <div key={id} className="flex items-center justify-between gap-2 py-0.5">
-              <span className="font-body text-xs text-ink">{item.name}</span>
-              <button type="button" onClick={() => equipFromBackpack(id)} className="font-label text-2xs uppercase text-brass hover:text-brass-bright shrink-0">Equipar</button>
+            <div key={id} className="py-1 border-t border-border/60 first:border-t-0">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-body text-xs font-semibold text-ink">{item.name}</span>
+                <button type="button" onClick={() => equipFromBackpack(id)} className="font-label text-2xs uppercase text-brass hover:text-brass-bright shrink-0">Equipar</button>
+              </div>
+              <p className="text-2xs text-moss font-body">{equipmentCardData(item).statLine}</p>
             </div>
           ))}
         </div>
@@ -1056,6 +1104,7 @@ function CharacterSheetInner({
               <ActionsReferencePanel />
             </div>
             <div className="flex flex-col gap-3">
+              <CombatPanel character={character} current={current} />
               <SpellsPanel character={character} onUpdate={onUpdate} />
               <BondsAccordion character={character} onUpdate={onUpdate} />
               <AffinitiesAccordion character={character} onUpdate={onUpdate} />
