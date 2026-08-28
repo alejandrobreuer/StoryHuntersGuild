@@ -6,7 +6,7 @@ import { User, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Accordion } from "@/components/ui/Accordion";
 import { bondEmotionsById, bondPairings, bondsRulesNote, MAX_BONDS, type BondEmotionId } from "@/app/FU/data/bonds";
-import { actions, glossary } from "@/app/FU/data/reference";
+import { actions, fabulaPointGains, fabulaPointUses, glossary } from "@/app/FU/data/reference";
 import type { AttributeKey } from "@/app/FU/data/statusEffects";
 import { elements, affinityStatusOrder, affinityStatusLabels, type AffinityStatus } from "@/app/FU/data/affinities";
 import type { FUArmor, FUShield, FUWeapon, FUSpell } from "@/app/FU/data/types";
@@ -100,6 +100,86 @@ function AmountAdjuster({ onApply }: { onApply: (delta: number) => void }) {
   );
 }
 
+function FabulaPointsPanel({ character, onUpdate }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void }) {
+  function adjust(delta: number) {
+    onUpdate({ ...character, fabulaPoints: Math.max(0, character.fabulaPoints + delta), updatedAt: new Date().toISOString() });
+  }
+
+  return (
+    <Panel title="Puntos de Fábula">
+      <div className="flex flex-col md:flex-row md:items-start gap-4">
+        <div className="flex items-center gap-3 shrink-0">
+          <span className="flex size-14 items-center justify-center rounded-full border-2 border-brass-light bg-crimson font-display text-2xl font-bold text-crimson-foreground">
+            {character.fabulaPoints}
+          </span>
+          <AmountAdjuster onApply={adjust} />
+        </div>
+        <div className="grid sm:grid-cols-2 gap-4 flex-1">
+          <div>
+            <p className="font-label text-2xs font-bold uppercase tracking-wide text-ink mb-1">Cómo conseguirlos</p>
+            <ul className="space-y-1 text-xs text-ink-light font-body">
+              {fabulaPointGains.map((g, i) => <li key={i}>· {g}</li>)}
+            </ul>
+          </div>
+          <div>
+            <p className="font-label text-2xs font-bold uppercase tracking-wide text-ink mb-1">Para qué usarlos</p>
+            <ul className="space-y-1 text-xs text-ink-light font-body">
+              {fabulaPointUses.map((u, i) => <li key={i}>· {u}</li>)}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+/** One equip slot's display — an item name + unequip button, an empty "Vacío" placeholder, or a grayed-out note (the off hand when a two-handed weapon occupies both). */
+function SlotDisplay({ label, itemName, note, onUnequip }: { label: string; itemName?: string; note?: string; onUnequip?: () => void }) {
+  return (
+    <div className={cn("rounded-sm border px-2 py-1.5", note ? "border-border/40 bg-parchment-dark/20 opacity-60" : "border-border")}>
+      <div className="font-label text-2xs uppercase tracking-wide text-ink-light">{label}</div>
+      {note ? (
+        <p className="text-2xs italic text-ink-light font-body mt-0.5">{note}</p>
+      ) : itemName ? (
+        <div className="flex items-center justify-between gap-1 mt-0.5">
+          <span className="font-body text-xs text-ink truncate">{itemName}</span>
+          {onUnequip && <button type="button" onClick={onUnequip} className="font-label text-2xs uppercase text-leather-light hover:text-crimson shrink-0">Quitar</button>}
+        </div>
+      ) : (
+        <p className="text-2xs text-ink-light font-body mt-0.5">Vacío</p>
+      )}
+    </div>
+  );
+}
+
+/** Every held class's Free Benefit — the always-on passive bonuses from having levels in a class (as opposed to Skills, which are mostly active picks). */
+function PassivesPanel({ character }: { character: FUCharacter }) {
+  const ref = useReferenceDataContext();
+  const rows: { className: string; text: string }[] = [];
+  for (const cl of character.classLevels) {
+    const cls = ref.classesById[cl.classId];
+    if (!cls) continue;
+    for (const benefit of cls.freeBenefits) rows.push({ className: cls.name, text: benefit.text });
+  }
+
+  return (
+    <Panel title="Pasivos">
+      {rows.length === 0 ? (
+        <p className="text-sm text-ink-light font-body">Todavía sin clases.</p>
+      ) : (
+        <div className="space-y-1.5">
+          {rows.map((r, i) => (
+            <div key={i} className="rounded-sm border border-border px-2.5 py-2">
+              <span className="font-label text-2xs uppercase tracking-wide text-brass">{r.className}</span>
+              <p className="mt-0.5 text-xs leading-snug text-ink font-body">{r.text}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
 const ATTRIBUTE_ROWS: { key: AttributeKey; label: string }[] = [
   { key: "dexterity", label: "DES" },
   { key: "insight", label: "PER" },
@@ -110,7 +190,7 @@ const ATTRIBUTE_ROWS: { key: AttributeKey; label: string }[] = [
 function AttributeGrid({ character, current }: { character: FUCharacter; current: FUCharacterAttributes }) {
   const ref = useReferenceDataContext();
   return (
-    <div className="grid grid-cols-2 gap-2">
+    <div className="grid grid-cols-4 gap-2">
       {ATTRIBUTE_ROWS.map(({ key, label }) => {
         const base = character.attributes[key];
         const curr = current[key];
@@ -144,7 +224,7 @@ function EstadosPanel({ character, onUpdate }: { character: FUCharacter; onUpdat
   }
 
   return (
-    <Panel title="Estados" className="lg:w-44">
+    <Panel title="Estados">
       <div className="flex flex-col gap-1">
         {ref.statusEffects.map((effect) => {
           const active = character.statusEffects.includes(effect.id);
@@ -546,15 +626,50 @@ function BondsAccordion({ character, onUpdate }: { character: FUCharacter; onUpd
   );
 }
 
-function EquipmentPanel({ character, onUpdate }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void }) {
+function OtherItemsNote({ character, onUpdate }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void }) {
+  const [text, setText] = React.useState(character.otherItemsNote);
+  const dirty = text !== character.otherItemsNote;
+
+  return (
+    <div className="mt-2 pt-2 border-t border-border/60">
+      <label className="font-label text-2xs uppercase tracking-wide text-ink-light">Otros objetos de misión</label>
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        rows={2}
+        placeholder="Objetos que el GM te haya indicado anotar"
+        className="mt-1 w-full border border-border bg-parchment/60 px-2 py-1.5 text-xs text-ink focus:border-brass focus:outline-none font-body resize-none"
+      />
+      <button
+        type="button"
+        disabled={!dirty}
+        onClick={() => onUpdate({ ...character, otherItemsNote: text, updatedAt: new Date().toISOString() })}
+        className="mt-1 font-label text-2xs uppercase tracking-wide border border-brass/50 px-2 py-1 text-brass hover:bg-brass/10 transition-colors disabled:opacity-30"
+      >
+        Guardar
+      </button>
+    </div>
+  );
+}
+
+function InventarioPanel({ character, onUpdate }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void }) {
   const ref = useReferenceDataContext();
-  const equippedWeapons = character.equipment.weapons.map((id) => findEquipmentItem(id, ref)).filter(Boolean);
+  const mainHandId = character.equipment.weapons[0];
+  const mainHand = mainHandId ? findEquipmentItem(mainHandId, ref) : undefined;
+  const isTwoHanded = mainHand && "handedness" in mainHand && mainHand.handedness === "two-handed";
+  const offHandWeaponId = character.equipment.weapons[1];
+  const offHandWeapon = offHandWeaponId ? findEquipmentItem(offHandWeaponId, ref) : undefined;
   const equippedShield = character.equipment.shield ? findEquipmentItem(character.equipment.shield, ref) : undefined;
+  const offHandItem = offHandWeapon ?? equippedShield;
   const equippedArmor = character.equipment.armor ? findEquipmentItem(character.equipment.armor, ref) : undefined;
   const backpackItems = character.backpack.map((id) => ({ id, item: findEquipmentItem(id, ref) }));
   const spent = calcSpent(character.equipment, ref);
 
   const [shopId, setShopId] = React.useState("");
+
+  function adjustZenit(delta: number) {
+    onUpdate({ ...character, zenit: Math.max(0, character.zenit + delta), updatedAt: new Date().toISOString() });
+  }
 
   function moveToBackpack(kind: "weapon" | "shield" | "armor", id: string) {
     const equipment = { ...character.equipment };
@@ -635,41 +750,35 @@ function EquipmentPanel({ character, onUpdate }: { character: FUCharacter; onUpd
   }
 
   const shopOptions = [...ref.weapons, ...ref.armors, ...ref.shields].filter((i) => i.cost != null);
-  const equippedCount = equippedWeapons.length + (equippedShield ? 1 : 0) + (equippedArmor ? 1 : 0) + (character.equipment.accessory ? 1 : 0);
 
   return (
-    <Panel title="Equipo">
-      <p className="font-label text-2xs uppercase tracking-wide text-ink-light mb-1.5">{equippedCount} equipado(s) · {character.backpack.length} mochila</p>
-      <div>
-        {equippedWeapons.map((w) => w && (
-          <div key={w.id} className="flex items-center justify-between gap-2 py-1 border-t border-border/60 first:border-t-0">
-            <span className="font-body text-xs text-ink">{w.name} {"accuracy" in w && <span className="text-moss">· {w.accuracy}→{w.damage}</span>}</span>
-            <button type="button" onClick={() => moveToBackpack("weapon", w.id)} className="font-label text-2xs uppercase text-leather-light hover:text-crimson shrink-0">Desequipar</button>
-          </div>
-        ))}
-        {equippedShield && (
-          <div className="flex items-center justify-between gap-2 py-1 border-t border-border/60 first:border-t-0">
-            <span className="font-body text-xs text-ink">{equippedShield.name}</span>
-            <button type="button" onClick={() => moveToBackpack("shield", equippedShield.id)} className="font-label text-2xs uppercase text-leather-light hover:text-crimson shrink-0">Desequipar</button>
-          </div>
-        )}
-        {equippedArmor && (
-          <div className="flex items-center justify-between gap-2 py-1 border-t border-border/60 first:border-t-0">
-            <span className="font-body text-xs text-ink">{equippedArmor.name}</span>
-            <button type="button" onClick={() => moveToBackpack("armor", equippedArmor.id)} className="font-label text-2xs uppercase text-leather-light hover:text-crimson shrink-0">Desequipar</button>
-          </div>
-        )}
-        {equippedCount === 0 && <p className="text-xs text-ink-light font-body py-1">Sin equipo.</p>}
-      </div>
-
-      <div className="mt-2 pt-2 border-t border-border/60">
-        <label className="font-label text-2xs uppercase tracking-wide text-ink-light">Accesorio</label>
-        <input
-          value={character.equipment.accessory}
-          onChange={(e) => onUpdate({ ...character, equipment: { ...character.equipment, accessory: e.target.value }, updatedAt: new Date().toISOString() })}
-          placeholder="Objeto raro sin catálogo fijo — descripción libre"
-          className="mt-1 w-full border border-border bg-parchment/60 px-2 py-1 text-xs text-ink placeholder:text-leather-light/70 focus:border-brass focus:outline-none font-body"
+    <Panel title="Inventario">
+      <div className="grid grid-cols-2 gap-2">
+        <SlotDisplay
+          label="Mano derecha"
+          itemName={mainHand?.name}
+          onUnequip={mainHand ? () => moveToBackpack("weapon", mainHand.id) : undefined}
         />
+        <SlotDisplay
+          label="Mano izquierda"
+          itemName={offHandItem?.name}
+          note={isTwoHanded ? "Ocupada por arma a dos manos" : undefined}
+          onUnequip={offHandItem ? () => moveToBackpack(offHandWeapon ? "weapon" : "shield", offHandItem.id) : undefined}
+        />
+        <SlotDisplay
+          label="Armadura"
+          itemName={equippedArmor?.name}
+          onUnequip={equippedArmor ? () => moveToBackpack("armor", equippedArmor.id) : undefined}
+        />
+        <div className="rounded-sm border border-border px-2 py-1.5">
+          <label className="font-label text-2xs uppercase tracking-wide text-ink-light">Accesorio</label>
+          <input
+            value={character.equipment.accessory}
+            onChange={(e) => onUpdate({ ...character, equipment: { ...character.equipment, accessory: e.target.value }, updatedAt: new Date().toISOString() })}
+            placeholder="Objeto raro — libre"
+            className="mt-0.5 w-full bg-transparent text-xs text-ink placeholder:text-leather-light/70 focus:outline-none font-body"
+          />
+        </div>
       </div>
 
       {backpackItems.length > 0 && (
@@ -684,6 +793,8 @@ function EquipmentPanel({ character, onUpdate }: { character: FUCharacter; onUpd
         </div>
       )}
 
+      <OtherItemsNote character={character} onUpdate={onUpdate} />
+
       <div className="mt-2 pt-2 border-t border-border/60 flex items-center gap-1.5 flex-wrap">
         <select value={shopId} onChange={(e) => setShopId(e.target.value)} className="border border-border bg-parchment/60 px-2 py-1 text-xs text-ink font-body flex-1 min-w-[8rem]">
           <option value="">Comprar…</option>
@@ -692,7 +803,11 @@ function EquipmentPanel({ character, onUpdate }: { character: FUCharacter; onUpd
         <button type="button" onClick={buy} disabled={!shopId} className="font-label text-2xs uppercase tracking-wide border border-brass/50 px-2 py-1 text-brass hover:bg-brass/10 transition-colors disabled:opacity-30">
           Comprar
         </button>
-        <span className="font-label text-xs text-ink font-semibold ml-auto">{character.zenit}z <span className="text-ink-light font-body text-2xs">({spent}z eq.)</span></span>
+      </div>
+
+      <div className="mt-2 pt-2 border-t border-border/60 flex items-center justify-between gap-2">
+        <span className="font-label text-xs text-ink font-semibold">{character.zenit}z <span className="text-ink-light font-body text-2xs">({spent}z eq.)</span></span>
+        <AmountAdjuster onApply={adjustZenit} />
       </div>
     </Panel>
   );
@@ -795,12 +910,9 @@ function CharacterSheetInner({
   function adjustMp(delta: number) {
     onUpdate({ ...character, currentMp: Math.max(0, Math.min(stats.mp.value, character.currentMp + delta)), updatedAt: new Date().toISOString() });
   }
-  function adjustZenit(delta: number) {
-    onUpdate({ ...character, zenit: Math.max(0, character.zenit + delta), updatedAt: new Date().toISOString() });
-  }
 
   return (
-    <div className="mx-auto max-w-6xl px-3 py-5 md:px-6">
+    <div className="w-full px-3 py-5 md:px-6">
       {!hideBackLink && (
         <Link href={backHref} className="font-label text-2xs uppercase tracking-widest text-parchment-dark hover:text-parchment">
           ← Mis personajes
@@ -835,10 +947,6 @@ function CharacterSheetInner({
                 <span className="text-moss">Identidad</span> {character.identity} · <span className="text-moss">Tema</span> {character.theme} · <span className="text-moss">Origen</span> {character.origin}
               </p>
             </div>
-            <div className="shrink-0 flex flex-col items-end gap-1.5">
-              <span className="font-display text-xl font-bold text-moss-dark">{character.zenit}z</span>
-              <AmountAdjuster onApply={adjustZenit} />
-            </div>
           </div>
 
           {/* XP */}
@@ -854,7 +962,7 @@ function CharacterSheetInner({
           </div>
 
           {/* Vista General / Acciones de Inventario / Estados */}
-          <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr_auto] gap-3 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-start">
             <Panel title="Vista General">
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
@@ -868,15 +976,15 @@ function CharacterSheetInner({
                 </div>
               </div>
 
-              <div className="mt-3 max-w-xs">
+              <div className="mt-3">
                 <AttributeGrid character={character} current={current} />
               </div>
 
-              <div className="mt-2 grid grid-cols-2 gap-2 max-w-xs">
+              <div className="mt-2 grid grid-cols-3 gap-2">
                 <StatTile label="DEF" value={stats.defense.value} />
                 <StatTile label="DEF.M" value={stats.magicDefense.value} />
+                <StatTile label="Iniciativa" value={stats.initiative.value} />
               </div>
-              <p className="mt-1.5 font-body text-2xs text-ink-light">Iniciativa: <strong className="text-ink">{stats.initiative.value}</strong></p>
             </Panel>
 
             <Panel title="Acciones de Inventario">
@@ -908,20 +1016,29 @@ function CharacterSheetInner({
             <EstadosPanel character={character} onUpdate={onUpdate} />
           </div>
 
-          {/* Acciones / Hechizos / Equipo */}
-          <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3 items-start">
-            <ActionsReferencePanel />
-            <SpellsPanel character={character} onUpdate={onUpdate} />
-            <EquipmentPanel character={character} onUpdate={onUpdate} />
-          </div>
+          {/* Puntos de Fábula — wide, side to side */}
+          <FabulaPointsPanel character={character} onUpdate={onUpdate} />
 
-          {/* Accordion cards */}
-          <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
-            <AffinitiesAccordion character={character} onUpdate={onUpdate} />
-            <ClassesAccordion character={character} onUpdate={onUpdate} />
-            <HeroicSkillsAccordion character={character} onUpdate={onUpdate} />
-            <BondsAccordion character={character} onUpdate={onUpdate} />
-            <TraitsGuildAccordion character={character} onUpdate={onUpdate} guildStanding={guildStanding} />
+          {/* Acciones / Hechizos / Inventario, each column stacked with the
+              accordions that don't need their own row — Acciones (the static
+              8-item list) runs longest, so the other two columns absorb the
+              rest instead of leaving a separate section below. */}
+          <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3 items-start">
+            <div className="flex flex-col gap-3">
+              <ActionsReferencePanel />
+            </div>
+            <div className="flex flex-col gap-3">
+              <SpellsPanel character={character} onUpdate={onUpdate} />
+              <BondsAccordion character={character} onUpdate={onUpdate} />
+              <AffinitiesAccordion character={character} onUpdate={onUpdate} />
+              <ClassesAccordion character={character} onUpdate={onUpdate} />
+            </div>
+            <div className="flex flex-col gap-3">
+              <InventarioPanel character={character} onUpdate={onUpdate} />
+              <PassivesPanel character={character} />
+              <HeroicSkillsAccordion character={character} onUpdate={onUpdate} />
+              <TraitsGuildAccordion character={character} onUpdate={onUpdate} guildStanding={guildStanding} />
+            </div>
           </div>
 
           {/* Glossary */}

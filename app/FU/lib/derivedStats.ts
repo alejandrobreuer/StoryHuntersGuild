@@ -230,7 +230,7 @@ export const SESSION_XP = 5;
 export const MAX_CLASS_LEVEL = 10;
 export const MAX_CLASSES = 3;
 
-type LegacySheetFields = "trait" | "quirks" | "backpack" | "elementalAffinities" | "xp" | "currentHp" | "currentMp" | "currentIp" | "heroicSkills";
+type LegacySheetFields = "trait" | "quirks" | "backpack" | "elementalAffinities" | "xp" | "currentHp" | "currentMp" | "currentIp" | "heroicSkills" | "otherItemsNote";
 
 /**
  * shg_rol_character rows created before the cockpit-sheet rework have
@@ -262,6 +262,7 @@ export function normalizeCharacterSheet(
     currentMp: raw.currentMp ?? calcMP(raw.level, raw.attributes.willpower, classes).value,
     currentIp: raw.currentIp ?? calcIP(classes).value,
     heroicSkills: raw.heroicSkills ?? [],
+    otherItemsNote: raw.otherItemsNote ?? "",
     equipment: { ...raw.equipment, accessory: raw.equipment.accessory ?? "" },
   };
 }

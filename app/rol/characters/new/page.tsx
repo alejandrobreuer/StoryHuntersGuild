@@ -74,6 +74,7 @@ function WizardInner() {
         bonds: [],
         equipment: draft.equipment,
         backpack: [],
+        otherItemsNote: "",
         zenit: leftover + (draft.savingsRoll ?? 0),
         name: draft.name,
         pronouns: draft.pronouns,

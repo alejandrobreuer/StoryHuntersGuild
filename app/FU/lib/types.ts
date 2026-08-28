@@ -77,6 +77,8 @@ export interface FUCharacter {
   equipment: FUCharacterEquipment;
   /** Owned but not equipped — item ids from data/equipment.ts. */
   backpack: string[];
+  /** Freeform quest-item journal — for things a GM tells a player to note down that aren't in the equipment catalog. */
+  otherItemsNote: string;
   zenit: number;
 
   name: string;
