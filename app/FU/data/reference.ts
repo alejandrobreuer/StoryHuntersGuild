@@ -12,26 +12,24 @@ export interface FUActionRef {
 export const actions: FUActionRef[] = [
   {
     name: "Attack",
-    description:
-      "Perform a melee or ranged attack with an equipped weapon: an Accuracy Check against the " +
-      "target's Defense. On a hit, deal damage equal to the weapon's High Roll + its fixed value.",
+    description: "Perform a melee or ranged attack with an equipped weapon.",
   },
   {
     name: "Equipment",
     description:
-      "Swap any number of equipped items with items in your backpack. Doesn't apply to armor.",
+      "Switch any number of equipped items with items from your backpack (doesn't apply to armor).",
   },
   {
     name: "Guard",
     description:
-      "Until the start of your next turn: gain Resistance to all damage types, and a +2 bonus to " +
-      "Opposed Checks. You may also cover another creature, protecting them from melee attacks.",
+      "Once per turn: gain Resistance to all damage types, a +2 bonus to Opposed Checks, and the " +
+      "option to cover another creature, preventing foes from making melee attacks against them " +
+      "until your next turn.",
   },
   {
     name: "Hinder",
     description:
-      "Perform a Check (DL 10) against an opponent. On a success, inflict dazed, shaken, slow, or " +
-      "weak on them — your choice.",
+      "Make a Check (DL 10) against an opponent; on success, inflict dazed, shaken, slow, or weak on them.",
   },
   {
     name: "Inventory",
@@ -40,28 +38,16 @@ export const actions: FUActionRef[] = [
   {
     name: "Objective",
     description:
-      "Work towards a goal within the scene via an Attribute or Opposed Check — often advancing a " +
-      "Clock toward a minor, major, or resolutive outcome.",
-  },
-  {
-    name: "Spell",
-    description: "Cast one of the spells you've learned.",
+      "Work toward accomplishing a goal within the conflict, usually via an Attribute Check or " +
+      "Opposed Check; complex goals often use a Clock.",
   },
   {
     name: "Study",
-    description:
-      "Learn more about a person, creature, item, or location with an Open Check (usually " +
-      "INS + INS). Higher Results reveal more detailed information.",
+    description: "Attempt to learn information about someone or something, generally with an 【INS + INS】 Open Check.",
   },
   {
     name: "Skill",
-    description: "Some Skills require you to spend an action to activate them.",
-  },
-  {
-    name: "Other",
-    description:
-      "Attempt something not covered above — describe it and negotiate its resolution with the " +
-      "Game Master.",
+    description: "Some Skills require spending an action to use.",
   },
 ];
 

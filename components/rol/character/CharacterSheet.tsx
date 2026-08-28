@@ -6,7 +6,7 @@ import { User, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Accordion } from "@/components/ui/Accordion";
 import { bondEmotionsById, bondPairings, bondsRulesNote, MAX_BONDS, type BondEmotionId } from "@/app/FU/data/bonds";
-import { fabulaPointGains, fabulaPointUses, glossary } from "@/app/FU/data/reference";
+import { actions, glossary } from "@/app/FU/data/reference";
 import type { AttributeKey } from "@/app/FU/data/statusEffects";
 import { elements, affinityStatusOrder, affinityStatusLabels, type AffinityStatus } from "@/app/FU/data/affinities";
 import type { FUArmor, FUShield, FUWeapon, FUSpell } from "@/app/FU/data/types";
@@ -16,7 +16,6 @@ import {
 } from "@/app/FU/lib/derivedStats";
 import type { FUBond, FUCharacter, FUCharacterAttributes } from "@/app/FU/lib/types";
 import { ReferenceDataProvider, useReferenceDataContext } from "@/app/FU/lib/ReferenceDataContext";
-import type { FUReferenceData } from "@/app/FU/data/referenceDataType";
 import { InfoDisclosure } from "./InfoDisclosure";
 import { SkillText } from "./SkillText";
 import { StatBar } from "./StatBar";
@@ -57,48 +56,46 @@ function canEquipMartialShield(character: FUCharacter, shield: FUShield): boolea
 
 // ─── small shared bits ───────────────────────────────────────────────────────
 
-function StatPill({ label, value }: { label: string; value: React.ReactNode }) {
+/** Always-visible titled panel — the non-collapsible sibling of Accordion, for the dashboard row (Vista General, Acciones, etc.) that should never hide its content. */
+function Panel({ title, className, children }: { title: string; className?: string; children: React.ReactNode }) {
   return (
-    <div className="text-center">
-      <div className="font-display text-base font-bold text-brass-bright leading-none">{value}</div>
-      <div className="font-label text-2xs uppercase tracking-wide text-ink-light">{label}</div>
+    <div className={cn("surface-parchment p-3.5", className)}>
+      <h3 className="font-label text-xs font-bold uppercase tracking-widest text-ink mb-2.5">{title}</h3>
+      {children}
     </div>
   );
 }
 
-/** Compact +/- pair — the "functional, not just a label" interaction the spec asks for, sized for inline use. */
-function Adjuster({ value, onChange, min = 0, max }: { value: number; onChange: (next: number) => void; min?: number; max?: number }) {
-  function clamp(n: number) {
-    let v = n;
-    if (min != null) v = Math.max(min, v);
-    if (max != null) v = Math.min(max, v);
-    return v;
+function StatTile({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="text-center rounded-sm border border-border px-2 py-2">
+      <div className="font-label text-xs text-ink-light">{label}</div>
+      <div className="font-label text-xl font-bold text-ink leading-tight">{value}</div>
+    </div>
+  );
+}
+
+/** Amount box + Add/Remove buttons — lets the player apply any delta to HP/MP/Zenit instead of stepping by 1. */
+function AmountAdjuster({ onApply }: { onApply: (delta: number) => void }) {
+  const [amount, setAmount] = React.useState("");
+
+  function apply(sign: 1 | -1) {
+    const n = Math.abs(Number(amount)) || 0;
+    if (n > 0) onApply(sign * n);
   }
+
   return (
     <div className="flex items-center gap-1 shrink-0">
-      <button type="button" onClick={() => onChange(clamp(value - 1))} aria-label="Restar" className="flex size-5 items-center justify-center rounded-full border border-border text-xs leading-none text-ink hover:border-brass">−</button>
-      <button type="button" onClick={() => onChange(clamp(value + 1))} aria-label="Sumar" className="flex size-5 items-center justify-center rounded-full border border-border text-xs leading-none text-ink hover:border-brass">+</button>
-    </div>
-  );
-}
-
-function FabulaBadge({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  return (
-    <div className="flex flex-col items-center gap-1 shrink-0">
-      <div className="flex items-center gap-1.5">
-        <button type="button" onClick={() => onChange(Math.max(0, value - 1))} aria-label="Gastar Punto de Fábula" className="text-ink-light hover:text-crimson text-sm leading-none">−</button>
-        <span className="flex size-7 items-center justify-center rounded-full border-2 border-brass-light bg-crimson font-display text-sm font-bold text-crimson-foreground">{value}</span>
-        <button type="button" onClick={() => onChange(value + 1)} aria-label="Ganar Punto de Fábula" className="text-ink-light hover:text-moss text-sm leading-none">+</button>
-      </div>
-      <div className="flex items-center gap-0.5">
-        <span className="font-label text-2xs uppercase tracking-wide text-ink-light">Fábula</span>
-        <InfoDisclosure label="Puntos de Fábula">
-          <p className="font-semibold text-ink mb-1">Ganás un punto cuando…</p>
-          <ul className="space-y-1 mb-2">{fabulaPointGains.map((g, i) => <li key={i}>· {g}</li>)}</ul>
-          <p className="font-semibold text-ink mb-1">Gastás un punto para…</p>
-          <ul className="space-y-1">{fabulaPointUses.map((u, i) => <li key={i}>· {u}</li>)}</ul>
-        </InfoDisclosure>
-      </div>
+      <input
+        type="number"
+        min={0}
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        placeholder="0"
+        className="w-12 border border-border bg-parchment/60 px-1 py-1 text-center text-xs text-ink focus:border-brass focus:outline-none font-body"
+      />
+      <button type="button" onClick={() => apply(-1)} aria-label="Restar" className="flex size-7 items-center justify-center rounded-full border border-border text-sm leading-none text-ink hover:border-crimson hover:text-crimson">−</button>
+      <button type="button" onClick={() => apply(1)} aria-label="Sumar" className="flex size-7 items-center justify-center rounded-full border border-border text-sm leading-none text-ink hover:border-moss hover:text-moss">+</button>
     </div>
   );
 }
@@ -137,7 +134,7 @@ function AttributeGrid({ character, current }: { character: FUCharacter; current
   );
 }
 
-function StatusEffectToggles({ character, onUpdate }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void }) {
+function EstadosPanel({ character, onUpdate }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void }) {
   const ref = useReferenceDataContext();
 
   function toggleEffect(id: string) {
@@ -147,28 +144,29 @@ function StatusEffectToggles({ character, onUpdate }: { character: FUCharacter; 
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <span className="font-label text-2xs uppercase tracking-wide text-ink-light shrink-0">Estados</span>
-      {ref.statusEffects.map((effect) => {
-        const active = character.statusEffects.includes(effect.id);
-        return (
-          <button
-            key={effect.id}
-            type="button"
-            onClick={() => toggleEffect(effect.id)}
-            className={cn(
-              "font-label text-2xs px-2 py-0.5 rounded-full border transition-colors",
-              active ? "border-crimson bg-crimson/10 text-crimson font-semibold" : "border-border text-ink-light hover:border-crimson/50"
-            )}
-          >
-            {effect.name}
-          </button>
-        );
-      })}
+    <Panel title="Estados" className="lg:w-44">
+      <div className="flex flex-col gap-1">
+        {ref.statusEffects.map((effect) => {
+          const active = character.statusEffects.includes(effect.id);
+          return (
+            <button
+              key={effect.id}
+              type="button"
+              onClick={() => toggleEffect(effect.id)}
+              className={cn(
+                "font-label text-2xs px-2 py-1.5 rounded-sm border text-left transition-colors",
+                active ? "border-crimson bg-crimson/10 text-crimson font-semibold" : "border-border text-ink-light hover:border-crimson/50"
+              )}
+            >
+              {effect.name}
+            </button>
+          );
+        })}
+      </div>
       <InfoDisclosure label="Qué hace cada estado">
         {ref.statusEffects.map((e) => <p key={e.id} className="mb-1.5 last:mb-0"><strong className="text-ink">{e.name}:</strong> {e.description}</p>)}
       </InfoDisclosure>
-    </div>
+    </Panel>
   );
 }
 
@@ -210,82 +208,47 @@ function AffinitiesAccordion({ character, onUpdate }: { character: FUCharacter; 
   );
 }
 
-function ActionsAccordion({ character, onUpdate }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void }) {
+/** Static reference list — the 8 core conflict actions, same for every character (not skills or spells, which get their own panels). */
+function ActionsReferencePanel() {
+  return (
+    <Panel title="Acciones">
+      <div className="space-y-1.5">
+        {actions.map((a) => (
+          <div key={a.name} className="rounded-sm border border-border px-2.5 py-2">
+            <span className="font-body text-sm font-semibold text-ink">{a.name}</span>
+            <p className="mt-0.5 text-xs leading-snug text-ink-light font-body">{a.description}</p>
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+function SpellsPanel({ character, onUpdate }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void }) {
   const ref = useReferenceDataContext();
 
   function spendMp(amount: number) {
     onUpdate({ ...character, currentMp: Math.max(0, character.currentMp - amount), updatedAt: new Date().toISOString() });
   }
 
-  let activeCount = 0;
   const rows: React.ReactNode[] = [];
-
   for (const cl of character.classLevels) {
     const cls = ref.classesById[cl.classId];
-    if (!cls) continue;
-    const counts = new Map<string, number>();
-    for (const name of cl.skillsTaken) counts.set(name, (counts.get(name) ?? 0) + 1);
-    for (const [name, count] of Array.from(counts.entries())) {
-      const skill = cls.skills.find((s) => s.name === name);
-      if (!skill) continue;
-      const maxed = count >= skill.maxLevel;
-      activeCount++;
-      rows.push(
-        <ActiveSkillRow key={`${cl.classId}-${name}`} name={name} maxed={maxed} text={skill.text} skillLevel={count} currentMp={character.currentMp} onCast={spendMp} />
-      );
-    }
-
-    if (cls.subsystem?.type === "spells") {
+    if (cls?.subsystem?.type === "spells") {
       for (const spell of cls.subsystem.entries) {
-        activeCount++;
-        rows.push(
-          <SpellRow key={`${cl.classId}-spell-${spell.name}`} spell={spell} currentMp={character.currentMp} onCast={spendMp} />
-        );
+        rows.push(<SpellRow key={`${cl.classId}-spell-${spell.name}`} spell={spell} currentMp={character.currentMp} onCast={spendMp} />);
       }
     }
   }
 
   return (
-    <Accordion title="Acciones" summary={`${activeCount} activa(s)`} defaultOpen>
+    <Panel title="Hechizos">
       {rows.length === 0 ? (
-        <p className="text-sm text-ink-light font-body">Todavía no elegiste habilidades.</p>
+        <p className="text-sm text-ink-light font-body">Sin clase de lanzador de hechizos.</p>
       ) : (
         <div className="space-y-1.5">{rows}</div>
       )}
-    </Accordion>
-  );
-}
-
-function ActiveSkillRow({ name, maxed, text, skillLevel, currentMp, onCast }: {
-  name: string; maxed: boolean; text: string; skillLevel: number; currentMp: number; onCast: (mpCost: number) => void;
-}) {
-  const [cost, setCost] = React.useState("");
-
-  return (
-    <div className="rounded-sm border border-border px-2.5 py-2">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <span className="font-body text-sm font-semibold text-ink">{name}{maxed && <span className="text-brass ml-1">(máx)</span>}</span>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <input
-            type="number"
-            min={0}
-            max={currentMp}
-            value={cost}
-            onChange={(e) => setCost(e.target.value)}
-            placeholder="PM"
-            className="w-14 border border-border bg-parchment/60 px-1.5 py-0.5 text-xs text-ink placeholder:text-leather-light/70 focus:border-brass focus:outline-none font-body"
-          />
-          <button
-            type="button"
-            onClick={() => { const n = Number(cost) || 0; if (n > 0) { onCast(n); setCost(""); } }}
-            className="font-label text-2xs uppercase tracking-wide border border-brass/50 px-2 py-0.5 text-brass hover:bg-brass/10 transition-colors"
-          >
-            Lanzar
-          </button>
-        </div>
-      </div>
-      <SkillText text={text} skillLevel={skillLevel} className="mt-0.5 text-xs leading-snug text-ink-light font-body" />
-    </div>
+    </Panel>
   );
 }
 
@@ -583,7 +546,7 @@ function BondsAccordion({ character, onUpdate }: { character: FUCharacter; onUpd
   );
 }
 
-function EquipmentAccordion({ character, onUpdate }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void }) {
+function EquipmentPanel({ character, onUpdate }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void }) {
   const ref = useReferenceDataContext();
   const equippedWeapons = character.equipment.weapons.map((id) => findEquipmentItem(id, ref)).filter(Boolean);
   const equippedShield = character.equipment.shield ? findEquipmentItem(character.equipment.shield, ref) : undefined;
@@ -675,24 +638,25 @@ function EquipmentAccordion({ character, onUpdate }: { character: FUCharacter; o
   const equippedCount = equippedWeapons.length + (equippedShield ? 1 : 0) + (equippedArmor ? 1 : 0) + (character.equipment.accessory ? 1 : 0);
 
   return (
-    <Accordion title="Equipo" summary={`${equippedCount} equipado(s) · ${character.backpack.length} mochila`} defaultOpen>
+    <Panel title="Equipo">
+      <p className="font-label text-2xs uppercase tracking-wide text-ink-light mb-1.5">{equippedCount} equipado(s) · {character.backpack.length} mochila</p>
       <div>
         {equippedWeapons.map((w) => w && (
           <div key={w.id} className="flex items-center justify-between gap-2 py-1 border-t border-border/60 first:border-t-0">
             <span className="font-body text-xs text-ink">{w.name} {"accuracy" in w && <span className="text-moss">· {w.accuracy}→{w.damage}</span>}</span>
-            <button type="button" onClick={() => moveToBackpack("weapon", w.id)} className="font-label text-2xs uppercase text-leather-light hover:text-crimson shrink-0">Guardar</button>
+            <button type="button" onClick={() => moveToBackpack("weapon", w.id)} className="font-label text-2xs uppercase text-leather-light hover:text-crimson shrink-0">Desequipar</button>
           </div>
         ))}
         {equippedShield && (
           <div className="flex items-center justify-between gap-2 py-1 border-t border-border/60 first:border-t-0">
             <span className="font-body text-xs text-ink">{equippedShield.name}</span>
-            <button type="button" onClick={() => moveToBackpack("shield", equippedShield.id)} className="font-label text-2xs uppercase text-leather-light hover:text-crimson shrink-0">Guardar</button>
+            <button type="button" onClick={() => moveToBackpack("shield", equippedShield.id)} className="font-label text-2xs uppercase text-leather-light hover:text-crimson shrink-0">Desequipar</button>
           </div>
         )}
         {equippedArmor && (
           <div className="flex items-center justify-between gap-2 py-1 border-t border-border/60 first:border-t-0">
             <span className="font-body text-xs text-ink">{equippedArmor.name}</span>
-            <button type="button" onClick={() => moveToBackpack("armor", equippedArmor.id)} className="font-label text-2xs uppercase text-leather-light hover:text-crimson shrink-0">Guardar</button>
+            <button type="button" onClick={() => moveToBackpack("armor", equippedArmor.id)} className="font-label text-2xs uppercase text-leather-light hover:text-crimson shrink-0">Desequipar</button>
           </div>
         )}
         {equippedCount === 0 && <p className="text-xs text-ink-light font-body py-1">Sin equipo.</p>}
@@ -728,9 +692,9 @@ function EquipmentAccordion({ character, onUpdate }: { character: FUCharacter; o
         <button type="button" onClick={buy} disabled={!shopId} className="font-label text-2xs uppercase tracking-wide border border-brass/50 px-2 py-1 text-brass hover:bg-brass/10 transition-colors disabled:opacity-30">
           Comprar
         </button>
-        <span className="font-label text-xs text-brass-bright ml-auto">{character.zenit}z <span className="text-ink-light font-body text-2xs">({spent}z eq.)</span></span>
+        <span className="font-label text-xs text-ink font-semibold ml-auto">{character.zenit}z <span className="text-ink-light font-body text-2xs">({spent}z eq.)</span></span>
       </div>
-    </Accordion>
+    </Panel>
   );
 }
 
@@ -825,7 +789,15 @@ function CharacterSheetInner({
     onUpdate({ ...character, level: character.level + 1, xp: character.xp - XP_PER_LEVEL, classLevels, updatedAt: new Date().toISOString() });
   }
 
-  const weapon = character.equipment.weapons[0] ? findEquipmentItem(character.equipment.weapons[0], ref) : null;
+  function adjustHp(delta: number) {
+    onUpdate({ ...character, currentHp: Math.max(0, Math.min(stats.hp.value, character.currentHp + delta)), updatedAt: new Date().toISOString() });
+  }
+  function adjustMp(delta: number) {
+    onUpdate({ ...character, currentMp: Math.max(0, Math.min(stats.mp.value, character.currentMp + delta)), updatedAt: new Date().toISOString() });
+  }
+  function adjustZenit(delta: number) {
+    onUpdate({ ...character, zenit: Math.max(0, character.zenit + delta), updatedAt: new Date().toISOString() });
+  }
 
   return (
     <div className="mx-auto max-w-6xl px-3 py-5 md:px-6">
@@ -840,35 +812,32 @@ function CharacterSheetInner({
 
         <div className="min-w-0 flex-1 p-3.5 md:p-5 lg:p-7 space-y-3.5">
           {/* Header */}
-          <div className="flex flex-wrap items-start justify-between gap-3 pl-6">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="relative size-11 shrink-0 rounded-full border border-brass/40 overflow-hidden bg-parchment-dark/30 flex items-center justify-center">
-                {portraitUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, size unknown ahead of render
-                  <img src={portraitUrl} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <User size={18} className="text-leather-light" />
-                )}
-                <label className="absolute inset-0 flex items-center justify-center bg-ink/0 hover:bg-ink/50 text-transparent hover:text-parchment transition-colors cursor-pointer text-2xs font-label uppercase text-center">
-                  {uploadingPortrait ? "…" : "Cambiar"}
-                  <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => e.target.files?.[0] && uploadImage(e.target.files[0], "portrait")} />
-                </label>
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-baseline gap-2 flex-wrap">
-                  <h1 className="font-display text-lg font-bold text-ink truncate">{character.name || "Héroe sin nombre"}</h1>
-                  <span className="font-label text-2xs uppercase tracking-wide text-ink-light shrink-0">
-                    Nv {character.level} · {classes.map((c) => c.name).join(" / ") || "Sin clase"}
-                  </span>
-                </div>
-                <p className="font-body text-2xs text-ink-light truncate">
-                  <span className="text-moss">Identidad</span> {character.identity} · <span className="text-moss">Tema</span> {character.theme} · <span className="text-moss">Origen</span> {character.origin}
-                </p>
-              </div>
+          <div className="flex flex-wrap items-start gap-4 pl-6">
+            <div className="relative size-20 shrink-0 rounded-full border-2 border-brass/40 overflow-hidden bg-parchment-dark/30 flex items-center justify-center">
+              {portraitUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, size unknown ahead of render
+                <img src={portraitUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <User size={32} className="text-leather-light" />
+              )}
+              <label className="absolute inset-0 flex items-center justify-center bg-ink/0 hover:bg-ink/50 text-transparent hover:text-parchment transition-colors cursor-pointer text-2xs font-label uppercase text-center">
+                {uploadingPortrait ? "…" : "Cambiar"}
+                <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => e.target.files?.[0] && uploadImage(e.target.files[0], "portrait")} />
+              </label>
             </div>
-            <div className="flex items-center gap-4 shrink-0">
-              <StatPill label="Zenit" value={`${character.zenit}z`} />
-              <FabulaBadge value={character.fabulaPoints} onChange={(v) => onUpdate({ ...character, fabulaPoints: v, updatedAt: new Date().toISOString() })} />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-baseline gap-2 flex-wrap">
+                <h1 className="font-display text-2xl font-bold text-ink truncate">{character.name || "Héroe sin nombre"}</h1>
+                <span className="font-label text-sm uppercase tracking-wide text-ink-light shrink-0">Nv {character.level}</span>
+              </div>
+              <p className="font-label text-xs uppercase tracking-wide text-brass mt-0.5">{classes.map((c) => c.name).join(" / ") || "Sin clase"}</p>
+              <p className="font-body text-2xs text-ink-light mt-1">
+                <span className="text-moss">Identidad</span> {character.identity} · <span className="text-moss">Tema</span> {character.theme} · <span className="text-moss">Origen</span> {character.origin}
+              </p>
+            </div>
+            <div className="shrink-0 flex flex-col items-end gap-1.5">
+              <span className="font-display text-xl font-bold text-moss-dark">{character.zenit}z</span>
+              <AmountAdjuster onApply={adjustZenit} />
             </div>
           </div>
 
@@ -884,37 +853,36 @@ function CharacterSheetInner({
             {canLevelUp && <LevelUpControl character={character} onLevelUp={levelUp} />}
           </div>
 
-          {/* Cockpit */}
-          <div className="bg-parchment-dark/25 border border-brass/30 rounded-sm p-3 space-y-2.5">
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <StatBar label="PV" value={character.currentHp} max={stats.hp.value} color="moss" markerAt={stats.crisis.value} />
-                <div className="mt-1 flex items-center justify-between">
-                  {inCrisis ? <span className="font-label text-2xs uppercase tracking-wide text-crimson font-bold">● Crisis</span> : <span />}
-                  <Adjuster value={character.currentHp} max={stats.hp.value} onChange={(v) => onUpdate({ ...character, currentHp: v, updatedAt: new Date().toISOString() })} />
+          {/* Vista General / Acciones de Inventario / Estados */}
+          <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr_auto] gap-3 items-start">
+            <Panel title="Vista General">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <StatBar label="PV" value={character.currentHp} max={stats.hp.value} color="moss" markerAt={stats.crisis.value} />
+                  <AmountAdjuster onApply={adjustHp} />
+                </div>
+                {inCrisis && <p className="font-label text-2xs uppercase tracking-wide text-crimson font-bold">● Crisis</p>}
+                <div className="flex items-center gap-2">
+                  <StatBar label="PM" value={character.currentMp} max={stats.mp.value} color="blue" />
+                  <AmountAdjuster onApply={adjustMp} />
                 </div>
               </div>
-              <div>
-                <StatBar label="PM" value={character.currentMp} max={stats.mp.value} color="blue" />
-                <div className="mt-1 flex justify-end">
-                  <Adjuster value={character.currentMp} max={stats.mp.value} onChange={(v) => onUpdate({ ...character, currentMp: v, updatedAt: new Date().toISOString() })} />
-                </div>
-              </div>
-              <div>
-                <div className="font-label flex justify-between text-xs uppercase tracking-wide text-ink-light">
-                  <span>PI</span>
-                  <span>{character.currentIp} / {stats.ip.value}</span>
-                </div>
-                <div className="mt-1.5 flex items-center justify-between">
-                  <span className="font-body text-2xs text-ink-light">Objetos de inventario</span>
-                  <Adjuster value={character.currentIp} max={stats.ip.value} onChange={(v) => onUpdate({ ...character, currentIp: v, updatedAt: new Date().toISOString() })} />
-                </div>
-              </div>
-            </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              <div className="col-span-2">
+              <div className="mt-3 max-w-xs">
                 <AttributeGrid character={character} current={current} />
+              </div>
+
+              <div className="mt-2 grid grid-cols-2 gap-2 max-w-xs">
+                <StatTile label="DEF" value={stats.defense.value} />
+                <StatTile label="DEF.M" value={stats.magicDefense.value} />
+              </div>
+              <p className="mt-1.5 font-body text-2xs text-ink-light">Iniciativa: <strong className="text-ink">{stats.initiative.value}</strong></p>
+            </Panel>
+
+            <Panel title="Acciones de Inventario">
+              <div className="flex items-center justify-between mb-2.5">
+                <span className="font-label text-xs uppercase tracking-wide text-ink-light">PI</span>
+                <span className="font-label text-sm font-bold text-ink">{character.currentIp} / {stats.ip.value}</span>
               </div>
               <div className="flex flex-col gap-1.5">
                 {ref.ipItems.map((item) => (
@@ -929,34 +897,26 @@ function CharacterSheetInner({
                       if (item.id === "elixir") updated = { ...updated, currentMp: Math.min(stats.mp.value, updated.currentMp + 50) };
                       onUpdate({ ...updated, updatedAt: new Date().toISOString() });
                     }}
-                    className="font-label text-2xs px-2 py-1.5 border border-border rounded-sm hover:border-brass disabled:opacity-30 transition-colors"
+                    className="font-label text-2xs px-2 py-1.5 border border-border rounded-sm hover:border-brass disabled:opacity-30 transition-colors text-left"
                   >
                     {IP_ITEM_LABELS[item.id] ?? item.name} ({item.ipCost})
                   </button>
                 ))}
               </div>
-            </div>
+            </Panel>
 
-            <StatusEffectToggles character={character} onUpdate={onUpdate} />
+            <EstadosPanel character={character} onUpdate={onUpdate} />
+          </div>
 
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-body text-2xs text-ink-light border-t border-border/60 pt-2">
-              <span>DEF <strong className="text-ink">{stats.defense.value}</strong></span>
-              <span>Def.M <strong className="text-ink">{stats.magicDefense.value}</strong></span>
-              <span>Iniciativa <strong className="text-ink">{stats.initiative.value}</strong></span>
-              <span className="flex-1 min-w-[10rem]">
-                {weapon && "accuracy" in weapon ? (
-                  <>Ataque: <strong className="text-ink">{weapon.name}: {weapon.accuracy} → {weapon.damage}</strong></>
-                ) : (
-                  <>Ataque: <strong className="text-ink">Desarmado 【DEX+VIG】→【HR】físico</strong></>
-                )}
-              </span>
-            </div>
+          {/* Acciones / Hechizos / Equipo */}
+          <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3 items-start">
+            <ActionsReferencePanel />
+            <SpellsPanel character={character} onUpdate={onUpdate} />
+            <EquipmentPanel character={character} onUpdate={onUpdate} />
           </div>
 
           {/* Accordion cards */}
           <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
-            <ActionsAccordion character={character} onUpdate={onUpdate} />
-            <EquipmentAccordion character={character} onUpdate={onUpdate} />
             <AffinitiesAccordion character={character} onUpdate={onUpdate} />
             <ClassesAccordion character={character} onUpdate={onUpdate} />
             <HeroicSkillsAccordion character={character} onUpdate={onUpdate} />
