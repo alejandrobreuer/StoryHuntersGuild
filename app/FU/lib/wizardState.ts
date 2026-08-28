@@ -117,7 +117,7 @@ export function wizardReducer(state: FUDraft, action: WizardAction): FUDraft {
     case "LOAD_TEMPLATE": {
       const template = classicCharacters.find((t) => t.id === action.templateId);
       if (!template) return state;
-      const equipment: FUCharacterEquipment = { weapons: [] };
+      const equipment: FUCharacterEquipment = { weapons: [], accessory: "" };
       return {
         ...emptyDraft(),
         identity: state.identity,

@@ -32,6 +32,11 @@ export interface FUCharacterEquipment {
   weapons: string[];
   shield?: string;
   armor?: string;
+  /**
+   * Freeform description of the equipped Accessory (rare tier, GM-designed —
+   * there's no fixed catalog to pick from, unlike weapons/armor/shields).
+   */
+  accessory: string;
 }
 
 export interface FUBond {
@@ -140,7 +145,7 @@ export function emptyDraft(): FUDraft {
     classLevels: [],
     attributePreset: "jack-of-all-trades",
     attributes: { dexterity: 8, insight: 8, might: 8, willpower: 8 },
-    equipment: { weapons: [] },
+    equipment: { weapons: [], accessory: "" },
     savingsRoll: null,
     name: "",
     pronouns: "",

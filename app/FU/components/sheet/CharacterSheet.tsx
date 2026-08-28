@@ -375,7 +375,7 @@ export function CharacterSheet({
     .map((cl) => classesById[cl.classId])
     .filter((c): c is NonNullable<typeof c> => Boolean(c));
   const current = currentAttributes(character.attributes, character.statusEffects);
-  const stats = calcDerivedStats(character.attributes, character.equipment, classes, character.statusEffects);
+  const stats = calcDerivedStats(character.level, character.attributes, character.equipment, classes, character.statusEffects);
 
   const equippedWeapons = character.equipment.weapons.map((id) => findEquipmentItem(id)).filter(Boolean);
   const equippedShield = character.equipment.shield ? findEquipmentItem(character.equipment.shield) : undefined;

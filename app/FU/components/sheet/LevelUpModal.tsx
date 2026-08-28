@@ -58,9 +58,9 @@ export function LevelUpModal({
     return { ...character, level: character.level + 1, classLevels };
   }, [character, targetClassId, chosenSkill, isNewClass]);
 
-  const currentStats = calcDerivedStats(character.attributes, character.equipment, resolveClasses(character.classLevels));
+  const currentStats = calcDerivedStats(character.level, character.attributes, character.equipment, resolveClasses(character.classLevels));
   const previewStats = previewCharacter
-    ? calcDerivedStats(previewCharacter.attributes, previewCharacter.equipment, resolveClasses(previewCharacter.classLevels))
+    ? calcDerivedStats(previewCharacter.level, previewCharacter.attributes, previewCharacter.equipment, resolveClasses(previewCharacter.classLevels))
     : null;
 
   function handleApply() {

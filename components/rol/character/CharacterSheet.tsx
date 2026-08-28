@@ -11,6 +11,7 @@ import { fabulaPointGains, fabulaPointUses, ipItems, glossary } from "@/app/FU/d
 import { statusEffects, type AttributeKey } from "@/app/FU/data/statusEffects";
 import { elements, affinityStatusOrder, affinityStatusLabels, type AffinityStatus } from "@/app/FU/data/affinities";
 import { weapons, armors, shields } from "@/app/FU/data/equipment";
+import type { FUArmor, FUShield, FUWeapon } from "@/app/FU/data/types";
 import {
   calcDerivedStats, currentAttributes, findEquipmentItem, calcSpent,
   XP_PER_LEVEL, MAX_CLASS_LEVEL,
@@ -20,6 +21,27 @@ import { InfoDisclosure } from "./InfoDisclosure";
 import { SkillText } from "./SkillText";
 import { StatBar } from "./StatBar";
 import { CharacterFullBodyDrawer } from "./CharacterFullBodyDrawer";
+import { toast } from "sonner";
+
+// Which classes grant permission to equip martial ("E") gear, per
+// Reference/fabula_ultima_data_rules.txt — holding any level in one of these
+// classes is enough, mastery isn't required.
+const MARTIAL_MELEE_WEAPON_CLASSES = ["darkblade", "fury", "weaponmaster"];
+const MARTIAL_RANGED_WEAPON_CLASSES = ["sharpshooter"];
+const MARTIAL_ARMOR_CLASSES = ["darkblade", "fury", "guardian"];
+const MARTIAL_SHIELD_CLASSES = ["guardian", "sharpshooter", "weaponmaster"];
+
+function canEquipMartialWeapon(character: FUCharacter, weapon: FUWeapon): boolean {
+  if (!weapon.martial) return true;
+  const grantingClasses = weapon.range === "ranged" ? MARTIAL_RANGED_WEAPON_CLASSES : MARTIAL_MELEE_WEAPON_CLASSES;
+  return character.classLevels.some((cl) => grantingClasses.includes(cl.classId));
+}
+function canEquipMartialArmor(character: FUCharacter, armor: FUArmor): boolean {
+  return !armor.martial || character.classLevels.some((cl) => MARTIAL_ARMOR_CLASSES.includes(cl.classId));
+}
+function canEquipMartialShield(character: FUCharacter, shield: FUShield): boolean {
+  return !shield.martial || character.classLevels.some((cl) => MARTIAL_SHIELD_CLASSES.includes(cl.classId));
+}
 
 // ─── small shared bits ───────────────────────────────────────────────────────
 
@@ -406,19 +428,63 @@ function EquipmentAccordion({ character, onUpdate }: { character: FUCharacter; o
   }
 
   function equipFromBackpack(id: string) {
-    const item = findEquipmentItem(id);
-    if (!item) return;
     const equipment = { ...character.equipment };
     const backpack = character.backpack.filter((i) => i !== id);
-    if (weapons.some((w) => w.id === id)) {
-      if (equipment.weapons.length >= 2) { backpack.push(id); return; }
-      equipment.weapons = [...equipment.weapons, id];
-    } else if (shields.some((s) => s.id === id)) {
+    const weapon = weapons.find((w) => w.id === id);
+    const shield = shields.find((s) => s.id === id);
+    const armor = armors.find((a) => a.id === id);
+
+    const equippedTwoHanded = weapons.find((w) => w.id === equipment.weapons[0])?.handedness === "two-handed";
+
+    if (weapon) {
+      if (!canEquipMartialWeapon(character, weapon)) {
+        toast.error(`Necesitás una clase con entrenamiento marcial para equipar ${weapon.name}.`);
+        return;
+      }
+      if (weapon.handedness === "two-handed") {
+        // Takes both hand slots — bumps any currently-equipped weapon(s) and shield back to the backpack.
+        backpack.push(...equipment.weapons.filter((wid) => wid !== id), ...(equipment.shield ? [equipment.shield] : []));
+        equipment.weapons = [id];
+        equipment.shield = undefined;
+      } else if (equippedTwoHanded) {
+        // Main hand only — the two-hander already had no shield equipped alongside it.
+        backpack.push(...equipment.weapons);
+        equipment.weapons = [id];
+      } else if (equipment.weapons.length >= 2) {
+        return;
+      } else if (equipment.weapons.length === 1) {
+        // Takes the off hand — a shield can't share it with a second weapon.
+        if (equipment.shield) backpack.push(equipment.shield);
+        equipment.shield = undefined;
+        equipment.weapons = [...equipment.weapons, id];
+      } else {
+        equipment.weapons = [id];
+      }
+    } else if (shield) {
+      if (!canEquipMartialShield(character, shield)) {
+        toast.error(`Necesitás una clase con entrenamiento marcial para equipar ${shield.name}.`);
+        return;
+      }
+      if (equippedTwoHanded) {
+        toast.error("No podés equipar un escudo junto a un arma a dos manos.");
+        return;
+      }
+      if (equipment.weapons.length >= 2) {
+        // Takes the off hand — bumps the second (off-hand) weapon back to the backpack.
+        backpack.push(equipment.weapons[1]);
+        equipment.weapons = [equipment.weapons[0]];
+      }
       if (equipment.shield) backpack.push(equipment.shield);
       equipment.shield = id;
-    } else if (armors.some((a) => a.id === id)) {
+    } else if (armor) {
+      if (!canEquipMartialArmor(character, armor)) {
+        toast.error(`Necesitás una clase con entrenamiento marcial para equipar ${armor.name}.`);
+        return;
+      }
       if (equipment.armor) backpack.push(equipment.armor);
       equipment.armor = id;
+    } else {
+      return;
     }
     onUpdate({ ...character, equipment, backpack, updatedAt: new Date().toISOString() });
   }
@@ -432,7 +498,7 @@ function EquipmentAccordion({ character, onUpdate }: { character: FUCharacter; o
   }
 
   const shopOptions = [...weapons, ...armors, ...shields].filter((i) => i.cost != null);
-  const equippedCount = equippedWeapons.length + (equippedShield ? 1 : 0) + (equippedArmor ? 1 : 0);
+  const equippedCount = equippedWeapons.length + (equippedShield ? 1 : 0) + (equippedArmor ? 1 : 0) + (character.equipment.accessory ? 1 : 0);
 
   return (
     <Accordion title="Equipo" summary={`${equippedCount} equipado(s) · ${character.backpack.length} mochila`} defaultOpen>
@@ -456,6 +522,16 @@ function EquipmentAccordion({ character, onUpdate }: { character: FUCharacter; o
           </div>
         )}
         {equippedCount === 0 && <p className="text-xs text-ink-light font-body py-1">Sin equipo.</p>}
+      </div>
+
+      <div className="mt-2 pt-2 border-t border-border/60">
+        <label className="font-label text-2xs uppercase tracking-wide text-ink-light">Accesorio</label>
+        <input
+          value={character.equipment.accessory}
+          onChange={(e) => onUpdate({ ...character, equipment: { ...character.equipment, accessory: e.target.value }, updatedAt: new Date().toISOString() })}
+          placeholder="Objeto raro sin catálogo fijo — descripción libre"
+          className="mt-1 w-full border border-border bg-parchment/60 px-2 py-1 text-xs text-ink placeholder:text-leather-light/70 focus:border-brass focus:outline-none font-body"
+        />
       </div>
 
       {backpackItems.length > 0 && (
@@ -536,7 +612,7 @@ export function CharacterSheet({
 }) {
   const classes = character.classLevels.map((cl) => classesById[cl.classId]).filter((c): c is NonNullable<typeof c> => Boolean(c));
   const current = currentAttributes(character.attributes, character.statusEffects);
-  const stats = calcDerivedStats(character.attributes, character.equipment, classes, character.statusEffects);
+  const stats = calcDerivedStats(character.level, character.attributes, character.equipment, classes, character.statusEffects);
   const inCrisis = character.currentHp <= stats.crisis.value;
   const canLevelUp = character.xp >= XP_PER_LEVEL && character.classLevels.length > 0 && character.classLevels.some((cl) => cl.levels < MAX_CLASS_LEVEL);
   const [uploadingPortrait, setUploadingPortrait] = React.useState(false);

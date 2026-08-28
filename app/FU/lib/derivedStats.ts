@@ -10,7 +10,6 @@ import type { FUClass, StatKey } from "../data/types";
 import { armors, shields, weapons } from "../data/equipment";
 import { statusEffects, stepDownDie, type AttributeKey } from "../data/statusEffects";
 import { classesById } from "../data/classes";
-import { CHARACTER_LEVEL } from "./types";
 import type { FUCharacter, FUCharacterAttributes, FUCharacterEquipment } from "./types";
 
 export interface StatTerm {
@@ -39,9 +38,9 @@ function sum(terms: StatTerm[]): number {
   return terms.reduce((total, t) => total + t.value, 0);
 }
 
-export function calcHP(mightDie: number, classes: FUClass[]): StatResult {
+export function calcHP(level: number, mightDie: number, classes: FUClass[]): StatResult {
   const breakdown: StatTerm[] = [
-    { label: "Level", value: CHARACTER_LEVEL },
+    { label: "Level", value: level },
     { label: "5 × Might die", value: 5 * mightDie },
     ...classBonusTerms(classes, "hp"),
   ];
@@ -53,9 +52,9 @@ export function calcCrisis(hpMax: number): StatResult {
   return { value, breakdown: [{ label: "Half of max HP (rounded down)", value }] };
 }
 
-export function calcMP(willpowerDie: number, classes: FUClass[]): StatResult {
+export function calcMP(level: number, willpowerDie: number, classes: FUClass[]): StatResult {
   const breakdown: StatTerm[] = [
-    { label: "Level", value: CHARACTER_LEVEL },
+    { label: "Level", value: level },
     { label: "5 × Willpower die", value: 5 * willpowerDie },
     ...classBonusTerms(classes, "mp"),
   ];
@@ -154,14 +153,15 @@ export function currentAttributes(
  * your base Attribute die size" (creation-process.txt).
  */
 export function calcDerivedStats(
+  level: number,
   attributes: FUCharacterAttributes,
   equipment: FUCharacterEquipment,
   classes: FUClass[],
   activeStatusEffectIds: string[] = [],
 ): DerivedStats {
   const current = currentAttributes(attributes, activeStatusEffectIds);
-  const hp = calcHP(attributes.might, classes);
-  const mp = calcMP(attributes.willpower, classes);
+  const hp = calcHP(level, attributes.might, classes);
+  const mp = calcMP(level, attributes.willpower, classes);
   return {
     hp,
     crisis: calcCrisis(hp.value),
@@ -240,9 +240,10 @@ export function normalizeCharacterSheet(
     backpack: raw.backpack ?? [],
     elementalAffinities: raw.elementalAffinities ?? {},
     xp: raw.xp ?? 0,
-    currentHp: raw.currentHp ?? calcHP(raw.attributes.might, classes).value,
-    currentMp: raw.currentMp ?? calcMP(raw.attributes.willpower, classes).value,
+    currentHp: raw.currentHp ?? calcHP(raw.level, raw.attributes.might, classes).value,
+    currentMp: raw.currentMp ?? calcMP(raw.level, raw.attributes.willpower, classes).value,
     currentIp: raw.currentIp ?? calcIP(classes).value,
+    equipment: { ...raw.equipment, accessory: raw.equipment.accessory ?? "" },
   };
 }
 

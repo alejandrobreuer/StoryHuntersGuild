@@ -1,7 +1,7 @@
 "use client";
 
 import { calcDerivedStats, type StatResult } from "@/app/FU/lib/derivedStats";
-import { STARTING_FABULA_POINTS } from "@/app/FU/lib/types";
+import { CHARACTER_LEVEL, STARTING_FABULA_POINTS } from "@/app/FU/lib/types";
 import { selectedClasses, useWizard } from "@/app/FU/lib/wizardState";
 import { InfoDisclosure } from "../InfoDisclosure";
 
@@ -27,7 +27,7 @@ function StatBlock({ title, result }: { title: string; result: StatResult }) {
 export function Step6DerivedStats() {
   const { draft } = useWizard();
   const classes = selectedClasses(draft);
-  const stats = calcDerivedStats(draft.attributes, draft.equipment, classes);
+  const stats = calcDerivedStats(CHARACTER_LEVEL, draft.attributes, draft.equipment, classes);
 
   return (
     <div className="space-y-6">
