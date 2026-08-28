@@ -12,7 +12,7 @@ import { elements, affinityStatusOrder, affinityStatusLabels, type AffinityStatu
 import type { FUArmor, FUShield, FUWeapon } from "@/app/FU/data/types";
 import {
   calcDerivedStats, currentAttributes, findEquipmentItem, calcSpent,
-  XP_PER_LEVEL, MAX_CLASS_LEVEL,
+  XP_PER_LEVEL, MAX_CLASS_LEVEL, MAX_CLASSES,
 } from "@/app/FU/lib/derivedStats";
 import type { FUBond, FUCharacter, FUCharacterAttributes } from "@/app/FU/lib/types";
 import { ReferenceDataProvider, useReferenceDataContext } from "@/app/FU/lib/ReferenceDataContext";
@@ -302,8 +302,62 @@ function ActiveSkillRow({ name, maxed, text, skillLevel, currentMp, onCast }: {
   );
 }
 
-function ClassesAccordion({ character }: { character: FUCharacter }) {
+/** Non-mastered classes count against the MAX_CLASSES cap; a mastered one (level 10) doesn't. */
+function nonMasteredClassCount(character: FUCharacter): number {
+  return character.classLevels.filter((cl) => cl.levels < MAX_CLASS_LEVEL).length;
+}
+
+function AddClassControl({ character, onAddClass }: { character: FUCharacter; onAddClass: (classId: string, skillName: string) => void }) {
   const ref = useReferenceDataContext();
+  const heldIds = new Set(character.classLevels.map((cl) => cl.classId));
+  const available = ref.classes.filter((c) => !heldIds.has(c.id));
+  const atCap = nonMasteredClassCount(character) >= MAX_CLASSES;
+
+  const [classId, setClassId] = React.useState("");
+  const [skillName, setSkillName] = React.useState("");
+  const cls = classId ? ref.classesById[classId] : undefined;
+
+  if (atCap) {
+    return (
+      <p className="mt-3 pt-3 border-t border-border/60 text-2xs text-ink-light font-body">
+        Ya tenés {MAX_CLASSES} clases sin masterizar — masterizá una (nivel {MAX_CLASS_LEVEL}) para poder sumar otra.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-3 pt-3 border-t border-border/60 flex flex-col gap-1.5 sm:flex-row sm:items-end">
+      <select value={classId} onChange={(e) => { setClassId(e.target.value); setSkillName(""); }} className="flex-1 border border-border bg-parchment/60 px-2 py-1 text-xs text-ink font-body">
+        <option value="">Sumar una clase nueva…</option>
+        {available.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+      </select>
+      <select value={skillName} onChange={(e) => setSkillName(e.target.value)} disabled={!cls} className="flex-1 border border-border bg-parchment/60 px-2 py-1 text-xs text-ink font-body disabled:opacity-40">
+        <option value="">Primera habilidad…</option>
+        {cls?.skills.map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}
+      </select>
+      <button
+        type="button"
+        disabled={!classId || !skillName}
+        onClick={() => { if (classId && skillName) { onAddClass(classId, skillName); setClassId(""); setSkillName(""); } }}
+        className="font-label text-2xs uppercase tracking-wide border border-brass bg-brass/10 px-3 py-1 text-brass-bright hover:bg-brass/20 transition-colors disabled:opacity-30"
+      >
+        Sumar clase
+      </button>
+    </div>
+  );
+}
+
+function ClassesAccordion({ character, onUpdate }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void }) {
+  const ref = useReferenceDataContext();
+
+  function addClass(classId: string, skillName: string) {
+    onUpdate({
+      ...character,
+      classLevels: [...character.classLevels, { classId, levels: 1, skillsTaken: [skillName] }],
+      updatedAt: new Date().toISOString(),
+    });
+  }
+
   return (
     <Accordion title="Clases y habilidades" summary={`${character.classLevels.length} clase(s)`}>
       <div className="space-y-3">
@@ -315,7 +369,7 @@ function ClassesAccordion({ character }: { character: FUCharacter }) {
           return (
             <div key={cl.classId}>
               <p className="font-body text-sm font-semibold text-ink">
-                {cls.name} <span className="font-label text-2xs font-normal text-ink-light">Nv {cl.levels}{cl.levels >= MAX_CLASS_LEVEL && " (máx)"} · libre: {cls.freeBenefits.map((b) => b.text).join(", ")}</span>
+                {cls.name} <span className="font-label text-2xs font-normal text-ink-light">Nv {cl.levels}{cl.levels >= MAX_CLASS_LEVEL && " (máx — masterizada)"} · libre: {cls.freeBenefits.map((b) => b.text).join(", ")}</span>
               </p>
               <p className="text-xs text-ink-light font-body mt-0.5">
                 {Array.from(counts.entries()).map(([name, count], i) => {
@@ -333,6 +387,7 @@ function ClassesAccordion({ character }: { character: FUCharacter }) {
           );
         })}
       </div>
+      <AddClassControl character={character} onAddClass={addClass} />
     </Accordion>
   );
 }
@@ -803,7 +858,7 @@ function CharacterSheetInner({
             <ActionsAccordion character={character} onUpdate={onUpdate} />
             <EquipmentAccordion character={character} onUpdate={onUpdate} />
             <AffinitiesAccordion character={character} onUpdate={onUpdate} />
-            <ClassesAccordion character={character} />
+            <ClassesAccordion character={character} onUpdate={onUpdate} />
             <BondsAccordion character={character} onUpdate={onUpdate} />
             <TraitsGuildAccordion character={character} onUpdate={onUpdate} guildStanding={guildStanding} />
           </div>
