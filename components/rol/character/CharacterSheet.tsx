@@ -78,20 +78,20 @@ const ATTRIBUTE_ROWS: { key: AttributeKey; label: string }[] = [
 
 function AttributeGrid({ character, current }: { character: FUCharacter; current: FUCharacterAttributes }) {
   return (
-    <div className="grid grid-cols-4 gap-1.5">
+    <div className="grid grid-cols-2 gap-2">
       {ATTRIBUTE_ROWS.map(({ key, label }) => {
         const base = character.attributes[key];
         const curr = current[key];
         const reduced = curr !== base;
         const linked = statusEffects.filter((e) => character.statusEffects.includes(e.id) && e.affects.includes(key));
         return (
-          <div key={key} className={cn("text-center rounded-sm border px-1 py-1.5", reduced ? "border-crimson bg-crimson/5" : "border-border")}>
-            <div className="font-label text-2xs text-ink-light">{label}</div>
-            <div className="font-label text-sm font-bold leading-tight">
+          <div key={key} className={cn("text-center rounded-sm border px-2 py-2", reduced ? "border-crimson bg-crimson/5" : "border-border")}>
+            <div className="font-label text-xs text-ink-light">{label}</div>
+            <div className="font-label text-xl font-bold leading-tight">
               {reduced ? (
-                <><span className="text-ink-light line-through text-2xs mr-1">d{base}</span><span className="text-crimson">d{curr}</span></>
+                <><span className="text-ink-light line-through text-xs mr-1">d{base}</span><span className="text-crimson">d{curr}</span></>
               ) : (
-                <span className="text-brass-bright">d{base}</span>
+                <span className="text-ink">d{base}</span>
               )}
             </div>
             {linked.length > 0 && <div className="font-body text-2xs text-crimson truncate">{linked.map((e) => e.name).join("/")}</div>}
@@ -201,7 +201,7 @@ function ActionsAccordion({ character, onUpdate }: { character: FUCharacter; onU
         const numericCost = Number(spell.mpCost);
         activeCount++;
         rows.push(
-          <div key={`${cl.classId}-spell-${spell.name}`} className="py-2 first:pt-0 border-t border-border/60 first:border-t-0">
+          <div key={`${cl.classId}-spell-${spell.name}`} className="rounded-sm border border-border px-2.5 py-2">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <span className="font-body text-sm font-semibold text-ink">{spell.name} <span className="font-label text-2xs text-moss">{spell.mpCost} PM · {spell.target}</span></span>
               {Number.isFinite(numericCost) && numericCost > 0 ? (
@@ -224,7 +224,7 @@ function ActionsAccordion({ character, onUpdate }: { character: FUCharacter; onU
       {rows.length === 0 ? (
         <p className="text-sm text-ink-light font-body">Todavía no elegiste habilidades.</p>
       ) : (
-        <div>{rows}</div>
+        <div className="space-y-1.5">{rows}</div>
       )}
     </Accordion>
   );
@@ -236,7 +236,7 @@ function ActiveSkillRow({ name, maxed, text, skillLevel, currentMp, onCast }: {
   const [cost, setCost] = React.useState("");
 
   return (
-    <div className="py-2 first:pt-0 border-t border-border/60 first:border-t-0">
+    <div className="rounded-sm border border-border px-2.5 py-2">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <span className="font-body text-sm font-semibold text-ink">{name}{maxed && <span className="text-brass ml-1">(máx)</span>}</span>
         <div className="flex items-center gap-1.5 shrink-0">
@@ -634,7 +634,7 @@ export function CharacterSheet({
                 </div>
               </div>
               <div>
-                <StatBar label="PM" value={character.currentMp} max={stats.mp.value} color="brass" />
+                <StatBar label="PM" value={character.currentMp} max={stats.mp.value} color="blue" />
                 <div className="mt-1 flex justify-end">
                   <Adjuster value={character.currentMp} max={stats.mp.value} onChange={(v) => onUpdate({ ...character, currentMp: v, updatedAt: new Date().toISOString() })} />
                 </div>
@@ -651,7 +651,31 @@ export function CharacterSheet({
               </div>
             </div>
 
-            <AttributeGrid character={character} current={current} />
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-2">
+                <AttributeGrid character={character} current={current} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                {ipItems.map((item) => (
+                  <button
+                    key={item.name}
+                    type="button"
+                    title={item.effect}
+                    disabled={character.currentIp < item.ipCost}
+                    onClick={() => {
+                      let updated = { ...character, currentIp: character.currentIp - item.ipCost };
+                      if (item.name === "Remedio") updated = { ...updated, currentHp: Math.min(stats.hp.value, updated.currentHp + 50) };
+                      if (item.name === "Elixir") updated = { ...updated, currentMp: Math.min(stats.mp.value, updated.currentMp + 50) };
+                      onUpdate({ ...updated, updatedAt: new Date().toISOString() });
+                    }}
+                    className="font-label text-2xs px-2 py-1.5 border border-border rounded-sm hover:border-brass disabled:opacity-30 transition-colors"
+                  >
+                    {item.name} ({item.ipCost})
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <StatusEffectToggles character={character} onUpdate={onUpdate} />
 
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-body text-2xs text-ink-light border-t border-border/60 pt-2">
@@ -665,26 +689,6 @@ export function CharacterSheet({
                   <>Ataque: <strong className="text-ink">Desarmado 【DEX+VIG】→【HR】físico</strong></>
                 )}
               </span>
-            </div>
-
-            <div className="flex flex-wrap gap-1.5 border-t border-border/60 pt-2">
-              {ipItems.map((item) => (
-                <button
-                  key={item.name}
-                  type="button"
-                  title={item.effect}
-                  disabled={character.currentIp < item.ipCost}
-                  onClick={() => {
-                    let updated = { ...character, currentIp: character.currentIp - item.ipCost };
-                    if (item.name === "Remedio") updated = { ...updated, currentHp: Math.min(stats.hp.value, updated.currentHp + 50) };
-                    if (item.name === "Elixir") updated = { ...updated, currentMp: Math.min(stats.mp.value, updated.currentMp + 50) };
-                    onUpdate({ ...updated, updatedAt: new Date().toISOString() });
-                  }}
-                  className="font-label text-2xs px-2 py-1 border border-border rounded-sm hover:border-brass disabled:opacity-30 transition-colors"
-                >
-                  {item.name} ({item.ipCost})
-                </button>
-              ))}
             </div>
           </div>
 

@@ -2,6 +2,7 @@ const COLOR_CLASSES: Record<string, string> = {
   moss: "bg-moss",
   brass: "bg-brass",
   crimson: "bg-crimson",
+  blue: "bg-blue-500",
 };
 
 export function StatBar({
@@ -14,7 +15,7 @@ export function StatBar({
   label: string;
   value: number;
   max: number;
-  color?: "moss" | "brass" | "crimson";
+  color?: "moss" | "brass" | "crimson" | "blue";
   markerAt?: number;
 }) {
   const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
