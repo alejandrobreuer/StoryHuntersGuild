@@ -1,57 +1,43 @@
 "use client";
 
-import * as React from "react";
-import { User, X } from "lucide-react";
+import { User, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Same collapsible-drawer mechanics as components/rol/GuildFeaturesDrawer,
-// mirrored to the left edge and viewport-fixed (the sheet is a normal-flow
-// page, not a fixed-height hero, so this can't be absolutely positioned
-// within a container the way the guild one is) — closed by default, never
-// permanently eats sheet width per character-sheet-logic-spec.md.
-export function CharacterFullBodyDrawer({ imageUrl }: { imageUrl: string | null }) {
-  const [open, setOpen] = React.useState(false);
-
+// Inline flex sibling of the sheet's main column (not an overlay) — closed
+// by default (width 0), animates open to give the full-body image room
+// without ever permanently eating sheet width. Controlled by the parent so
+// the toggle button (absolutely positioned over the header) and the panel
+// stay in sync — see character-sheet-reference.html's .portrait-drawer.
+export function CharacterFullBodyDrawer({ imageUrl, open, onToggle }: { imageUrl: string | null; open: boolean; onToggle: () => void }) {
   return (
     <>
-      {open && <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden="true" />}
-
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-label={open ? "Cerrar imagen de cuerpo completo" : "Ver imagen de cuerpo completo"}
-        className={cn(
-          "fixed top-1/2 -translate-y-1/2 z-50 flex flex-col items-center gap-2 py-4 px-2",
-          "bg-ink/85 border border-brass/40 border-l-0 hover:bg-ink/95 transition-[left] duration-300",
-          open ? "left-72" : "left-0"
-        )}
+        onClick={onToggle}
+        aria-label={open ? "Cerrar cuerpo completo" : "Ver cuerpo completo"}
+        aria-expanded={open}
+        className="absolute left-0 top-3 z-10 flex items-center gap-1 rounded-r-md bg-ink/80 px-1.5 py-2 text-parchment-dark hover:text-parchment transition-colors"
       >
-        <User size={16} className="text-brass-light" />
-        <span className="font-label text-2xs uppercase tracking-widest text-parchment [writing-mode:vertical-rl] rotate-180">
-          Cuerpo completo
-        </span>
+        <ChevronRight size={12} className={cn("transition-transform", open && "rotate-180")} />
+        <User size={12} />
       </button>
 
       <div
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] overflow-y-auto surface-parchment p-4 transition-transform duration-300",
-          open ? "translate-x-0" : "-translate-x-full"
+          "shrink-0 overflow-hidden border-brass/30 bg-parchment-dark/30 transition-[width] duration-300",
+          open ? "w-40 border-r" : "w-0"
         )}
       >
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="font-label text-sm font-bold uppercase tracking-widest text-ink">Cuerpo completo</h2>
-          <button onClick={() => setOpen(false)} aria-label="Cerrar" className="text-leather-light hover:text-ink transition-colors">
-            <X size={18} />
-          </button>
+        <div className="w-40 p-3">
+          {imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, size unknown ahead of render
+            <img src={imageUrl} alt="" className="w-full h-auto" />
+          ) : (
+            <div className="aspect-[3/4] flex items-center justify-center bg-parchment-dark/40 border border-dashed border-brass/40">
+              <User size={28} className="text-leather-light" />
+            </div>
+          )}
         </div>
-        {imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, size unknown ahead of render
-          <img src={imageUrl} alt="" className="w-full h-auto" />
-        ) : (
-          <div className="aspect-[3/4] flex items-center justify-center bg-parchment-dark/30">
-            <User size={40} className="text-leather-light" />
-          </div>
-        )}
       </div>
     </>
   );

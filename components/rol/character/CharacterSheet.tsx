@@ -2,14 +2,14 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { User, X, Info } from "lucide-react";
+import { User, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Accordion } from "@/components/ui/Accordion";
 import { classesById } from "@/app/FU/data/classes";
 import { bondEmotionsById, bondPairings, bondsRulesNote, MAX_BONDS, type BondEmotionId } from "@/app/FU/data/bonds";
-import { fabulaPointGains, fabulaPointUses, fabulaPointsNote, ipItems, glossary } from "@/app/FU/data/reference";
-import { statusEffects, statusEffectRulesNote, type AttributeKey } from "@/app/FU/data/statusEffects";
-import { elements, affinityStatusOrder, affinityStatusLabels, affinitiesRulesNote, type AffinityStatus } from "@/app/FU/data/affinities";
+import { fabulaPointGains, fabulaPointUses, ipItems, glossary } from "@/app/FU/data/reference";
+import { statusEffects, type AttributeKey } from "@/app/FU/data/statusEffects";
+import { elements, affinityStatusOrder, affinityStatusLabels, type AffinityStatus } from "@/app/FU/data/affinities";
 import { weapons, armors, shields } from "@/app/FU/data/equipment";
 import {
   calcDerivedStats, currentAttributes, findEquipmentItem, calcSpent,
@@ -21,25 +21,18 @@ import { SkillText } from "./SkillText";
 import { StatBar } from "./StatBar";
 import { CharacterFullBodyDrawer } from "./CharacterFullBodyDrawer";
 
-function StatTile({ label, value }: { label: string; value: number }) {
+// ─── small shared bits ───────────────────────────────────────────────────────
+
+function StatPill({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="surface-parchment p-4 text-center">
-      <div className="font-label text-xs uppercase tracking-wide text-ink-light">{label}</div>
-      <div className="font-display text-2xl font-bold text-brass-bright">{value}</div>
+    <div className="text-center">
+      <div className="font-display text-base font-bold text-brass-bright leading-none">{value}</div>
+      <div className="font-label text-2xs uppercase tracking-wide text-ink-light">{label}</div>
     </div>
   );
 }
 
-function CockpitCard({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section>
-      <h2 className="font-display text-xl font-bold text-parchment mb-3">{title}</h2>
-      <div className="surface-parchment p-6">{children}</div>
-    </section>
-  );
-}
-
-/** +/- adjuster shared by HP/MP/IP/Fabula — the "functional, not just a label" interaction the spec asks for. */
+/** Compact +/- pair — the "functional, not just a label" interaction the spec asks for, sized for inline use. */
 function Adjuster({ value, onChange, min = 0, max }: { value: number; onChange: (next: number) => void; min?: number; max?: number }) {
   function clamp(n: number) {
     let v = n;
@@ -48,21 +41,68 @@ function Adjuster({ value, onChange, min = 0, max }: { value: number; onChange: 
     return v;
   }
   return (
-    <div className="flex items-center gap-2">
-      <button type="button" onClick={() => onChange(clamp(value - 1))} aria-label="Restar" className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-lg leading-none text-ink hover:border-brass">−</button>
-      <button type="button" onClick={() => onChange(clamp(value + 1))} aria-label="Sumar" className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-lg leading-none text-ink hover:border-brass">+</button>
+    <div className="flex items-center gap-1 shrink-0">
+      <button type="button" onClick={() => onChange(clamp(value - 1))} aria-label="Restar" className="flex size-5 items-center justify-center rounded-full border border-border text-xs leading-none text-ink hover:border-brass">−</button>
+      <button type="button" onClick={() => onChange(clamp(value + 1))} aria-label="Sumar" className="flex size-5 items-center justify-center rounded-full border border-border text-xs leading-none text-ink hover:border-brass">+</button>
+    </div>
+  );
+}
+
+function FabulaBadge({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <div className="flex flex-col items-center gap-1 shrink-0">
+      <div className="flex items-center gap-1.5">
+        <button type="button" onClick={() => onChange(Math.max(0, value - 1))} aria-label="Gastar Punto de Fábula" className="text-ink-light hover:text-crimson text-sm leading-none">−</button>
+        <span className="flex size-7 items-center justify-center rounded-full border-2 border-brass-light bg-crimson font-display text-sm font-bold text-crimson-foreground">{value}</span>
+        <button type="button" onClick={() => onChange(value + 1)} aria-label="Ganar Punto de Fábula" className="text-ink-light hover:text-moss text-sm leading-none">+</button>
+      </div>
+      <div className="flex items-center gap-0.5">
+        <span className="font-label text-2xs uppercase tracking-wide text-ink-light">Fábula</span>
+        <InfoDisclosure label="Puntos de Fábula">
+          <p className="font-semibold text-ink mb-1">Ganás un punto cuando…</p>
+          <ul className="space-y-1 mb-2">{fabulaPointGains.map((g, i) => <li key={i}>· {g}</li>)}</ul>
+          <p className="font-semibold text-ink mb-1">Gastás un punto para…</p>
+          <ul className="space-y-1">{fabulaPointUses.map((u, i) => <li key={i}>· {u}</li>)}</ul>
+        </InfoDisclosure>
+      </div>
     </div>
   );
 }
 
 const ATTRIBUTE_ROWS: { key: AttributeKey; label: string }[] = [
-  { key: "dexterity", label: "Destreza" },
-  { key: "insight", label: "Perspicacia" },
-  { key: "might", label: "Vigor" },
-  { key: "willpower", label: "Voluntad" },
+  { key: "dexterity", label: "DES" },
+  { key: "insight", label: "PER" },
+  { key: "might", label: "VIG" },
+  { key: "willpower", label: "VOL" },
 ];
 
-function AttributesAndStatusPanel({ character, current, onUpdate }: { character: FUCharacter; current: FUCharacterAttributes; onUpdate: (updated: FUCharacter) => void }) {
+function AttributeGrid({ character, current }: { character: FUCharacter; current: FUCharacterAttributes }) {
+  return (
+    <div className="grid grid-cols-4 gap-1.5">
+      {ATTRIBUTE_ROWS.map(({ key, label }) => {
+        const base = character.attributes[key];
+        const curr = current[key];
+        const reduced = curr !== base;
+        const linked = statusEffects.filter((e) => character.statusEffects.includes(e.id) && e.affects.includes(key));
+        return (
+          <div key={key} className={cn("text-center rounded-sm border px-1 py-1.5", reduced ? "border-crimson bg-crimson/5" : "border-border")}>
+            <div className="font-label text-2xs text-ink-light">{label}</div>
+            <div className="font-label text-sm font-bold leading-tight">
+              {reduced ? (
+                <><span className="text-ink-light line-through text-2xs mr-1">d{base}</span><span className="text-crimson">d{curr}</span></>
+              ) : (
+                <span className="text-brass-bright">d{base}</span>
+              )}
+            </div>
+            {linked.length > 0 && <div className="font-body text-2xs text-crimson truncate">{linked.map((e) => e.name).join("/")}</div>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function StatusEffectToggles({ character, onUpdate }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void }) {
   function toggleEffect(id: string) {
     const active = character.statusEffects.includes(id);
     const next = active ? character.statusEffects.filter((e) => e !== id) : [...character.statusEffects, id];
@@ -70,78 +110,196 @@ function AttributesAndStatusPanel({ character, current, onUpdate }: { character:
   }
 
   return (
-    <CockpitCard title="Atributos y estados">
-      <div className="grid gap-2.5">
-        {ATTRIBUTE_ROWS.map(({ key, label }) => {
-          const base = character.attributes[key];
-          const curr = current[key];
-          const reduced = curr !== base;
-          return (
-            <div key={key} className="border border-border px-4 py-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-ink font-body">{label}</span>
-                <span className="font-label text-sm">
-                  <span className={reduced ? "text-ink-light line-through" : "text-brass-bright"}>d{base}</span>
-                  {reduced && <span className="ml-1.5 text-crimson">d{curr}</span>}
-                </span>
-              </div>
-              {reduced && (
-                <p className="font-body text-2xs text-crimson mt-1">
-                  {statusEffects.filter((e) => character.statusEffects.includes(e.id) && e.affects.includes(key)).map((e) => e.name).join(", ")}
-                </p>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-        {statusEffects.map((effect) => {
-          const active = character.statusEffects.includes(effect.id);
-          return (
-            <div key={effect.id} className={cn("flex items-center gap-2 border px-3 py-2.5 text-sm", active ? "border-crimson bg-crimson/10" : "border-border")}>
-              <label className="flex flex-1 cursor-pointer items-center gap-2">
-                <input type="checkbox" checked={active} onChange={() => toggleEffect(effect.id)} className="h-4 w-4 accent-crimson" />
-                <span className={cn("font-body", active ? "font-semibold text-crimson" : "text-ink")}>{effect.name}</span>
-              </label>
-              <InfoDisclosure label={`Qué hace ${effect.name}`}>{effect.description}</InfoDisclosure>
-            </div>
-          );
-        })}
-      </div>
-      <p className="mt-4 text-xs leading-relaxed text-ink-light font-body">{statusEffectRulesNote}</p>
-    </CockpitCard>
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="font-label text-2xs uppercase tracking-wide text-ink-light shrink-0">Estados</span>
+      {statusEffects.map((effect) => {
+        const active = character.statusEffects.includes(effect.id);
+        return (
+          <button
+            key={effect.id}
+            type="button"
+            onClick={() => toggleEffect(effect.id)}
+            className={cn(
+              "font-label text-2xs px-2 py-0.5 rounded-full border transition-colors",
+              active ? "border-crimson bg-crimson/10 text-crimson font-semibold" : "border-border text-ink-light hover:border-crimson/50"
+            )}
+          >
+            {effect.name}
+          </button>
+        );
+      })}
+      <InfoDisclosure label="Qué hace cada estado">
+        {statusEffects.map((e) => <p key={e.id} className="mb-1.5 last:mb-0"><strong className="text-ink">{e.name}:</strong> {e.description}</p>)}
+      </InfoDisclosure>
+    </div>
   );
 }
 
-function FabulaPointsPanel({ character, onUpdate }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void }) {
-  function adjust(delta: number) {
-    onUpdate({ ...character, fabulaPoints: Math.max(0, character.fabulaPoints + delta), updatedAt: new Date().toISOString() });
+function AffinitiesAccordion({ character, onUpdate }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void }) {
+  const nonNormalCount = elements.filter((el) => (character.elementalAffinities[el.id] ?? "normal") !== "normal").length;
+
+  function cycle(elementId: string) {
+    const currentStatus = character.elementalAffinities[elementId] ?? "normal";
+    const nextIndex = (affinityStatusOrder.indexOf(currentStatus) + 1) % affinityStatusOrder.length;
+    onUpdate({
+      ...character,
+      elementalAffinities: { ...character.elementalAffinities, [elementId]: affinityStatusOrder[nextIndex] },
+      updatedAt: new Date().toISOString(),
+    });
   }
 
   return (
-    <CockpitCard title="Puntos de Fábula">
-      <div className="flex items-center gap-4">
-        <button type="button" onClick={() => adjust(-1)} aria-label="Gastar un Punto de Fábula" className="flex h-11 w-11 items-center justify-center rounded-full border border-border text-2xl leading-none text-ink hover:border-brass">−</button>
-        <span className="font-display w-12 text-center text-3xl font-bold text-brass-bright">{character.fabulaPoints}</span>
-        <button type="button" onClick={() => adjust(1)} aria-label="Ganar un Punto de Fábula" className="flex h-11 w-11 items-center justify-center rounded-full border border-border text-2xl leading-none text-ink hover:border-brass">+</button>
+    <Accordion title="Afinidades" summary={nonNormalCount > 0 ? `${nonNormalCount} distinta(s)` : "Todas normales"}>
+      <div className="grid grid-cols-2 gap-1.5">
+        {elements.map((el) => {
+          const status: AffinityStatus = character.elementalAffinities[el.id] ?? "normal";
+          return (
+            <button
+              key={el.id}
+              type="button"
+              onClick={() => cycle(el.id)}
+              className={cn(
+                "flex items-center justify-between gap-2 rounded-sm border px-2 py-1 text-left transition-colors",
+                status === "normal" ? "border-border" : "border-brass bg-brass/10"
+              )}
+            >
+              <span className="font-body text-xs text-ink">{el.name}</span>
+              <span className="font-label text-2xs uppercase tracking-wide text-brass-bright">{affinityStatusLabels[status]}</span>
+            </button>
+          );
+        })}
       </div>
-      <div className="mt-5 grid gap-5 sm:grid-cols-2">
-        <div>
-          <p className="font-label text-xs uppercase tracking-wide text-ink-light">Ganás un punto cuando…</p>
-          <ul className="mt-1.5 space-y-1.5 text-sm leading-snug text-ink font-body">{fabulaPointGains.map((g, i) => <li key={i}>· {g}</li>)}</ul>
-        </div>
-        <div>
-          <p className="font-label text-xs uppercase tracking-wide text-ink-light">Gastás un punto para…</p>
-          <ul className="mt-1.5 space-y-1.5 text-sm leading-snug text-ink font-body">{fabulaPointUses.map((u, i) => <li key={i}>· {u}</li>)}</ul>
+    </Accordion>
+  );
+}
+
+function ActionsAccordion({ character, onUpdate }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void }) {
+  function spendMp(amount: number) {
+    onUpdate({ ...character, currentMp: Math.max(0, character.currentMp - amount), updatedAt: new Date().toISOString() });
+  }
+
+  let activeCount = 0;
+  const rows: React.ReactNode[] = [];
+
+  for (const cl of character.classLevels) {
+    const cls = classesById[cl.classId];
+    if (!cls) continue;
+    const counts = new Map<string, number>();
+    for (const name of cl.skillsTaken) counts.set(name, (counts.get(name) ?? 0) + 1);
+    for (const [name, count] of Array.from(counts.entries())) {
+      const skill = cls.skills.find((s) => s.name === name);
+      if (!skill) continue;
+      const maxed = count >= skill.maxLevel;
+      activeCount++;
+      rows.push(
+        <ActiveSkillRow key={`${cl.classId}-${name}`} name={name} maxed={maxed} text={skill.text} skillLevel={count} currentMp={character.currentMp} onCast={spendMp} />
+      );
+    }
+
+    if (cls.subsystem?.type === "spells") {
+      for (const spell of cls.subsystem.entries) {
+        const numericCost = Number(spell.mpCost);
+        activeCount++;
+        rows.push(
+          <div key={`${cl.classId}-spell-${spell.name}`} className="py-2 first:pt-0 border-t border-border/60 first:border-t-0">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <span className="font-body text-sm font-semibold text-ink">{spell.name} <span className="font-label text-2xs text-moss">{spell.mpCost} PM · {spell.target}</span></span>
+              {Number.isFinite(numericCost) && numericCost > 0 ? (
+                <button type="button" onClick={() => spendMp(numericCost)} className="font-label text-2xs uppercase tracking-wide border border-brass/50 px-2 py-0.5 text-brass hover:bg-brass/10 transition-colors shrink-0">
+                  Lanzar −{numericCost}
+                </button>
+              ) : (
+                <span className="font-body text-2xs italic text-ink-light">Costo variable</span>
+              )}
+            </div>
+            <p className="mt-0.5 text-xs leading-snug text-ink-light font-body">{spell.text}</p>
+          </div>
+        );
+      }
+    }
+  }
+
+  return (
+    <Accordion title="Acciones" summary={`${activeCount} activa(s)`} defaultOpen>
+      {rows.length === 0 ? (
+        <p className="text-sm text-ink-light font-body">Todavía no elegiste habilidades.</p>
+      ) : (
+        <div>{rows}</div>
+      )}
+    </Accordion>
+  );
+}
+
+function ActiveSkillRow({ name, maxed, text, skillLevel, currentMp, onCast }: {
+  name: string; maxed: boolean; text: string; skillLevel: number; currentMp: number; onCast: (mpCost: number) => void;
+}) {
+  const [cost, setCost] = React.useState("");
+
+  return (
+    <div className="py-2 first:pt-0 border-t border-border/60 first:border-t-0">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <span className="font-body text-sm font-semibold text-ink">{name}{maxed && <span className="text-brass ml-1">(máx)</span>}</span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <input
+            type="number"
+            min={0}
+            max={currentMp}
+            value={cost}
+            onChange={(e) => setCost(e.target.value)}
+            placeholder="PM"
+            className="w-14 border border-border bg-parchment/60 px-1.5 py-0.5 text-xs text-ink placeholder:text-leather-light/70 focus:border-brass focus:outline-none font-body"
+          />
+          <button
+            type="button"
+            onClick={() => { const n = Number(cost) || 0; if (n > 0) { onCast(n); setCost(""); } }}
+            className="font-label text-2xs uppercase tracking-wide border border-brass/50 px-2 py-0.5 text-brass hover:bg-brass/10 transition-colors"
+          >
+            Lanzar
+          </button>
         </div>
       </div>
-      <p className="mt-4 text-xs leading-relaxed text-ink-light font-body">{fabulaPointsNote}</p>
-    </CockpitCard>
+      <SkillText text={text} skillLevel={skillLevel} className="mt-0.5 text-xs leading-snug text-ink-light font-body" />
+    </div>
+  );
+}
+
+function ClassesAccordion({ character }: { character: FUCharacter }) {
+  return (
+    <Accordion title="Clases y habilidades" summary={`${character.classLevels.length} clase(s)`}>
+      <div className="space-y-3">
+        {character.classLevels.map((cl) => {
+          const cls = classesById[cl.classId];
+          if (!cls) return null;
+          const counts = new Map<string, number>();
+          for (const name of cl.skillsTaken) counts.set(name, (counts.get(name) ?? 0) + 1);
+          return (
+            <div key={cl.classId}>
+              <p className="font-body text-sm font-semibold text-ink">
+                {cls.name} <span className="font-label text-2xs font-normal text-ink-light">Nv {cl.levels}{cl.levels >= MAX_CLASS_LEVEL && " (máx)"} · libre: {cls.freeBenefits.map((b) => b.text).join(", ")}</span>
+              </p>
+              <p className="text-xs text-ink-light font-body mt-0.5">
+                {Array.from(counts.entries()).map(([name, count], i) => {
+                  const skill = cls.skills.find((s) => s.name === name);
+                  const maxed = skill && count >= skill.maxLevel;
+                  return (
+                    <React.Fragment key={name}>
+                      {i > 0 && ", "}
+                      {name} ({count}{skill && skill.maxLevel > 1 ? `/${skill.maxLevel}` : ""}){maxed && <span className="text-brass font-semibold"> máx</span>}
+                    </React.Fragment>
+                  );
+                })}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+    </Accordion>
   );
 }
 
 function BondEditor({ bond, onChange, onRemove }: { bond: FUBond; onChange: (bond: FUBond) => void; onRemove: () => void }) {
+  const [editing, setEditing] = React.useState(false);
+
   function toggle(pair: [BondEmotionId, BondEmotionId], emotionId: BondEmotionId) {
     const [a, b] = pair;
     const isActive = bond.emotions.includes(emotionId);
@@ -150,44 +308,50 @@ function BondEditor({ bond, onChange, onRemove }: { bond: FUBond; onChange: (bon
   }
 
   return (
-    <div className="border border-border p-4">
-      <div className="flex items-center gap-3">
-        <input
-          value={bond.name}
-          onChange={(e) => onChange({ ...bond, name: e.target.value })}
-          placeholder="¿Con quién o qué es este Vínculo?"
-          className="flex-1 border border-border bg-parchment/60 px-3 py-2 text-sm text-ink placeholder:text-leather-light/70 focus:border-brass focus:outline-none font-body"
-        />
-        <span className="font-label whitespace-nowrap text-xs uppercase tracking-wide text-brass-bright">
-          Nivel {bond.emotions.length}{bond.emotions.length >= 3 && " (máx)"}
-        </span>
-        <button type="button" onClick={onRemove} aria-label="Quitar Vínculo" className="text-leather-light hover:text-crimson">
-          <X className="h-5 w-5" />
+    <div className="border-t border-border/60 first:border-t-0 py-2 first:pt-0">
+      <div className="flex items-center gap-2">
+        <button type="button" onClick={() => setEditing((o) => !o)} className="flex-1 min-w-0 flex items-center gap-2 text-left">
+          <span className="font-body text-sm font-semibold text-ink truncate">{bond.name || "Sin nombre"}</span>
+          <span className="font-label text-2xs uppercase tracking-wide text-brass-bright shrink-0">Nv {bond.emotions.length}{bond.emotions.length >= 3 && " máx"}</span>
         </button>
+        <button type="button" onClick={onRemove} aria-label="Quitar Vínculo" className="text-leather-light hover:text-crimson text-xs shrink-0">✕</button>
       </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-3">
-        {bondPairings.map((pair) => (
-          <div key={pair.join("-")} className="flex gap-2">
-            {pair.map((emotionId) => {
-              const emotion = bondEmotionsById[emotionId];
-              const active = bond.emotions.includes(emotionId);
-              return (
-                <button
-                  key={emotionId}
-                  type="button"
-                  onClick={() => toggle(pair, emotionId)}
-                  className={cn(
-                    "flex-1 border px-2.5 py-1.5 text-xs font-body transition-colors",
-                    active ? "border-brass bg-brass/10 font-semibold text-brass-bright" : "border-border text-ink-light hover:border-brass"
-                  )}
-                >
-                  {emotion.name}
-                </button>
-              );
-            })}
+      {!editing && bond.emotions.length > 0 && (
+        <p className="text-2xs text-ink-light font-body mt-0.5">{bond.emotions.map((id) => bondEmotionsById[id].name).join(" · ")}</p>
+      )}
+      {editing && (
+        <div className="mt-2 flex flex-col gap-2">
+          <input
+            value={bond.name}
+            onChange={(e) => onChange({ ...bond, name: e.target.value })}
+            placeholder="¿Con quién o qué es este Vínculo?"
+            className="border border-border bg-parchment/60 px-2 py-1 text-xs text-ink placeholder:text-leather-light/70 focus:border-brass focus:outline-none font-body"
+          />
+          <div className="grid gap-1.5 sm:grid-cols-3">
+            {bondPairings.map((pair) => (
+              <div key={pair.join("-")} className="flex gap-1">
+                {pair.map((emotionId) => {
+                  const emotion = bondEmotionsById[emotionId];
+                  const active = bond.emotions.includes(emotionId);
+                  return (
+                    <button
+                      key={emotionId}
+                      type="button"
+                      onClick={() => toggle(pair, emotionId)}
+                      className={cn(
+                        "flex-1 border px-1.5 py-1 text-2xs font-body transition-colors",
+                        active ? "border-brass bg-brass/10 font-semibold text-brass-bright" : "border-border text-ink-light hover:border-brass"
+                      )}
+                    >
+                      {emotion.name}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -207,235 +371,19 @@ function BondsAccordion({ character, onUpdate }: { character: FUCharacter; onUpd
   return (
     <Accordion title="Vínculos" summary={`${character.bonds.length}/${MAX_BONDS}`}>
       {character.bonds.length === 0 ? (
-        <p className="text-sm text-ink-light font-body">Todavía no hay Vínculos — suelen formarse en escenas de descanso, a medida que avanza la historia.</p>
+        <p className="text-sm text-ink-light font-body">Todavía no hay Vínculos.</p>
       ) : (
-        <div className="space-y-3">{character.bonds.map((bond, i) => <BondEditor key={i} bond={bond} onChange={(b) => updateBond(i, b)} onRemove={() => removeBond(i)} />)}</div>
+        <div>{character.bonds.map((bond, i) => <BondEditor key={i} bond={bond} onChange={(b) => updateBond(i, b)} onRemove={() => removeBond(i)} />)}</div>
       )}
       <button
         type="button"
         onClick={addBond}
         disabled={character.bonds.length >= MAX_BONDS}
-        className="font-label mt-3 border border-brass/50 px-3 py-1.5 text-xs uppercase tracking-wide text-brass transition-colors hover:bg-brass/10 disabled:opacity-30"
+        className="font-label mt-2 border border-brass/50 px-2 py-1 text-2xs uppercase tracking-wide text-brass transition-colors hover:bg-brass/10 disabled:opacity-30"
       >
         + Vínculo
       </button>
-      <p className="mt-4 text-xs leading-relaxed text-ink-light font-body">{bondsRulesNote}</p>
-    </Accordion>
-  );
-}
-
-function AffinitiesAccordion({ character, onUpdate }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void }) {
-  const nonNormalCount = elements.filter((el) => (character.elementalAffinities[el.id] ?? "normal") !== "normal").length;
-
-  function cycle(elementId: string) {
-    const currentStatus = character.elementalAffinities[elementId] ?? "normal";
-    const nextIndex = (affinityStatusOrder.indexOf(currentStatus) + 1) % affinityStatusOrder.length;
-    onUpdate({
-      ...character,
-      elementalAffinities: { ...character.elementalAffinities, [elementId]: affinityStatusOrder[nextIndex] },
-      updatedAt: new Date().toISOString(),
-    });
-  }
-
-  return (
-    <Accordion title="Afinidades elementales" summary={nonNormalCount > 0 ? `${nonNormalCount} distinta(s) de normal` : "Todas normales"}>
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-        {elements.map((el) => {
-          const status: AffinityStatus = character.elementalAffinities[el.id] ?? "normal";
-          return (
-            <button
-              key={el.id}
-              type="button"
-              onClick={() => cycle(el.id)}
-              className={cn(
-                "border px-3 py-2.5 text-left transition-colors",
-                status === "normal" ? "border-border" : "border-brass bg-brass/10"
-              )}
-            >
-              <div className="font-body text-sm font-semibold text-ink">{el.name}</div>
-              <div className="font-label text-2xs uppercase tracking-wide text-brass-bright">{affinityStatusLabels[status]}</div>
-            </button>
-          );
-        })}
-      </div>
-      <p className="mt-4 text-xs leading-relaxed text-ink-light font-body">{affinitiesRulesNote}</p>
-    </Accordion>
-  );
-}
-
-function ActiveSkillCard({ name, maxed, text, skillLevel, currentMp, onCast }: {
-  name: string; maxed: boolean; text: string; skillLevel: number; currentMp: number; onCast: (mpCost: number) => void;
-}) {
-  const [cost, setCost] = React.useState("");
-
-  return (
-    <div className="border border-border p-3">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <span className="text-sm font-semibold text-ink font-body">{name}{maxed && " (máx)"}</span>
-      </div>
-      <SkillText text={text} skillLevel={skillLevel} className="mt-1.5 text-sm leading-snug text-ink-light font-body" />
-      <div className="mt-2 flex items-center gap-2">
-        <input
-          type="number"
-          min={0}
-          max={currentMp}
-          value={cost}
-          onChange={(e) => setCost(e.target.value)}
-          placeholder="Costo en PM"
-          className="w-24 border border-border bg-parchment/60 px-2 py-1.5 text-xs text-ink placeholder:text-leather-light/70 focus:border-brass focus:outline-none font-body"
-        />
-        <button
-          type="button"
-          onClick={() => { const n = Number(cost) || 0; if (n > 0) { onCast(n); setCost(""); } }}
-          className="font-label text-2xs uppercase tracking-wide border border-brass/50 px-2.5 py-1.5 text-brass hover:bg-brass/10 transition-colors"
-        >
-          Lanzar
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function ActionsAccordion({ character, onUpdate }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void }) {
-  function spendMp(amount: number) {
-    onUpdate({ ...character, currentMp: Math.max(0, character.currentMp - amount), updatedAt: new Date().toISOString() });
-  }
-
-  const classes = character.classLevels.map((cl) => classesById[cl.classId]).filter((c): c is NonNullable<typeof c> => Boolean(c));
-  let activeCount = 0;
-  const cards: React.ReactNode[] = [];
-
-  for (const cl of character.classLevels) {
-    const cls = classesById[cl.classId];
-    if (!cls) continue;
-    const counts = new Map<string, number>();
-    for (const name of cl.skillsTaken) counts.set(name, (counts.get(name) ?? 0) + 1);
-    for (const [name, count] of Array.from(counts.entries())) {
-      const skill = cls.skills.find((s) => s.name === name);
-      if (!skill) continue;
-      const maxed = count >= skill.maxLevel;
-      // No structured MP-cost field exists on skill data (only on the
-      // separate spell subsystem below) — the player reads the cost printed
-      // in the skill's own text and enters it here; this still gives a real
-      // deduction, not just a label.
-      activeCount++;
-      cards.push(
-        <ActiveSkillCard key={`${cl.classId}-${name}`} name={name} maxed={maxed} text={skill.text} skillLevel={count} currentMp={character.currentMp} onCast={spendMp} />
-      );
-    }
-
-    if (cls.subsystem?.type === "spells") {
-      for (const spell of cls.subsystem.entries) {
-        const numericCost = Number(spell.mpCost);
-        activeCount++;
-        cards.push(
-          <div key={`${cl.classId}-spell-${spell.name}`} className="border border-border p-3">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <span className="text-sm font-semibold text-ink font-body">{spell.name}</span>
-              <span className="font-label text-2xs text-moss">{spell.mpCost} PM · {spell.target}</span>
-            </div>
-            <p className="mt-1.5 text-sm leading-snug text-ink-light font-body">{spell.text}</p>
-            {Number.isFinite(numericCost) && numericCost > 0 ? (
-              <button
-                type="button"
-                onClick={() => spendMp(numericCost)}
-                className="font-label mt-2 text-2xs uppercase tracking-wide border border-brass/50 px-2.5 py-1.5 text-brass hover:bg-brass/10 transition-colors"
-              >
-                Lanzar (−{numericCost} PM)
-              </button>
-            ) : (
-              <p className="mt-2 text-2xs italic text-ink-light font-body">Costo variable — ajustá los PM en Vitalidad.</p>
-            )}
-          </div>
-        );
-      }
-    }
-  }
-
-  return (
-    <Accordion title="Acciones" summary={`${activeCount} habilidad(es) activa(s)`} defaultOpen>
-      {cards.length === 0 ? (
-        <p className="text-sm text-ink-light font-body">Todavía no elegiste habilidades.</p>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2">{cards}</div>
-      )}
-      {classes.length > 0 && (
-        <p className="mt-4 text-xs leading-relaxed text-ink-light font-body">
-          Las habilidades pasivas se aplican siempre y no tienen costo — están listadas en la sección Clases y habilidades.
-        </p>
-      )}
-    </Accordion>
-  );
-}
-
-function ClassesAccordion({ character }: { character: FUCharacter }) {
-  return (
-    <Accordion title="Clases y habilidades" summary={character.classLevels.map((cl) => classesById[cl.classId]?.name).filter(Boolean).join(" · ")}>
-      <div className={cn("grid gap-4", character.classLevels.length > 1 && "xl:grid-cols-2")}>
-        {character.classLevels.map((cl) => {
-          const cls = classesById[cl.classId];
-          if (!cls) return null;
-          const counts = new Map<string, number>();
-          for (const name of cl.skillsTaken) counts.set(name, (counts.get(name) ?? 0) + 1);
-          return (
-            <div key={cl.classId}>
-              <div className="mb-2 flex items-baseline justify-between">
-                <span className="font-display text-lg font-bold text-ink">{cls.name}</span>
-                <span className="font-label text-xs uppercase tracking-wide text-ink-light">Nv {cl.levels}{cl.levels >= MAX_CLASS_LEVEL && " (máx)"}</span>
-              </div>
-              <div className="border border-border p-4">
-                <ul className="space-y-1 text-sm text-ink-light font-body">{cls.freeBenefits.map((b, i) => <li key={i}>· {b.text}</li>)}</ul>
-                <div className="mt-4 space-y-3">
-                  {Array.from(counts.entries()).map(([name, count]) => {
-                    const skill = cls.skills.find((s) => s.name === name);
-                    if (!skill) return null;
-                    return (
-                      <div key={name} className="border border-border p-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-semibold text-ink font-body">{skill.name}</span>
-                          {skill.maxLevel > 1 && (
-                            <span className="font-label text-xs text-moss">
-                              NH {count}/{skill.maxLevel}{count >= skill.maxLevel && " (máx)"}
-                            </span>
-                          )}
-                        </div>
-                        <SkillText text={skill.text} skillLevel={count} className="mt-1.5 text-sm leading-snug text-ink-light font-body" />
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </Accordion>
-  );
-}
-
-function TraitsAccordion({ character, onUpdate }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void }) {
-  return (
-    <Accordion title="Rasgos y peculiaridades" summary={character.trait || "Sin rasgo definido"}>
-      <div className="flex flex-col gap-4">
-        <div>
-          <label className="font-label text-xs font-semibold uppercase tracking-widest text-leather-light">Rasgo (Trait)</label>
-          <textarea
-            value={character.trait}
-            onChange={(e) => onUpdate({ ...character, trait: e.target.value, updatedAt: new Date().toISOString() })}
-            rows={2}
-            className="mt-1.5 w-full border border-border bg-parchment/60 px-3 py-2 text-sm text-ink focus:border-brass focus:outline-none font-body resize-none"
-          />
-        </div>
-        <div>
-          <label className="font-label text-xs font-semibold uppercase tracking-widest text-leather-light">Peculiaridades (Quirks)</label>
-          <textarea
-            value={character.quirks}
-            onChange={(e) => onUpdate({ ...character, quirks: e.target.value, updatedAt: new Date().toISOString() })}
-            rows={2}
-            className="mt-1.5 w-full border border-border bg-parchment/60 px-3 py-2 text-sm text-ink focus:border-brass focus:outline-none font-body resize-none"
-          />
-        </div>
-      </div>
+      <p className="mt-2 text-2xs leading-relaxed text-ink-light font-body">{bondsRulesNote}</p>
     </Accordion>
   );
 }
@@ -484,91 +432,87 @@ function EquipmentAccordion({ character, onUpdate }: { character: FUCharacter; o
   }
 
   const shopOptions = [...weapons, ...armors, ...shields].filter((i) => i.cost != null);
+  const equippedCount = equippedWeapons.length + (equippedShield ? 1 : 0) + (equippedArmor ? 1 : 0);
 
   return (
-    <Accordion title="Equipo" summary={`${equippedWeapons.length + (equippedShield ? 1 : 0) + (equippedArmor ? 1 : 0)} equipado(s) · ${character.backpack.length} en mochila`} defaultOpen>
-      <div className="grid gap-6 sm:grid-cols-2">
-        <div>
-          <p className="font-label text-xs uppercase tracking-wide text-ink-light mb-2">Equipado</p>
-          <div className="flex flex-col gap-2">
-            {equippedWeapons.map((w) => w && (
-              <div key={w.id} className="border border-border p-3 text-sm font-body flex items-center justify-between gap-2">
-                <div>
-                  <div className="font-semibold text-ink">{w.name}</div>
-                  {"accuracy" in w && <div className="text-xs text-moss">{w.accuracy} → {w.damage}</div>}
-                </div>
-                <button type="button" onClick={() => moveToBackpack("weapon", w.id)} className="font-label text-2xs uppercase text-leather-light hover:text-crimson shrink-0">Guardar</button>
-              </div>
-            ))}
-            {equippedShield && (
-              <div className="border border-border p-3 text-sm font-body flex items-center justify-between gap-2">
-                <div>
-                  <div className="font-semibold text-ink">{equippedShield.name}</div>
-                  {"defenseBonus" in equippedShield && <div className="text-xs text-moss">Def +{equippedShield.defenseBonus} · Def.M +{equippedShield.magicDefenseBonus}</div>}
-                </div>
-                <button type="button" onClick={() => moveToBackpack("shield", equippedShield.id)} className="font-label text-2xs uppercase text-leather-light hover:text-crimson shrink-0">Guardar</button>
-              </div>
-            )}
-            {equippedArmor && (
-              <div className="border border-border p-3 text-sm font-body flex items-center justify-between gap-2">
-                <div className="font-semibold text-ink">{equippedArmor.name}</div>
-                <button type="button" onClick={() => moveToBackpack("armor", equippedArmor.id)} className="font-label text-2xs uppercase text-leather-light hover:text-crimson shrink-0">Guardar</button>
-              </div>
-            )}
-            {equippedWeapons.length === 0 && !equippedShield && !equippedArmor && <p className="text-sm text-ink-light font-body">Sin equipo.</p>}
+    <Accordion title="Equipo" summary={`${equippedCount} equipado(s) · ${character.backpack.length} mochila`} defaultOpen>
+      <div>
+        {equippedWeapons.map((w) => w && (
+          <div key={w.id} className="flex items-center justify-between gap-2 py-1 border-t border-border/60 first:border-t-0">
+            <span className="font-body text-xs text-ink">{w.name} {"accuracy" in w && <span className="text-moss">· {w.accuracy}→{w.damage}</span>}</span>
+            <button type="button" onClick={() => moveToBackpack("weapon", w.id)} className="font-label text-2xs uppercase text-leather-light hover:text-crimson shrink-0">Guardar</button>
           </div>
-        </div>
-
-        <div>
-          <p className="font-label text-xs uppercase tracking-wide text-ink-light mb-2">Mochila</p>
-          {backpackItems.length === 0 ? (
-            <p className="text-sm text-ink-light font-body">Vacía.</p>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {backpackItems.map(({ id, item }) => item && (
-                <div key={id} className="border border-border p-3 text-sm font-body flex items-center justify-between gap-2">
-                  <span className="font-semibold text-ink">{item.name}</span>
-                  <button type="button" onClick={() => equipFromBackpack(id)} className="font-label text-2xs uppercase text-brass hover:text-brass-bright shrink-0">Equipar</button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        ))}
+        {equippedShield && (
+          <div className="flex items-center justify-between gap-2 py-1 border-t border-border/60 first:border-t-0">
+            <span className="font-body text-xs text-ink">{equippedShield.name}</span>
+            <button type="button" onClick={() => moveToBackpack("shield", equippedShield.id)} className="font-label text-2xs uppercase text-leather-light hover:text-crimson shrink-0">Guardar</button>
+          </div>
+        )}
+        {equippedArmor && (
+          <div className="flex items-center justify-between gap-2 py-1 border-t border-border/60 first:border-t-0">
+            <span className="font-body text-xs text-ink">{equippedArmor.name}</span>
+            <button type="button" onClick={() => moveToBackpack("armor", equippedArmor.id)} className="font-label text-2xs uppercase text-leather-light hover:text-crimson shrink-0">Guardar</button>
+          </div>
+        )}
+        {equippedCount === 0 && <p className="text-xs text-ink-light font-body py-1">Sin equipo.</p>}
       </div>
 
-      <div className="mt-5 flex items-center gap-2 flex-wrap">
-        <select value={shopId} onChange={(e) => setShopId(e.target.value)} className="border border-border bg-parchment/60 px-3 py-2 text-sm text-ink font-body flex-1 min-w-[10rem]">
-          <option value="">Comprar equipo…</option>
+      {backpackItems.length > 0 && (
+        <div className="mt-2 pt-2 border-t border-border/60">
+          <p className="font-label text-2xs uppercase tracking-wide text-ink-light mb-1">Mochila</p>
+          {backpackItems.map(({ id, item }) => item && (
+            <div key={id} className="flex items-center justify-between gap-2 py-0.5">
+              <span className="font-body text-xs text-ink">{item.name}</span>
+              <button type="button" onClick={() => equipFromBackpack(id)} className="font-label text-2xs uppercase text-brass hover:text-brass-bright shrink-0">Equipar</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-2 pt-2 border-t border-border/60 flex items-center gap-1.5 flex-wrap">
+        <select value={shopId} onChange={(e) => setShopId(e.target.value)} className="border border-border bg-parchment/60 px-2 py-1 text-xs text-ink font-body flex-1 min-w-[8rem]">
+          <option value="">Comprar…</option>
           {shopOptions.map((i) => <option key={i.id} value={i.id}>{i.name} — {i.cost}z</option>)}
         </select>
-        <button type="button" onClick={buy} disabled={!shopId} className="font-label text-xs uppercase tracking-wide border border-brass/50 px-3 py-2 text-brass hover:bg-brass/10 transition-colors disabled:opacity-30">
+        <button type="button" onClick={buy} disabled={!shopId} className="font-label text-2xs uppercase tracking-wide border border-brass/50 px-2 py-1 text-brass hover:bg-brass/10 transition-colors disabled:opacity-30">
           Comprar
         </button>
+        <span className="font-label text-xs text-brass-bright ml-auto">{character.zenit}z <span className="text-ink-light font-body text-2xs">({spent}z eq.)</span></span>
       </div>
-      <p className="font-label mt-4 text-sm text-brass-bright">{character.zenit} z <span className="text-ink-light font-body text-xs">({spent}z equipados)</span></p>
     </Accordion>
   );
 }
 
-function GlossaryFooter() {
-  const [open, setOpen] = React.useState(false);
+function TraitsGuildAccordion({ character, onUpdate, guildStanding }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void; guildStanding?: React.ReactNode }) {
   return (
-    <div className="mt-6 text-center">
-      <button type="button" onClick={() => setOpen((o) => !o)} className="font-label text-2xs uppercase tracking-widest text-parchment-dark hover:text-parchment inline-flex items-center gap-1.5">
-        <Info size={13} /> Glosario
-      </button>
-      {open && (
-        <div className="surface-parchment p-4 mt-2 text-left max-w-md mx-auto">
-          {glossary.map((g) => (
-            <p key={g.term} className="font-body text-xs text-ink-light mb-2 last:mb-0">
-              <span className="font-semibold text-ink">{g.term}:</span> {g.definition}
-            </p>
-          ))}
+    <Accordion title="Rasgos, peculiaridades y gremio" summary={character.trait || "Sin rasgo definido"}>
+      <div className="flex flex-col gap-3">
+        <div>
+          <label className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">Rasgo (Trait)</label>
+          <textarea
+            value={character.trait}
+            onChange={(e) => onUpdate({ ...character, trait: e.target.value, updatedAt: new Date().toISOString() })}
+            rows={2}
+            className="mt-1 w-full border border-border bg-parchment/60 px-2 py-1.5 text-xs text-ink focus:border-brass focus:outline-none font-body resize-none"
+          />
         </div>
-      )}
-    </div>
+        <div>
+          <label className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">Peculiaridades (Quirks)</label>
+          <textarea
+            value={character.quirks}
+            onChange={(e) => onUpdate({ ...character, quirks: e.target.value, updatedAt: new Date().toISOString() })}
+            rows={2}
+            className="mt-1 w-full border border-border bg-parchment/60 px-2 py-1.5 text-xs text-ink focus:border-brass focus:outline-none font-body resize-none"
+          />
+        </div>
+        {guildStanding && <div className="pt-1 border-t border-border/60">{guildStanding}</div>}
+      </div>
+    </Accordion>
   );
 }
+
+// ─── sheet ────────────────────────────────────────────────────────────────
 
 export function CharacterSheet({
   character,
@@ -596,6 +540,7 @@ export function CharacterSheet({
   const inCrisis = character.currentHp <= stats.crisis.value;
   const canLevelUp = character.xp >= XP_PER_LEVEL && character.classLevels.length > 0 && character.classLevels.some((cl) => cl.levels < MAX_CLASS_LEVEL);
   const [uploadingPortrait, setUploadingPortrait] = React.useState(false);
+  const [drawerOpen, setDrawerOpen] = React.useState(false);
 
   async function uploadImage(file: File, kind: "portrait" | "full_body") {
     setUploadingPortrait(true);
@@ -619,151 +564,152 @@ export function CharacterSheet({
     onUpdate({ ...character, level: character.level + 1, xp: character.xp - XP_PER_LEVEL, classLevels, updatedAt: new Date().toISOString() });
   }
 
+  const weapon = character.equipment.weapons[0] ? findEquipmentItem(character.equipment.weapons[0]) : null;
+
   return (
-    <div className="mx-auto max-w-5xl space-y-6 px-4 py-8 md:px-8">
+    <div className="mx-auto max-w-4xl px-3 py-5 md:px-6">
       {!hideBackLink && (
-        <Link href={backHref} className="font-label text-xs uppercase tracking-widest text-parchment-dark hover:text-parchment">
+        <Link href={backHref} className="font-label text-2xs uppercase tracking-widest text-parchment-dark hover:text-parchment">
           ← Mis personajes
         </Link>
       )}
 
-      <header className="surface-parchment p-6">
-        <div className="flex items-start gap-4">
-          <div className="relative size-16 shrink-0 rounded-full border border-brass/40 overflow-hidden bg-parchment-dark/30 flex items-center justify-center">
-            {portraitUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, size unknown ahead of render
-              <img src={portraitUrl} alt="" className="w-full h-full object-cover" />
-            ) : (
-              <User size={24} className="text-leather-light" />
-            )}
-            <label className="absolute inset-0 flex items-center justify-center bg-ink/0 hover:bg-ink/50 text-transparent hover:text-parchment transition-colors cursor-pointer text-2xs font-label uppercase text-center">
-              {uploadingPortrait ? "…" : "Cambiar"}
-              <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => e.target.files?.[0] && uploadImage(e.target.files[0], "portrait")} />
-            </label>
-          </div>
+      <div className="relative flex surface-parchment overflow-hidden mt-2">
+        <CharacterFullBodyDrawer imageUrl={fullBodyUrl} open={drawerOpen} onToggle={() => setDrawerOpen((o) => !o)} />
 
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h1 className="font-display text-3xl font-extrabold text-ink lg:text-4xl">{character.name || "Héroe sin nombre"}</h1>
-              <span className="font-label rounded-full border border-brass/50 px-4 py-1.5 text-xs uppercase tracking-wide text-brass">NV {character.level}</span>
-            </div>
-            {character.pronouns && <p className="mt-1 text-xs text-ink-light font-body">{character.pronouns}</p>}
-            <div className="mt-4 grid gap-1 sm:grid-cols-3">
-              <p className="text-sm text-ink font-body"><span className="font-label text-moss">Identidad </span>{character.identity}</p>
-              <p className="text-sm text-ink font-body"><span className="font-label text-moss">Tema </span>{character.theme}</p>
-              <p className="text-sm text-ink font-body"><span className="font-label text-moss">Origen </span>{character.origin}</p>
-            </div>
-            {character.appearance && <p className="mt-4 text-sm italic leading-relaxed text-ink-light font-body">{character.appearance}</p>}
-          </div>
-        </div>
-
-        <div className="mt-5 pt-4 border-t border-border">
-          <div className="flex items-center justify-between font-label text-xs uppercase tracking-wide text-ink-light">
-            <span>XP: {character.xp} / {XP_PER_LEVEL}</span>
-            {canLevelUp && <span className="text-brass-bright">¡Podés subir de nivel!</span>}
-          </div>
-          <div className="relative mt-1.5 h-2 overflow-hidden rounded-full bg-parchment-dark/40">
-            <div className="h-full rounded-full bg-brass transition-all duration-500" style={{ width: `${Math.min(100, (character.xp / XP_PER_LEVEL) * 100)}%` }} />
-          </div>
-          {canLevelUp && (
-            <LevelUpControl character={character} onLevelUp={levelUp} />
-          )}
-        </div>
-
-        {guildStanding}
-      </header>
-
-      <div className="space-y-6">
-        <CockpitCard title="Vitalidad">
-          <div className="space-y-4">
-            <div>
-              <StatBar label="Puntos de Vida" value={character.currentHp} max={stats.hp.value} color="moss" markerAt={stats.crisis.value} />
-              <div className="mt-1.5 flex items-center justify-between">
-                {inCrisis ? (
-                  <span className="font-label text-2xs uppercase tracking-wide text-crimson font-bold">● Crisis</span>
-                ) : <span />}
-                <Adjuster value={character.currentHp} max={stats.hp.value} onChange={(v) => onUpdate({ ...character, currentHp: v, updatedAt: new Date().toISOString() })} />
+        <div className="min-w-0 flex-1 p-3.5 md:p-5 space-y-3">
+          {/* Header */}
+          <div className="flex flex-wrap items-start justify-between gap-3 pl-6">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="relative size-11 shrink-0 rounded-full border border-brass/40 overflow-hidden bg-parchment-dark/30 flex items-center justify-center">
+                {portraitUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, size unknown ahead of render
+                  <img src={portraitUrl} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <User size={18} className="text-leather-light" />
+                )}
+                <label className="absolute inset-0 flex items-center justify-center bg-ink/0 hover:bg-ink/50 text-transparent hover:text-parchment transition-colors cursor-pointer text-2xs font-label uppercase text-center">
+                  {uploadingPortrait ? "…" : "Cambiar"}
+                  <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => e.target.files?.[0] && uploadImage(e.target.files[0], "portrait")} />
+                </label>
               </div>
-            </div>
-            <div>
-              <StatBar label="Puntos de Mente" value={character.currentMp} max={stats.mp.value} color="brass" />
-              <div className="mt-1.5 flex justify-end">
-                <Adjuster value={character.currentMp} max={stats.mp.value} onChange={(v) => onUpdate({ ...character, currentMp: v, updatedAt: new Date().toISOString() })} />
-              </div>
-            </div>
-            <div>
-              <StatBar label="Puntos de Inventario" value={character.currentIp} max={stats.ip.value} color="brass" />
-              <div className="mt-1.5 flex justify-end">
-                <Adjuster value={character.currentIp} max={stats.ip.value} onChange={(v) => onUpdate({ ...character, currentIp: v, updatedAt: new Date().toISOString() })} />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 pt-2">
-              <StatTile label="Defensa" value={stats.defense.value} />
-              <StatTile label="Def. Mágica" value={stats.magicDefense.value} />
-              <StatTile label="Iniciativa" value={stats.initiative.value} />
-              <StatTile label="Zenit" value={character.zenit} />
-            </div>
-
-            {(() => {
-              const weapon = character.equipment.weapons[0] ? findEquipmentItem(character.equipment.weapons[0]) : null;
-              return (
-                <div className="border border-border p-3 text-sm font-body">
-                  <span className="font-label text-2xs uppercase tracking-wide text-ink-light">Ataque básico</span>
-                  {weapon && "accuracy" in weapon ? (
-                    <p className="text-ink mt-0.5">{weapon.name}: {weapon.accuracy} → {weapon.damage}</p>
-                  ) : (
-                    <p className="text-ink mt-0.5">Desarmado: 【DEX + VIG】 → 【HR】físico</p>
-                  )}
+              <div className="min-w-0">
+                <div className="flex items-baseline gap-2 flex-wrap">
+                  <h1 className="font-display text-lg font-bold text-ink truncate">{character.name || "Héroe sin nombre"}</h1>
+                  <span className="font-label text-2xs uppercase tracking-wide text-ink-light shrink-0">
+                    Nv {character.level} · {classes.map((c) => c.name).join(" / ") || "Sin clase"}
+                  </span>
                 </div>
-              );
-            })()}
-
-            <div className="pt-2">
-              <p className="font-label text-xs uppercase tracking-wide text-ink-light mb-2">Objetos de inventario</p>
-              <div className="grid gap-2 sm:grid-cols-3">
-                {ipItems.map((item) => (
-                  <button
-                    key={item.name}
-                    type="button"
-                    disabled={character.currentIp < item.ipCost}
-                    onClick={() => {
-                      let updated = { ...character, currentIp: character.currentIp - item.ipCost };
-                      if (item.name === "Remedio") updated = { ...updated, currentHp: Math.min(stats.hp.value, updated.currentHp + 50) };
-                      if (item.name === "Elixir") updated = { ...updated, currentMp: Math.min(stats.mp.value, updated.currentMp + 50) };
-                      onUpdate({ ...updated, updatedAt: new Date().toISOString() });
-                    }}
-                    className="border border-border p-2.5 text-left text-xs font-body disabled:opacity-30 hover:border-brass transition-colors"
-                  >
-                    <div className="font-semibold text-ink">{item.name} ({item.ipCost} PI)</div>
-                    <div className="text-ink-light mt-0.5">{item.effect}</div>
-                  </button>
-                ))}
+                <p className="font-body text-2xs text-ink-light truncate">
+                  <span className="text-moss">Identidad</span> {character.identity} · <span className="text-moss">Tema</span> {character.theme} · <span className="text-moss">Origen</span> {character.origin}
+                </p>
               </div>
-              <p className="mt-1.5 text-2xs text-ink-light font-body">
-                Los objetos son ejemplos de referencia — tu mesa puede definir otros con tu DM.
-              </p>
+            </div>
+            <div className="flex items-center gap-4 shrink-0">
+              <StatPill label="Zenit" value={`${character.zenit}z`} />
+              <FabulaBadge value={character.fabulaPoints} onChange={(v) => onUpdate({ ...character, fabulaPoints: v, updatedAt: new Date().toISOString() })} />
+            </div>
+          </div>
+
+          {/* XP */}
+          <div className="pl-6">
+            <div className="flex items-center justify-between font-label text-2xs uppercase tracking-wide text-ink-light">
+              <span>XP {character.xp}/{XP_PER_LEVEL}</span>
+              {canLevelUp && <span className="text-brass-bright">¡Podés subir de nivel!</span>}
+            </div>
+            <div className="relative mt-1 h-1.5 overflow-hidden rounded-full bg-parchment-dark/40">
+              <div className="h-full rounded-full bg-brass transition-all duration-500" style={{ width: `${Math.min(100, (character.xp / XP_PER_LEVEL) * 100)}%` }} />
+            </div>
+            {canLevelUp && <LevelUpControl character={character} onLevelUp={levelUp} />}
+          </div>
+
+          {/* Cockpit */}
+          <div className="bg-parchment-dark/25 border border-brass/30 rounded-sm p-3 space-y-2.5">
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <StatBar label="PV" value={character.currentHp} max={stats.hp.value} color="moss" markerAt={stats.crisis.value} />
+                <div className="mt-1 flex items-center justify-between">
+                  {inCrisis ? <span className="font-label text-2xs uppercase tracking-wide text-crimson font-bold">● Crisis</span> : <span />}
+                  <Adjuster value={character.currentHp} max={stats.hp.value} onChange={(v) => onUpdate({ ...character, currentHp: v, updatedAt: new Date().toISOString() })} />
+                </div>
+              </div>
+              <div>
+                <StatBar label="PM" value={character.currentMp} max={stats.mp.value} color="brass" />
+                <div className="mt-1 flex justify-end">
+                  <Adjuster value={character.currentMp} max={stats.mp.value} onChange={(v) => onUpdate({ ...character, currentMp: v, updatedAt: new Date().toISOString() })} />
+                </div>
+              </div>
+              <div>
+                <div className="font-label flex justify-between text-xs uppercase tracking-wide text-ink-light">
+                  <span>PI</span>
+                  <span>{character.currentIp} / {stats.ip.value}</span>
+                </div>
+                <div className="mt-1.5 flex items-center justify-between">
+                  <span className="font-body text-2xs text-ink-light">Objetos de inventario</span>
+                  <Adjuster value={character.currentIp} max={stats.ip.value} onChange={(v) => onUpdate({ ...character, currentIp: v, updatedAt: new Date().toISOString() })} />
+                </div>
+              </div>
             </div>
 
-            <p className="font-label text-xs text-ink-light">Crisis: la mitad de tu PV máximo, redondeado hacia abajo.</p>
+            <AttributeGrid character={character} current={current} />
+            <StatusEffectToggles character={character} onUpdate={onUpdate} />
+
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-body text-2xs text-ink-light border-t border-border/60 pt-2">
+              <span>DEF <strong className="text-ink">{stats.defense.value}</strong></span>
+              <span>Def.M <strong className="text-ink">{stats.magicDefense.value}</strong></span>
+              <span>Iniciativa <strong className="text-ink">{stats.initiative.value}</strong></span>
+              <span className="flex-1 min-w-[10rem]">
+                {weapon && "accuracy" in weapon ? (
+                  <>Ataque: <strong className="text-ink">{weapon.name}: {weapon.accuracy} → {weapon.damage}</strong></>
+                ) : (
+                  <>Ataque: <strong className="text-ink">Desarmado 【DEX+VIG】→【HR】físico</strong></>
+                )}
+              </span>
+            </div>
+
+            <div className="flex flex-wrap gap-1.5 border-t border-border/60 pt-2">
+              {ipItems.map((item) => (
+                <button
+                  key={item.name}
+                  type="button"
+                  title={item.effect}
+                  disabled={character.currentIp < item.ipCost}
+                  onClick={() => {
+                    let updated = { ...character, currentIp: character.currentIp - item.ipCost };
+                    if (item.name === "Remedio") updated = { ...updated, currentHp: Math.min(stats.hp.value, updated.currentHp + 50) };
+                    if (item.name === "Elixir") updated = { ...updated, currentMp: Math.min(stats.mp.value, updated.currentMp + 50) };
+                    onUpdate({ ...updated, updatedAt: new Date().toISOString() });
+                  }}
+                  className="font-label text-2xs px-2 py-1 border border-border rounded-sm hover:border-brass disabled:opacity-30 transition-colors"
+                >
+                  {item.name} ({item.ipCost})
+                </button>
+              ))}
+            </div>
           </div>
-        </CockpitCard>
 
-        <AttributesAndStatusPanel character={character} current={current} onUpdate={onUpdate} />
-        <FabulaPointsPanel character={character} onUpdate={onUpdate} />
+          {/* Accordion cards */}
+          <div className="grid sm:grid-cols-2 gap-2.5">
+            <ActionsAccordion character={character} onUpdate={onUpdate} />
+            <EquipmentAccordion character={character} onUpdate={onUpdate} />
+            <AffinitiesAccordion character={character} onUpdate={onUpdate} />
+            <ClassesAccordion character={character} />
+            <BondsAccordion character={character} onUpdate={onUpdate} />
+            <TraitsGuildAccordion character={character} onUpdate={onUpdate} guildStanding={guildStanding} />
+          </div>
+
+          {/* Glossary */}
+          <p className="text-2xs text-ink-light font-body border-t border-border/60 pt-2 flex items-start gap-1">
+            <Info size={12} className="shrink-0 mt-px" />
+            {glossary.map((g, i) => (
+              <React.Fragment key={g.term}>
+                {i > 0 && " · "}
+                <strong className="text-ink">{g.term}:</strong> {g.definition}
+              </React.Fragment>
+            ))}
+          </p>
+        </div>
       </div>
-
-      <div className="space-y-4">
-        <ActionsAccordion character={character} onUpdate={onUpdate} />
-        <EquipmentAccordion character={character} onUpdate={onUpdate} />
-        <AffinitiesAccordion character={character} onUpdate={onUpdate} />
-        <ClassesAccordion character={character} />
-        <BondsAccordion character={character} onUpdate={onUpdate} />
-        <TraitsAccordion character={character} onUpdate={onUpdate} />
-      </div>
-
-      <GlossaryFooter />
-      <CharacterFullBodyDrawer imageUrl={fullBodyUrl} />
     </div>
   );
 }
@@ -781,25 +727,19 @@ function LevelUpControl({ character, onLevelUp }: { character: FUCharacter; onLe
   }) ?? [];
 
   return (
-    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
-      <div className="flex-1">
-        <label className="font-label text-2xs uppercase tracking-wide text-ink-light">Clase</label>
-        <select value={classId} onChange={(e) => { setClassId(e.target.value); setSkillName(""); }} className="mt-1 w-full border border-border bg-parchment/60 px-3 py-2 text-sm text-ink font-body">
-          {eligibleClasses.map((cl) => <option key={cl.classId} value={cl.classId}>{classesById[cl.classId]?.name}</option>)}
-        </select>
-      </div>
-      <div className="flex-1">
-        <label className="font-label text-2xs uppercase tracking-wide text-ink-light">Nueva habilidad</label>
-        <select value={skillName} onChange={(e) => setSkillName(e.target.value)} className="mt-1 w-full border border-border bg-parchment/60 px-3 py-2 text-sm text-ink font-body">
-          <option value="">Elegí…</option>
-          {skillOptions.map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}
-        </select>
-      </div>
+    <div className="mt-2 flex flex-col gap-1.5 sm:flex-row sm:items-end">
+      <select value={classId} onChange={(e) => { setClassId(e.target.value); setSkillName(""); }} className="flex-1 border border-border bg-parchment/60 px-2 py-1 text-xs text-ink font-body">
+        {eligibleClasses.map((cl) => <option key={cl.classId} value={cl.classId}>{classesById[cl.classId]?.name}</option>)}
+      </select>
+      <select value={skillName} onChange={(e) => setSkillName(e.target.value)} className="flex-1 border border-border bg-parchment/60 px-2 py-1 text-xs text-ink font-body">
+        <option value="">Nueva habilidad…</option>
+        {skillOptions.map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}
+      </select>
       <button
         type="button"
         disabled={!classId || !skillName}
         onClick={() => classId && skillName && onLevelUp(classId, skillName)}
-        className="font-label text-xs uppercase tracking-wide border border-brass bg-brass/10 px-4 py-2 text-brass-bright hover:bg-brass/20 transition-colors disabled:opacity-30"
+        className="font-label text-2xs uppercase tracking-wide border border-brass bg-brass/10 px-3 py-1 text-brass-bright hover:bg-brass/20 transition-colors disabled:opacity-30"
       >
         Subir de nivel
       </button>
