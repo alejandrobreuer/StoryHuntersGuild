@@ -71,18 +71,37 @@ export function EquipmentBoard() {
     shields: ref.shields.filter((s) => !s.martial || capabilities.shield),
   };
 
-  function equip(itemId: string) {
+  // The item's own type always decides which slot it goes to — a drop
+  // target only matters for picking between the two weapon slots. This is
+  // what previously let a weapon end up equipped as armor: handleDragEnd
+  // used to trust whichever slot the card was dropped on instead of
+  // checking what was actually being equipped, and neither path enforced
+  // the same off-hand/two-handed contention rules the real character sheet
+  // does (see equipFromBackpack in components/rol/character/CharacterSheet.tsx).
+  function equipItem(itemId: string) {
     const item = findEquipmentItem(itemId, ref);
     if (!item) return;
+    const equippedTwoHanded = ref.weapons.find((w) => w.id === draft.equipment.weapons[0])?.handedness === "two-handed";
+
     if ("accuracy" in item) {
       if (item.handedness === "two-handed") {
         dispatch({ type: "EQUIP_WEAPON", weaponId: itemId, slot: 0 });
         dispatch({ type: "UNEQUIP_WEAPON", slot: 1 });
+        if (draft.equipment.shield) dispatch({ type: "EQUIP_SHIELD", shieldId: undefined });
+      } else if (equippedTwoHanded) {
+        dispatch({ type: "EQUIP_WEAPON", weaponId: itemId, slot: 0 });
+        dispatch({ type: "UNEQUIP_WEAPON", slot: 1 });
+      } else if (draft.equipment.weapons.length >= 2) {
+        return;
+      } else if (draft.equipment.weapons.length === 1) {
+        if (draft.equipment.shield) dispatch({ type: "EQUIP_SHIELD", shieldId: undefined });
+        dispatch({ type: "EQUIP_WEAPON", weaponId: itemId, slot: 1 });
       } else {
-        const slot = draft.equipment.weapons.length < 2 ? draft.equipment.weapons.length : 0;
-        dispatch({ type: "EQUIP_WEAPON", weaponId: itemId, slot: slot as 0 | 1 });
+        dispatch({ type: "EQUIP_WEAPON", weaponId: itemId, slot: 0 });
       }
     } else if ("defenseBonus" in item) {
+      if (equippedTwoHanded) return;
+      if (draft.equipment.weapons.length >= 2) dispatch({ type: "UNEQUIP_WEAPON", slot: 1 });
       dispatch({ type: "EQUIP_SHIELD", shieldId: itemId });
     } else {
       dispatch({ type: "EQUIP_ARMOR", armorId: itemId });
@@ -90,21 +109,8 @@ export function EquipmentBoard() {
   }
 
   function handleDragEnd(event: DragEndEvent) {
-    const overId = event.over?.id;
-    const itemId = String(event.active.id);
-    if (overId === "slot-weapon-0") {
-      const weapon = ref.weapons.find((w) => w.id === itemId);
-      dispatch({ type: "EQUIP_WEAPON", weaponId: itemId, slot: 0 });
-      if (weapon?.handedness === "two-handed") dispatch({ type: "UNEQUIP_WEAPON", slot: 1 });
-    } else if (overId === "slot-weapon-1") {
-      const weapon = ref.weapons.find((w) => w.id === itemId);
-      if (weapon?.handedness === "two-handed") return;
-      dispatch({ type: "EQUIP_WEAPON", weaponId: itemId, slot: 1 });
-    } else if (overId === "slot-shield") {
-      dispatch({ type: "EQUIP_SHIELD", shieldId: itemId });
-    } else if (overId === "slot-armor") {
-      dispatch({ type: "EQUIP_ARMOR", armorId: itemId });
-    }
+    if (!event.over) return;
+    equipItem(String(event.active.id));
   }
 
   return (
@@ -117,7 +123,7 @@ export function EquipmentBoard() {
                 key={t}
                 type="button"
                 onClick={() => setTab(t)}
-                className={cn("border-b-2 px-4 py-2 transition-colors", tab === t ? "border-brass text-brass-bright" : "border-transparent text-ink-light hover:text-ink")}
+                className={cn("border-b-2 px-4 py-2 transition-colors", tab === t ? "border-brass text-ink font-semibold" : "border-transparent text-ink-light hover:text-ink")}
               >
                 {TAB_LABELS[t]}
               </button>
@@ -125,17 +131,17 @@ export function EquipmentBoard() {
           </div>
           <div className="grid max-h-[32rem] grid-cols-1 gap-3 overflow-y-auto pr-1 sm:grid-cols-2 xl:grid-cols-3">
             {tab === "weapons" && purchasable.weapons.map((w) => (
-              <button key={w.id} type="button" onClick={() => equip(w.id)} className="text-left">
+              <button key={w.id} type="button" onClick={() => equipItem(w.id)} className="text-left">
                 <EquipmentCard item={weaponCardData(w)} dragId={w.id} />
               </button>
             ))}
             {tab === "armor" && purchasable.armor.map((a) => (
-              <button key={a.id} type="button" onClick={() => equip(a.id)} className="text-left">
+              <button key={a.id} type="button" onClick={() => equipItem(a.id)} className="text-left">
                 <EquipmentCard item={armorCardData(a)} dragId={a.id} />
               </button>
             ))}
             {tab === "shields" && purchasable.shields.map((s) => (
-              <button key={s.id} type="button" onClick={() => equip(s.id)} className="text-left">
+              <button key={s.id} type="button" onClick={() => equipItem(s.id)} className="text-left">
                 <EquipmentCard item={shieldCardData(s)} dragId={s.id} />
               </button>
             ))}

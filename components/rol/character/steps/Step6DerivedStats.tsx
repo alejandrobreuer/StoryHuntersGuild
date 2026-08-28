@@ -11,7 +11,7 @@ function StatBlock({ title, result }: { title: string; result: StatResult }) {
     <div className="surface-parchment p-5">
       <div className="flex items-baseline justify-between">
         <span className="font-label text-xs uppercase tracking-wide text-ink-light">{title}</span>
-        <span className="font-display text-2xl font-bold text-brass-bright">{result.value}</span>
+        <span className="font-display text-2xl font-bold text-ink">{result.value}</span>
       </div>
       <ul className="mt-2 space-y-1 text-xs text-ink-light font-body">
         {result.breakdown.map((t, i) => (
@@ -34,7 +34,7 @@ export function Step6DerivedStats() {
   return (
     <div className="space-y-6">
       <header>
-        <h2 className="font-display text-2xl font-bold text-brass-bright">Estadísticas derivadas</h2>
+        <h2 className="font-display text-2xl font-bold text-ink">Estadísticas derivadas</h2>
         <p className="mt-2 flex items-start text-sm text-ink-light font-body">
           Se calculan automáticamente a partir de tus Atributos y beneficios de Clase.
           <InfoDisclosure label="De dónde salen estos números">
@@ -56,7 +56,7 @@ export function Step6DerivedStats() {
         <div className="surface-parchment p-5">
           <div className="flex items-baseline justify-between">
             <span className="font-label text-xs uppercase tracking-wide text-ink-light">Puntos de Fábula</span>
-            <span className="font-display text-2xl font-bold text-brass-bright">{STARTING_FABULA_POINTS}</span>
+            <span className="font-display text-2xl font-bold text-ink">{STARTING_FABULA_POINTS}</span>
           </div>
           <p className="mt-2 text-xs text-ink-light font-body">Todo personaje empieza el juego con 3 Puntos de Fábula.</p>
         </div>

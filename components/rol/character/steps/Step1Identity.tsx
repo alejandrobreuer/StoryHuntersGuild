@@ -26,7 +26,7 @@ export function Step1Identity() {
   return (
     <div className="space-y-6">
       <header>
-        <h2 className="font-display text-2xl font-bold text-brass-bright">Identidad</h2>
+        <h2 className="font-display text-2xl font-bold text-ink">Identidad</h2>
         <p className="mt-2 flex items-start text-sm text-ink-light font-body">
           Una frase corta que resuma cómo se ve tu personaje a sí mismo ahora mismo.
           <InfoDisclosure label="Por qué importa la Identidad">

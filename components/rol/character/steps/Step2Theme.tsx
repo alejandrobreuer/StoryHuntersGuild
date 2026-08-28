@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWizard } from "@/app/FU/lib/wizardState";
 import { themes } from "@/app/FU/data/tables";
@@ -14,7 +15,7 @@ export function Step2Theme() {
   return (
     <div className="space-y-6">
       <header>
-        <h2 className="font-display text-2xl font-bold text-brass-bright">Tema</h2>
+        <h2 className="font-display text-2xl font-bold text-ink">Tema</h2>
         <p className="mt-2 flex items-start text-sm text-ink-light font-body">
           Un ideal, emoción o sentimiento fuerte que domina las acciones de tu personaje.
           <InfoDisclosure label="Por qué importa el Tema">
@@ -27,20 +28,28 @@ export function Step2Theme() {
 
       {!customMode ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {themes.map((t) => (
-            <button
-              key={t.name}
-              type="button"
-              onClick={() => dispatch({ type: "SET_THEME", value: t.name })}
-              className={cn(
-                "surface-parchment p-4 text-left transition-colors hover:border-brass",
-                draft.theme === t.name && "border-brass bg-brass/10"
-              )}
-            >
-              <div className="font-display text-sm font-semibold text-ink">{t.name}</div>
-              <div className="mt-1 text-xs leading-snug text-ink-light font-body">{t.description}</div>
-            </button>
-          ))}
+          {themes.map((t) => {
+            const selected = draft.theme === t.name;
+            return (
+              <button
+                key={t.name}
+                type="button"
+                onClick={() => dispatch({ type: "SET_THEME", value: t.name })}
+                className={cn(
+                  "surface-parchment relative p-4 text-left transition-colors hover:border-brass",
+                  selected && "border-2 border-brass bg-brass/20"
+                )}
+              >
+                {selected && (
+                  <span className="absolute right-2 top-2 flex size-5 items-center justify-center rounded-full bg-brass text-parchment">
+                    <Check size={12} strokeWidth={3} />
+                  </span>
+                )}
+                <div className="font-display text-sm font-semibold text-ink pr-5">{t.name}</div>
+                <div className="mt-1 text-xs leading-snug text-ink-light font-body">{t.description}</div>
+              </button>
+            );
+          })}
         </div>
       ) : (
         <input

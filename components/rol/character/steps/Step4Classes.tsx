@@ -44,7 +44,7 @@ export function Step4Classes() {
   return (
     <div className="space-y-6">
       <header>
-        <h2 className="font-display text-2xl font-bold text-brass-bright">Clases</h2>
+        <h2 className="font-display text-2xl font-bold text-ink">Clases</h2>
         <p className="mt-2 flex items-start text-sm text-ink-light font-body">
           Elegí 2 a 3 Clases y repartí tus cinco niveles iniciales entre ellas.
           <InfoDisclosure label="Por qué importan las Clases">

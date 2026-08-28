@@ -16,7 +16,7 @@ export function Step8Finishing() {
   return (
     <div className="space-y-6">
       <header>
-        <h2 className="font-display text-2xl font-bold text-brass-bright">Toques finales</h2>
+        <h2 className="font-display text-2xl font-bold text-ink">Toques finales</h2>
         <p className="mt-2 text-sm text-ink-light font-body">Nombrá a tu personaje, definí sus pronombres y describí su aspecto.</p>
       </header>
 

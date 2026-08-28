@@ -21,7 +21,7 @@ export function Step7Equipment() {
   return (
     <div className="space-y-6">
       <header>
-        <h2 className="font-display text-2xl font-bold text-brass-bright">Equipo y ahorros</h2>
+        <h2 className="font-display text-2xl font-bold text-ink">Equipo y ahorros</h2>
         <p className="mt-2 flex items-start text-sm text-ink-light font-body">
           Gastá tu presupuesto inicial de 500 zenit en armas, armadura y un escudo.
           <InfoDisclosure label="Por qué importa el equipo">
@@ -35,7 +35,7 @@ export function Step7Equipment() {
         <div>
           <span className="font-label text-xs uppercase tracking-wide text-ink-light">Presupuesto</span>
           <div className="font-display text-xl font-bold">
-            <span className={overspent ? "text-crimson" : "text-brass-bright"}>{remaining}</span>
+            <span className={overspent ? "text-crimson" : "text-ink"}>{remaining}</span>
             <span className="text-sm text-ink-light font-body"> / {STARTING_BUDGET} z restantes</span>
           </div>
           {overspent && <p className="mt-1 text-xs text-crimson font-body">Te pasaste del presupuesto — sacá un ítem.</p>}
@@ -56,9 +56,9 @@ export function Step7Equipment() {
         >
           <Dices className="h-4 w-4" /> Tirar ahorros (2d6 × 10)
         </button>
-        {draft.savingsRoll != null && <span className="font-display text-lg font-bold text-brass-bright">Salió {draft.savingsRoll} z</span>}
+        {draft.savingsRoll != null && <span className="font-display text-lg font-bold text-ink">Salió {draft.savingsRoll} z</span>}
         <span className="font-label ml-auto text-xs uppercase tracking-wide text-ink-light">
-          Zenit inicial: <span className="text-brass-bright">{totalZenit} z</span>
+          Zenit inicial: <span className="text-ink font-semibold">{totalZenit} z</span>
         </span>
       </div>
     </div>

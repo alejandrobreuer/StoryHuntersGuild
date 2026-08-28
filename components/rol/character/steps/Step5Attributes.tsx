@@ -38,7 +38,7 @@ export function Step5Attributes() {
   return (
     <div className="space-y-6">
       <header>
-        <h2 className="font-display text-2xl font-bold text-brass-bright">Atributos</h2>
+        <h2 className="font-display text-2xl font-bold text-ink">Atributos</h2>
         <p className="mt-2 flex items-start text-sm text-ink-light font-body">
           Definí el tamaño de dado base (d6–d12) de tus cuatro Atributos.
           <InfoDisclosure label="Por qué importan los Atributos">
@@ -63,7 +63,7 @@ export function Step5Attributes() {
 
       <div className="grid gap-3 sm:grid-cols-2">
         {ATTR_ROWS.map(({ key, label, blurb }) => (
-          <div key={key} className={cn("surface-parchment flex items-center justify-between p-4", !advanced && swapPick === key && "border-brass")}>
+          <div key={key} className={cn("surface-parchment flex items-center justify-between p-4", !advanced && swapPick === key && "border-2 border-brass bg-brass/15")}>
             <div>
               <div className="font-display text-base font-semibold text-ink">{label}</div>
               <div className="text-xs text-ink-light font-body">{blurb}</div>
@@ -72,7 +72,7 @@ export function Step5Attributes() {
               <select
                 value={draft.attributes[key]}
                 onChange={(e) => dispatch({ type: "SET_ATTRIBUTE", attribute: key, value: Number(e.target.value) as DieSize })}
-                className="font-label border border-border bg-parchment/60 px-3 py-2 text-base font-bold text-brass-bright focus:border-brass focus:outline-none"
+                className="font-label border border-border bg-parchment/60 px-3 py-2 text-base font-bold text-ink focus:border-brass focus:outline-none"
               >
                 {[6, 8, 10, 12].map((d) => <option key={d} value={d}>d{d}</option>)}
               </select>
@@ -80,7 +80,10 @@ export function Step5Attributes() {
               <button
                 type="button"
                 onClick={() => handleSwapClick(key)}
-                className="font-label border border-border px-4 py-2 text-base font-bold text-brass-bright hover:border-brass"
+                className={cn(
+                  "font-label border px-4 py-2 text-base font-bold text-ink hover:border-brass",
+                  swapPick === key ? "border-2 border-brass bg-brass/20" : "border-border"
+                )}
               >
                 d{draft.attributes[key]}
               </button>

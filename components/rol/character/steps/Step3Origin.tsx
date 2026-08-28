@@ -9,7 +9,7 @@ export function Step3Origin() {
   return (
     <div className="space-y-6">
       <header>
-        <h2 className="font-display text-2xl font-bold text-brass-bright">Origen</h2>
+        <h2 className="font-display text-2xl font-bold text-ink">Origen</h2>
         <p className="mt-2 flex items-start text-sm text-ink-light font-body">
           El lugar de donde viene tu personaje — un pueblo, una gran ciudad, o algo más fantástico.
           <InfoDisclosure label="Por qué importa el Origen">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MAX_CLASSES } from "@/app/FU/lib/wizardState";
 import { useReferenceDataContext } from "@/app/FU/lib/ReferenceDataContext";
@@ -41,13 +42,18 @@ export function ClassPicker({ selectedIds, onToggle }: { selectedIds: string[]; 
               disabled={disabled}
               onClick={() => onToggle(cls.id)}
               className={cn(
-                "surface-parchment p-4 text-left transition-colors",
-                selected && "border-brass bg-brass/10",
+                "surface-parchment relative p-4 text-left transition-colors",
+                selected && "border-2 border-brass bg-brass/20",
                 !selected && !disabled && "hover:border-brass",
                 disabled && "opacity-40"
               )}
             >
-              <div className="font-display text-base font-semibold text-ink">{cls.name}</div>
+              {selected && (
+                <span className="absolute right-2 top-2 flex size-5 items-center justify-center rounded-full bg-brass text-parchment">
+                  <Check size={12} strokeWidth={3} />
+                </span>
+              )}
+              <div className="font-display text-base font-semibold text-ink pr-5">{cls.name}</div>
               <div className="text-xs text-ink-light font-body">{cls.alsoKnownAs.join(" · ")}</div>
               <p className="mt-2 line-clamp-3 text-xs leading-snug text-ink-light font-body">{cls.description}</p>
             </button>
