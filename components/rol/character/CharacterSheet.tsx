@@ -567,7 +567,7 @@ export function CharacterSheet({
   const weapon = character.equipment.weapons[0] ? findEquipmentItem(character.equipment.weapons[0]) : null;
 
   return (
-    <div className="mx-auto max-w-4xl px-3 py-5 md:px-6">
+    <div className="mx-auto max-w-6xl px-3 py-5 md:px-6">
       {!hideBackLink && (
         <Link href={backHref} className="font-label text-2xs uppercase tracking-widest text-parchment-dark hover:text-parchment">
           ← Mis personajes
@@ -577,7 +577,7 @@ export function CharacterSheet({
       <div className="relative flex surface-parchment overflow-hidden mt-2">
         <CharacterFullBodyDrawer imageUrl={fullBodyUrl} open={drawerOpen} onToggle={() => setDrawerOpen((o) => !o)} />
 
-        <div className="min-w-0 flex-1 p-3.5 md:p-5 space-y-3">
+        <div className="min-w-0 flex-1 p-3.5 md:p-5 lg:p-7 space-y-3.5">
           {/* Header */}
           <div className="flex flex-wrap items-start justify-between gap-3 pl-6">
             <div className="flex items-center gap-2.5 min-w-0">
@@ -689,7 +689,7 @@ export function CharacterSheet({
           </div>
 
           {/* Accordion cards */}
-          <div className="grid sm:grid-cols-2 gap-2.5">
+          <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
             <ActionsAccordion character={character} onUpdate={onUpdate} />
             <EquipmentAccordion character={character} onUpdate={onUpdate} />
             <AffinitiesAccordion character={character} onUpdate={onUpdate} />
