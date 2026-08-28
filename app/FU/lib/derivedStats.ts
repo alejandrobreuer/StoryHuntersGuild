@@ -9,8 +9,9 @@
 import type { FUClass, StatKey } from "../data/types";
 import { armors, shields, weapons } from "../data/equipment";
 import { statusEffects, stepDownDie, type AttributeKey } from "../data/statusEffects";
+import { classesById } from "../data/classes";
 import { CHARACTER_LEVEL } from "./types";
-import type { FUCharacterAttributes, FUCharacterEquipment } from "./types";
+import type { FUCharacter, FUCharacterAttributes, FUCharacterEquipment } from "./types";
 
 export interface StatTerm {
   label: string;
@@ -211,6 +212,39 @@ export const SESSION_XP = 5;
 /** How many class levels a character can invest in a single non-mastered class before it's "maxed" for this simplified model. */
 export const MAX_CLASS_LEVEL = 10;
 export const MAX_CLASSES = 3;
+
+type LegacySheetFields = "trait" | "quirks" | "backpack" | "elementalAffinities" | "xp" | "currentHp" | "currentMp" | "currentIp";
+
+/**
+ * shg_rol_character rows created before the cockpit-sheet rework have
+ * sheet_data JSON missing every field added since (trait, quirks, backpack,
+ * xp, elementalAffinities, current HP/MP/IP) — reading one straight off the
+ * DB crashes the sheet (e.g. `character.backpack.map` on undefined). Fill in
+ * sensible defaults on read instead of a one-off SQL backfill, since
+ * sheet_data is deliberately a flexible JSONB blob validated at the app
+ * layer, not rigid columns (see 019_shg_rol_init.sql). Current HP/MP/IP
+ * default to full, not 0 — 0 would wrongly show a pre-existing character as
+ * dead/in Crisis the first time their sheet loads under the new cockpit.
+ */
+export function normalizeCharacterSheet(
+  raw: Omit<FUCharacter, LegacySheetFields> & Partial<Pick<FUCharacter, LegacySheetFields>>
+): FUCharacter {
+  const classes = (raw.classLevels ?? [])
+    .map((cl) => classesById[cl.classId])
+    .filter((c): c is FUClass => Boolean(c));
+
+  return {
+    ...raw,
+    trait: raw.trait ?? "",
+    quirks: raw.quirks ?? "",
+    backpack: raw.backpack ?? [],
+    elementalAffinities: raw.elementalAffinities ?? {},
+    xp: raw.xp ?? 0,
+    currentHp: raw.currentHp ?? calcHP(raw.attributes.might, classes).value,
+    currentMp: raw.currentMp ?? calcMP(raw.attributes.willpower, classes).value,
+    currentIp: raw.currentIp ?? calcIP(classes).value,
+  };
+}
 
 /** Which weapon/armor/shield categories a set of classes unlocks purchase of. */
 export function equipCapabilities(classes: FUClass[]) {

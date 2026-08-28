@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminUser, requireSessionUser } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { normalizeCharacterSheet } from "@/app/FU/lib/derivedStats";
+import type { FUCharacter } from "@/app/FU/lib/types";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const { user, error } = await requireSessionUser();
@@ -95,15 +97,17 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   }
 
   // Full sheet for the mission page's embedded CharacterSheet — the viewer's
-  // own character only (not every participant's).
-  let myCharacterSheet: { sheet_data: unknown; portrait_url: string | null; full_body_url: string | null } | null = null;
+  // own character only (not every participant's). Characters created before
+  // the cockpit-sheet rework are missing fields added since — backfill on
+  // read so the embedded sheet doesn't crash on them.
+  let myCharacterSheet: { sheet_data: FUCharacter; portrait_url: string | null; full_body_url: string | null } | null = null;
   if (myCharacter) {
     const { data: full } = await admin
       .from("shg_rol_character")
       .select("sheet_data, portrait_url, full_body_url")
       .eq("id", myCharacter.id)
       .maybeSingle();
-    myCharacterSheet = full ?? null;
+    myCharacterSheet = full ? { ...full, sheet_data: normalizeCharacterSheet(full.sheet_data as FUCharacter) } : null;
   }
 
   return NextResponse.json({
