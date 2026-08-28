@@ -9,7 +9,7 @@ import { bondEmotionsById, bondPairings, bondsRulesNote, MAX_BONDS, type BondEmo
 import { fabulaPointGains, fabulaPointUses, glossary } from "@/app/FU/data/reference";
 import type { AttributeKey } from "@/app/FU/data/statusEffects";
 import { elements, affinityStatusOrder, affinityStatusLabels, type AffinityStatus } from "@/app/FU/data/affinities";
-import type { FUArmor, FUShield, FUWeapon } from "@/app/FU/data/types";
+import type { FUArmor, FUShield, FUWeapon, FUSpell } from "@/app/FU/data/types";
 import {
   calcDerivedStats, currentAttributes, findEquipmentItem, calcSpent,
   XP_PER_LEVEL, MAX_CLASS_LEVEL, MAX_CLASSES,
@@ -237,22 +237,9 @@ function ActionsAccordion({ character, onUpdate }: { character: FUCharacter; onU
 
     if (cls.subsystem?.type === "spells") {
       for (const spell of cls.subsystem.entries) {
-        const numericCost = Number(spell.mpCost);
         activeCount++;
         rows.push(
-          <div key={`${cl.classId}-spell-${spell.name}`} className="rounded-sm border border-border px-2.5 py-2">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <span className="font-body text-sm font-semibold text-ink">{spell.name} <span className="font-label text-2xs text-moss">{spell.mpCost} PM · {spell.target}</span></span>
-              {Number.isFinite(numericCost) && numericCost > 0 ? (
-                <button type="button" onClick={() => spendMp(numericCost)} className="font-label text-2xs uppercase tracking-wide border border-brass/50 px-2 py-0.5 text-brass hover:bg-brass/10 transition-colors shrink-0">
-                  Lanzar −{numericCost}
-                </button>
-              ) : (
-                <span className="font-body text-2xs italic text-ink-light">Costo variable</span>
-              )}
-            </div>
-            <p className="mt-0.5 text-xs leading-snug text-ink-light font-body">{spell.text}</p>
-          </div>
+          <SpellRow key={`${cl.classId}-spell-${spell.name}`} spell={spell} currentMp={character.currentMp} onCast={spendMp} />
         );
       }
     }
@@ -298,6 +285,47 @@ function ActiveSkillRow({ name, maxed, text, skillLevel, currentMp, onCast }: {
         </div>
       </div>
       <SkillText text={text} skillLevel={skillLevel} className="mt-0.5 text-xs leading-snug text-ink-light font-body" />
+    </div>
+  );
+}
+
+/**
+ * Some spells have a fixed MP cost ("10"), others a formula that depends on
+ * choices made when casting ("5 × T" — T = number of targets) — the input
+ * pre-fills with the fixed cost when there is one (one click still works)
+ * but stays editable either way, so a variable-cost spell is never stuck
+ * with no way to actually spend MP for it (unlike the old "Costo variable"
+ * text-only fallback).
+ */
+function SpellRow({ spell, currentMp, onCast }: { spell: FUSpell; currentMp: number; onCast: (mpCost: number) => void }) {
+  const numericCost = Number(spell.mpCost);
+  const fixed = Number.isFinite(numericCost) && numericCost > 0;
+  const [cost, setCost] = React.useState(fixed ? String(numericCost) : "");
+
+  return (
+    <div className="rounded-sm border border-border px-2.5 py-2">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <span className="font-body text-sm font-semibold text-ink">{spell.name} <span className="font-label text-2xs text-moss">{spell.mpCost} PM · {spell.target}</span></span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <input
+            type="number"
+            min={0}
+            max={currentMp}
+            value={cost}
+            onChange={(e) => setCost(e.target.value)}
+            placeholder="PM"
+            className="w-14 border border-border bg-parchment/60 px-1.5 py-0.5 text-xs text-ink placeholder:text-leather-light/70 focus:border-brass focus:outline-none font-body"
+          />
+          <button
+            type="button"
+            onClick={() => { const n = Number(cost) || 0; if (n > 0) { onCast(n); if (!fixed) setCost(""); } }}
+            className="font-label text-2xs uppercase tracking-wide border border-brass/50 px-2 py-0.5 text-brass hover:bg-brass/10 transition-colors"
+          >
+            Lanzar
+          </button>
+        </div>
+      </div>
+      <p className="mt-0.5 text-xs leading-snug text-ink-light font-body">{spell.text}</p>
     </div>
   );
 }
