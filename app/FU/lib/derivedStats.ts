@@ -5,11 +5,15 @@
  *
  * Every calculator returns both the final number and a breakdown so the UI
  * can show *why* the number is what it is (wizard step 6, character sheet).
+ *
+ * Reference data (classes/equipment/status effects) is DB-backed — see
+ * app/FU/data/loadReferenceData.ts (server) / useReferenceData.ts (client)
+ * — so every calculator that needs it takes a `ref: FUReferenceData` (or a
+ * `Pick` of it) parameter instead of importing a static module.
  */
 import type { FUClass, StatKey } from "../data/types";
-import { armors, shields, weapons } from "../data/equipment";
-import { statusEffects, stepDownDie, type AttributeKey } from "../data/statusEffects";
-import { classesById } from "../data/classes";
+import { stepDownDie, type AttributeKey } from "../data/statusEffects";
+import type { FUReferenceData } from "../data/referenceDataType";
 import type { FUCharacter, FUCharacterAttributes, FUCharacterEquipment } from "./types";
 
 export interface StatTerm {
@@ -69,9 +73,13 @@ export function calcIP(classes: FUClass[]): StatResult {
   return { value: sum(breakdown), breakdown };
 }
 
-export function calcDefense(dexDie: number, equipment: FUCharacterEquipment): StatResult {
-  const armor = equipment.armor ? armors.find((a) => a.id === equipment.armor) : undefined;
-  const shield = equipment.shield ? shields.find((s) => s.id === equipment.shield) : undefined;
+export function calcDefense(
+  dexDie: number,
+  equipment: FUCharacterEquipment,
+  ref: Pick<FUReferenceData, "armors" | "shields">,
+): StatResult {
+  const armor = equipment.armor ? ref.armors.find((a) => a.id === equipment.armor) : undefined;
+  const shield = equipment.shield ? ref.shields.find((s) => s.id === equipment.shield) : undefined;
 
   const breakdown: StatTerm[] = [];
   if (armor && "fixed" in armor.defense) {
@@ -86,9 +94,13 @@ export function calcDefense(dexDie: number, equipment: FUCharacterEquipment): St
   return { value: sum(breakdown), breakdown };
 }
 
-export function calcMagicDefense(insDie: number, equipment: FUCharacterEquipment): StatResult {
-  const armor = equipment.armor ? armors.find((a) => a.id === equipment.armor) : undefined;
-  const shield = equipment.shield ? shields.find((s) => s.id === equipment.shield) : undefined;
+export function calcMagicDefense(
+  insDie: number,
+  equipment: FUCharacterEquipment,
+  ref: Pick<FUReferenceData, "armors" | "shields">,
+): StatResult {
+  const armor = equipment.armor ? ref.armors.find((a) => a.id === equipment.armor) : undefined;
+  const shield = equipment.shield ? ref.shields.find((s) => s.id === equipment.shield) : undefined;
 
   const breakdown: StatTerm[] = [];
   if (armor && "fixed" in armor.magicDefense) {
@@ -105,8 +117,11 @@ export function calcMagicDefense(insDie: number, equipment: FUCharacterEquipment
   return { value: sum(breakdown), breakdown };
 }
 
-export function calcInitiative(equipment: FUCharacterEquipment): StatResult {
-  const armor = equipment.armor ? armors.find((a) => a.id === equipment.armor) : undefined;
+export function calcInitiative(
+  equipment: FUCharacterEquipment,
+  ref: Pick<FUReferenceData, "armors">,
+): StatResult {
+  const armor = equipment.armor ? ref.armors.find((a) => a.id === equipment.armor) : undefined;
   const breakdown: StatTerm[] = [{ label: "Base", value: 0 }];
   if (armor?.initiative) breakdown.push({ label: `${armor.name} modifier`, value: armor.initiative });
   return { value: sum(breakdown), breakdown };
@@ -130,6 +145,7 @@ export interface DerivedStats {
 export function currentAttributes(
   base: FUCharacterAttributes,
   activeStatusEffectIds: string[],
+  statusEffects: FUReferenceData["statusEffects"],
 ): FUCharacterAttributes {
   const reductions: Record<AttributeKey, number> = { dexterity: 0, insight: 0, might: 0, willpower: 0 };
   for (const id of activeStatusEffectIds) {
@@ -157,9 +173,10 @@ export function calcDerivedStats(
   attributes: FUCharacterAttributes,
   equipment: FUCharacterEquipment,
   classes: FUClass[],
-  activeStatusEffectIds: string[] = [],
+  activeStatusEffectIds: string[],
+  ref: FUReferenceData,
 ): DerivedStats {
-  const current = currentAttributes(attributes, activeStatusEffectIds);
+  const current = currentAttributes(attributes, activeStatusEffectIds, ref.statusEffects);
   const hp = calcHP(level, attributes.might, classes);
   const mp = calcMP(level, attributes.willpower, classes);
   return {
@@ -167,9 +184,9 @@ export function calcDerivedStats(
     crisis: calcCrisis(hp.value),
     mp,
     ip: calcIP(classes),
-    defense: calcDefense(current.dexterity, equipment),
-    magicDefense: calcMagicDefense(current.insight, equipment),
-    initiative: calcInitiative(equipment),
+    defense: calcDefense(current.dexterity, equipment, ref),
+    magicDefense: calcMagicDefense(current.insight, equipment, ref),
+    initiative: calcInitiative(equipment, ref),
   };
 }
 
@@ -178,9 +195,9 @@ export function calcDerivedStats(
 // "ROLL FOR INITIAL SAVINGS")
 // ---------------------------------------------------------------------------
 
-export function findEquipmentItem(id: string) {
+export function findEquipmentItem(id: string, ref: Pick<FUReferenceData, "weapons" | "armors" | "shields">) {
   return (
-    weapons.find((w) => w.id === id) ?? armors.find((a) => a.id === id) ?? shields.find((s) => s.id === id)
+    ref.weapons.find((w) => w.id === id) ?? ref.armors.find((a) => a.id === id) ?? ref.shields.find((s) => s.id === id)
   );
 }
 
@@ -188,11 +205,11 @@ export function findEquipmentItem(id: string) {
  * What's equipped is what's owned (see FUDraft.equipment doc comment) — so
  * the budget spent is just the sum of whatever's currently in the slots.
  */
-export function calcSpent(equipment: FUCharacterEquipment): number {
+export function calcSpent(equipment: FUCharacterEquipment, ref: Pick<FUReferenceData, "weapons" | "armors" | "shields">): number {
   const ids = [...equipment.weapons, equipment.shield, equipment.armor].filter(
     (id): id is string => Boolean(id),
   );
-  return ids.reduce((total, id) => total + (findEquipmentItem(id)?.cost ?? 0), 0);
+  return ids.reduce((total, id) => total + (findEquipmentItem(id, ref)?.cost ?? 0), 0);
 }
 
 export function rollSavings(): number {
@@ -227,7 +244,8 @@ type LegacySheetFields = "trait" | "quirks" | "backpack" | "elementalAffinities"
  * dead/in Crisis the first time their sheet loads under the new cockpit.
  */
 export function normalizeCharacterSheet(
-  raw: Omit<FUCharacter, LegacySheetFields> & Partial<Pick<FUCharacter, LegacySheetFields>>
+  raw: Omit<FUCharacter, LegacySheetFields> & Partial<Pick<FUCharacter, LegacySheetFields>>,
+  classesById: FUReferenceData["classesById"],
 ): FUCharacter {
   const classes = (raw.classLevels ?? [])
     .map((cl) => classesById[cl.classId])

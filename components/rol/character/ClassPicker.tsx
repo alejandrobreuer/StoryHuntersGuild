@@ -2,10 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import { classes } from "@/app/FU/data/classes";
 import { MAX_CLASSES } from "@/app/FU/lib/wizardState";
+import { useReferenceDataContext } from "@/app/FU/lib/ReferenceDataContext";
 
 export function ClassPicker({ selectedIds, onToggle }: { selectedIds: string[]; onToggle: (classId: string) => void }) {
+  const { classes } = useReferenceDataContext();
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
@@ -17,7 +18,7 @@ export function ClassPicker({ selectedIds, onToggle }: { selectedIds: string[]; 
         c.alsoKnownAs.some((a) => a.toLowerCase().includes(q)) ||
         c.description.toLowerCase().includes(q)
     );
-  }, [query]);
+  }, [query, classes]);
 
   const atCap = selectedIds.length >= MAX_CLASSES;
 

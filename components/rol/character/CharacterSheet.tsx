@@ -5,23 +5,35 @@ import Link from "next/link";
 import { User, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Accordion } from "@/components/ui/Accordion";
-import { classesById } from "@/app/FU/data/classes";
 import { bondEmotionsById, bondPairings, bondsRulesNote, MAX_BONDS, type BondEmotionId } from "@/app/FU/data/bonds";
-import { fabulaPointGains, fabulaPointUses, ipItems, glossary } from "@/app/FU/data/reference";
-import { statusEffects, type AttributeKey } from "@/app/FU/data/statusEffects";
+import { fabulaPointGains, fabulaPointUses, glossary } from "@/app/FU/data/reference";
+import type { AttributeKey } from "@/app/FU/data/statusEffects";
 import { elements, affinityStatusOrder, affinityStatusLabels, type AffinityStatus } from "@/app/FU/data/affinities";
-import { weapons, armors, shields } from "@/app/FU/data/equipment";
 import type { FUArmor, FUShield, FUWeapon } from "@/app/FU/data/types";
 import {
   calcDerivedStats, currentAttributes, findEquipmentItem, calcSpent,
   XP_PER_LEVEL, MAX_CLASS_LEVEL,
 } from "@/app/FU/lib/derivedStats";
 import type { FUBond, FUCharacter, FUCharacterAttributes } from "@/app/FU/lib/types";
+import { ReferenceDataProvider, useReferenceDataContext } from "@/app/FU/lib/ReferenceDataContext";
+import type { FUReferenceData } from "@/app/FU/data/referenceDataType";
 import { InfoDisclosure } from "./InfoDisclosure";
 import { SkillText } from "./SkillText";
 import { StatBar } from "./StatBar";
 import { CharacterFullBodyDrawer } from "./CharacterFullBodyDrawer";
 import { toast } from "sonner";
+
+// Spanish display labels for the canonical (English) inventory-item catalog
+// — the DB stays in English to match the rulebook, only the visible label
+// is translated here, same pattern as the PV/PM/PI/DES/PER/VIG/VOL labels
+// below over their English rule concepts.
+const IP_ITEM_LABELS: Record<string, string> = {
+  remedy: "Remedio",
+  elixir: "Elixir",
+  tonic: "Tónico",
+  "elemental-shard": "Fragmento elemental",
+  "magic-tent": "Carpa mágica",
+};
 
 // Which classes grant permission to equip martial ("E") gear, per
 // Reference/fabula_ultima_data_rules.txt — holding any level in one of these
@@ -99,13 +111,14 @@ const ATTRIBUTE_ROWS: { key: AttributeKey; label: string }[] = [
 ];
 
 function AttributeGrid({ character, current }: { character: FUCharacter; current: FUCharacterAttributes }) {
+  const ref = useReferenceDataContext();
   return (
     <div className="grid grid-cols-2 gap-2">
       {ATTRIBUTE_ROWS.map(({ key, label }) => {
         const base = character.attributes[key];
         const curr = current[key];
         const reduced = curr !== base;
-        const linked = statusEffects.filter((e) => character.statusEffects.includes(e.id) && e.affects.includes(key));
+        const linked = ref.statusEffects.filter((e) => character.statusEffects.includes(e.id) && e.affects.includes(key));
         return (
           <div key={key} className={cn("text-center rounded-sm border px-2 py-2", reduced ? "border-crimson bg-crimson/5" : "border-border")}>
             <div className="font-label text-xs text-ink-light">{label}</div>
@@ -125,6 +138,8 @@ function AttributeGrid({ character, current }: { character: FUCharacter; current
 }
 
 function StatusEffectToggles({ character, onUpdate }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void }) {
+  const ref = useReferenceDataContext();
+
   function toggleEffect(id: string) {
     const active = character.statusEffects.includes(id);
     const next = active ? character.statusEffects.filter((e) => e !== id) : [...character.statusEffects, id];
@@ -134,7 +149,7 @@ function StatusEffectToggles({ character, onUpdate }: { character: FUCharacter; 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       <span className="font-label text-2xs uppercase tracking-wide text-ink-light shrink-0">Estados</span>
-      {statusEffects.map((effect) => {
+      {ref.statusEffects.map((effect) => {
         const active = character.statusEffects.includes(effect.id);
         return (
           <button
@@ -151,7 +166,7 @@ function StatusEffectToggles({ character, onUpdate }: { character: FUCharacter; 
         );
       })}
       <InfoDisclosure label="Qué hace cada estado">
-        {statusEffects.map((e) => <p key={e.id} className="mb-1.5 last:mb-0"><strong className="text-ink">{e.name}:</strong> {e.description}</p>)}
+        {ref.statusEffects.map((e) => <p key={e.id} className="mb-1.5 last:mb-0"><strong className="text-ink">{e.name}:</strong> {e.description}</p>)}
       </InfoDisclosure>
     </div>
   );
@@ -196,6 +211,8 @@ function AffinitiesAccordion({ character, onUpdate }: { character: FUCharacter; 
 }
 
 function ActionsAccordion({ character, onUpdate }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void }) {
+  const ref = useReferenceDataContext();
+
   function spendMp(amount: number) {
     onUpdate({ ...character, currentMp: Math.max(0, character.currentMp - amount), updatedAt: new Date().toISOString() });
   }
@@ -204,7 +221,7 @@ function ActionsAccordion({ character, onUpdate }: { character: FUCharacter; onU
   const rows: React.ReactNode[] = [];
 
   for (const cl of character.classLevels) {
-    const cls = classesById[cl.classId];
+    const cls = ref.classesById[cl.classId];
     if (!cls) continue;
     const counts = new Map<string, number>();
     for (const name of cl.skillsTaken) counts.set(name, (counts.get(name) ?? 0) + 1);
@@ -286,11 +303,12 @@ function ActiveSkillRow({ name, maxed, text, skillLevel, currentMp, onCast }: {
 }
 
 function ClassesAccordion({ character }: { character: FUCharacter }) {
+  const ref = useReferenceDataContext();
   return (
     <Accordion title="Clases y habilidades" summary={`${character.classLevels.length} clase(s)`}>
       <div className="space-y-3">
         {character.classLevels.map((cl) => {
-          const cls = classesById[cl.classId];
+          const cls = ref.classesById[cl.classId];
           if (!cls) return null;
           const counts = new Map<string, number>();
           for (const name of cl.skillsTaken) counts.set(name, (counts.get(name) ?? 0) + 1);
@@ -411,11 +429,12 @@ function BondsAccordion({ character, onUpdate }: { character: FUCharacter; onUpd
 }
 
 function EquipmentAccordion({ character, onUpdate }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void }) {
-  const equippedWeapons = character.equipment.weapons.map((id) => findEquipmentItem(id)).filter(Boolean);
-  const equippedShield = character.equipment.shield ? findEquipmentItem(character.equipment.shield) : undefined;
-  const equippedArmor = character.equipment.armor ? findEquipmentItem(character.equipment.armor) : undefined;
-  const backpackItems = character.backpack.map((id) => ({ id, item: findEquipmentItem(id) }));
-  const spent = calcSpent(character.equipment);
+  const ref = useReferenceDataContext();
+  const equippedWeapons = character.equipment.weapons.map((id) => findEquipmentItem(id, ref)).filter(Boolean);
+  const equippedShield = character.equipment.shield ? findEquipmentItem(character.equipment.shield, ref) : undefined;
+  const equippedArmor = character.equipment.armor ? findEquipmentItem(character.equipment.armor, ref) : undefined;
+  const backpackItems = character.backpack.map((id) => ({ id, item: findEquipmentItem(id, ref) }));
+  const spent = calcSpent(character.equipment, ref);
 
   const [shopId, setShopId] = React.useState("");
 
@@ -430,11 +449,11 @@ function EquipmentAccordion({ character, onUpdate }: { character: FUCharacter; o
   function equipFromBackpack(id: string) {
     const equipment = { ...character.equipment };
     const backpack = character.backpack.filter((i) => i !== id);
-    const weapon = weapons.find((w) => w.id === id);
-    const shield = shields.find((s) => s.id === id);
-    const armor = armors.find((a) => a.id === id);
+    const weapon = ref.weapons.find((w) => w.id === id);
+    const shield = ref.shields.find((s) => s.id === id);
+    const armor = ref.armors.find((a) => a.id === id);
 
-    const equippedTwoHanded = weapons.find((w) => w.id === equipment.weapons[0])?.handedness === "two-handed";
+    const equippedTwoHanded = ref.weapons.find((w) => w.id === equipment.weapons[0])?.handedness === "two-handed";
 
     if (weapon) {
       if (!canEquipMartialWeapon(character, weapon)) {
@@ -491,13 +510,13 @@ function EquipmentAccordion({ character, onUpdate }: { character: FUCharacter; o
 
   function buy() {
     if (!shopId) return;
-    const item = findEquipmentItem(shopId);
+    const item = findEquipmentItem(shopId, ref);
     if (!item || item.cost == null || item.cost > character.zenit) return;
     onUpdate({ ...character, backpack: [...character.backpack, shopId], zenit: character.zenit - item.cost, updatedAt: new Date().toISOString() });
     setShopId("");
   }
 
-  const shopOptions = [...weapons, ...armors, ...shields].filter((i) => i.cost != null);
+  const shopOptions = [...ref.weapons, ...ref.armors, ...ref.shields].filter((i) => i.cost != null);
   const equippedCount = equippedWeapons.length + (equippedShield ? 1 : 0) + (equippedArmor ? 1 : 0) + (character.equipment.accessory ? 1 : 0);
 
   return (
@@ -590,16 +609,7 @@ function TraitsGuildAccordion({ character, onUpdate, guildStanding }: { characte
 
 // ─── sheet ────────────────────────────────────────────────────────────────
 
-export function CharacterSheet({
-  character,
-  portraitUrl,
-  fullBodyUrl,
-  backHref,
-  onUpdate,
-  onImagesChange,
-  guildStanding,
-  hideBackLink,
-}: {
+interface CharacterSheetProps {
   character: FUCharacter;
   portraitUrl: string | null;
   fullBodyUrl: string | null;
@@ -609,10 +619,30 @@ export function CharacterSheet({
   guildStanding?: React.ReactNode;
   /** Set when embedding the sheet somewhere other than its own dedicated page (e.g. the active mission page). */
   hideBackLink?: boolean;
-}) {
-  const classes = character.classLevels.map((cl) => classesById[cl.classId]).filter((c): c is NonNullable<typeof c> => Boolean(c));
-  const current = currentAttributes(character.attributes, character.statusEffects);
-  const stats = calcDerivedStats(character.level, character.attributes, character.equipment, classes, character.statusEffects);
+}
+
+export function CharacterSheet(props: CharacterSheetProps) {
+  return (
+    <ReferenceDataProvider>
+      <CharacterSheetInner {...props} />
+    </ReferenceDataProvider>
+  );
+}
+
+function CharacterSheetInner({
+  character,
+  portraitUrl,
+  fullBodyUrl,
+  backHref,
+  onUpdate,
+  onImagesChange,
+  guildStanding,
+  hideBackLink,
+}: CharacterSheetProps) {
+  const ref = useReferenceDataContext();
+  const classes = character.classLevels.map((cl) => ref.classesById[cl.classId]).filter((c): c is NonNullable<typeof c> => Boolean(c));
+  const current = currentAttributes(character.attributes, character.statusEffects, ref.statusEffects);
+  const stats = calcDerivedStats(character.level, character.attributes, character.equipment, classes, character.statusEffects, ref);
   const inCrisis = character.currentHp <= stats.crisis.value;
   const canLevelUp = character.xp >= XP_PER_LEVEL && character.classLevels.length > 0 && character.classLevels.some((cl) => cl.levels < MAX_CLASS_LEVEL);
   const [uploadingPortrait, setUploadingPortrait] = React.useState(false);
@@ -640,7 +670,7 @@ export function CharacterSheet({
     onUpdate({ ...character, level: character.level + 1, xp: character.xp - XP_PER_LEVEL, classLevels, updatedAt: new Date().toISOString() });
   }
 
-  const weapon = character.equipment.weapons[0] ? findEquipmentItem(character.equipment.weapons[0]) : null;
+  const weapon = character.equipment.weapons[0] ? findEquipmentItem(character.equipment.weapons[0], ref) : null;
 
   return (
     <div className="mx-auto max-w-6xl px-3 py-5 md:px-6">
@@ -732,21 +762,21 @@ export function CharacterSheet({
                 <AttributeGrid character={character} current={current} />
               </div>
               <div className="flex flex-col gap-1.5">
-                {ipItems.map((item) => (
+                {ref.ipItems.map((item) => (
                   <button
-                    key={item.name}
+                    key={item.id}
                     type="button"
                     title={item.effect}
                     disabled={character.currentIp < item.ipCost}
                     onClick={() => {
                       let updated = { ...character, currentIp: character.currentIp - item.ipCost };
-                      if (item.name === "Remedio") updated = { ...updated, currentHp: Math.min(stats.hp.value, updated.currentHp + 50) };
-                      if (item.name === "Elixir") updated = { ...updated, currentMp: Math.min(stats.mp.value, updated.currentMp + 50) };
+                      if (item.id === "remedy") updated = { ...updated, currentHp: Math.min(stats.hp.value, updated.currentHp + 50) };
+                      if (item.id === "elixir") updated = { ...updated, currentMp: Math.min(stats.mp.value, updated.currentMp + 50) };
                       onUpdate({ ...updated, updatedAt: new Date().toISOString() });
                     }}
                     className="font-label text-2xs px-2 py-1.5 border border-border rounded-sm hover:border-brass disabled:opacity-30 transition-colors"
                   >
-                    {item.name} ({item.ipCost})
+                    {IP_ITEM_LABELS[item.id] ?? item.name} ({item.ipCost})
                   </button>
                 ))}
               </div>
@@ -795,9 +825,10 @@ export function CharacterSheet({
 }
 
 function LevelUpControl({ character, onLevelUp }: { character: FUCharacter; onLevelUp: (classId: string, skillName: string) => void }) {
+  const ref = useReferenceDataContext();
   const eligibleClasses = character.classLevels.filter((cl) => cl.levels < MAX_CLASS_LEVEL);
   const [classId, setClassId] = React.useState(eligibleClasses[0]?.classId ?? "");
-  const cls = classId ? classesById[classId] : undefined;
+  const cls = classId ? ref.classesById[classId] : undefined;
   const [skillName, setSkillName] = React.useState("");
 
   const skillOptions = cls?.skills.filter((s) => {
@@ -809,7 +840,7 @@ function LevelUpControl({ character, onLevelUp }: { character: FUCharacter; onLe
   return (
     <div className="mt-2 flex flex-col gap-1.5 sm:flex-row sm:items-end">
       <select value={classId} onChange={(e) => { setClassId(e.target.value); setSkillName(""); }} className="flex-1 border border-border bg-parchment/60 px-2 py-1 text-xs text-ink font-body">
-        {eligibleClasses.map((cl) => <option key={cl.classId} value={cl.classId}>{classesById[cl.classId]?.name}</option>)}
+        {eligibleClasses.map((cl) => <option key={cl.classId} value={cl.classId}>{ref.classesById[cl.classId]?.name}</option>)}
       </select>
       <select value={skillName} onChange={(e) => setSkillName(e.target.value)} className="flex-1 border border-border bg-parchment/60 px-2 py-1 text-xs text-ink font-body">
         <option value="">Nueva habilidad…</option>

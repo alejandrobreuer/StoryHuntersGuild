@@ -14,7 +14,7 @@ import { Step6DerivedStats } from "@/components/rol/character/steps/Step6Derived
 import { Step7Equipment } from "@/components/rol/character/steps/Step7Equipment";
 import { Step8Finishing } from "@/components/rol/character/steps/Step8Finishing";
 import { calcSpent, calcHP, calcMP, calcIP } from "@/app/FU/lib/derivedStats";
-import { classesById } from "@/app/FU/data/classes";
+import { ReferenceDataProvider, useReferenceDataContext } from "@/app/FU/lib/ReferenceDataContext";
 import { CHARACTER_LEVEL, STARTING_BUDGET, STARTING_FABULA_POINTS, type FUCharacter } from "@/app/FU/lib/types";
 import { toast } from "sonner";
 
@@ -29,6 +29,7 @@ function WizardInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { draft } = useWizard();
+  const ref = useReferenceDataContext();
 
   const [step, setStep] = useState(() => clampStep(Number(searchParams.get("step"))));
   const [furthestStep, setFurthestStep] = useState(step);
@@ -56,9 +57,9 @@ function WizardInner() {
     setSaving(true);
     try {
       const now = new Date().toISOString();
-      const leftover = Math.max(0, STARTING_BUDGET - calcSpent(draft.equipment));
+      const leftover = Math.max(0, STARTING_BUDGET - calcSpent(draft.equipment, ref));
       const classLevels = draft.classLevels.filter((cl) => cl.levels > 0);
-      const classes = classLevels.map((cl) => classesById[cl.classId]).filter((c): c is NonNullable<typeof c> => Boolean(c));
+      const classes = classLevels.map((cl) => ref.classesById[cl.classId]).filter((c): c is NonNullable<typeof c> => Boolean(c));
       const sheet_data: Omit<FUCharacter, "id" | "createdAt" | "updatedAt"> = {
         level: CHARACTER_LEVEL,
         identity: draft.identity,
@@ -125,9 +126,11 @@ function WizardInner() {
 export default function NewCharacterPage() {
   return (
     <Suspense fallback={null}>
-      <WizardProvider>
-        <WizardInner />
-      </WizardProvider>
+      <ReferenceDataProvider>
+        <WizardProvider>
+          <WizardInner />
+        </WizardProvider>
+      </ReferenceDataProvider>
     </Suspense>
   );
 }

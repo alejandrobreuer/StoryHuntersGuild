@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminUser, requireSessionUser } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeCharacterSheet } from "@/app/FU/lib/derivedStats";
+import { loadReferenceData } from "@/app/FU/data/loadReferenceData";
 import type { FUCharacter } from "@/app/FU/lib/types";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
@@ -107,7 +108,10 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       .select("sheet_data, portrait_url, full_body_url")
       .eq("id", myCharacter.id)
       .maybeSingle();
-    myCharacterSheet = full ? { ...full, sheet_data: normalizeCharacterSheet(full.sheet_data as FUCharacter) } : null;
+    if (full) {
+      const { classesById } = await loadReferenceData();
+      myCharacterSheet = { ...full, sheet_data: normalizeCharacterSheet(full.sheet_data as FUCharacter, classesById) };
+    }
   }
 
   return NextResponse.json({

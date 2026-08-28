@@ -15,6 +15,13 @@ export interface FUStatusEffect {
   description: string;
 }
 
+/**
+ * Source data for scripts/seed-fu-reference-data.ts only — the running app
+ * reads status effects from the DB (shg_fu_status_effect, see
+ * app/FU/data/loadReferenceData.ts) via useReferenceDataContext(), not from
+ * this array. Kept as the human-editable source of truth — see classes.ts's
+ * doc comment for the edit → regenerate → run-migration workflow.
+ */
 export const statusEffects: FUStatusEffect[] = [
   {
     id: "dazed",

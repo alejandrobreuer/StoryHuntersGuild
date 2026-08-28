@@ -2,7 +2,6 @@
 
 import { DndContext, type DragEndEvent, PointerSensor, TouchSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { cn } from "@/lib/utils";
-import { classesById } from "@/app/FU/data/classes";
 import {
   MAX_CLASSES,
   MIN_CLASSES,
@@ -11,6 +10,7 @@ import {
   totalLevelsPlaced,
   useWizard,
 } from "@/app/FU/lib/wizardState";
+import { useReferenceDataContext } from "@/app/FU/lib/ReferenceDataContext";
 import { InfoDisclosure } from "../InfoDisclosure";
 import { ClassPicker } from "../ClassPicker";
 import { ClassSlot } from "../ClassSlot";
@@ -20,6 +20,7 @@ const SLOT_PREFIX = "class-slot-";
 
 export function Step4Classes() {
   const { draft, dispatch } = useWizard();
+  const { classesById } = useReferenceDataContext();
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } })

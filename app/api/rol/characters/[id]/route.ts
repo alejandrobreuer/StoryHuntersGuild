@@ -3,6 +3,7 @@ import { getAdminUser, requireSessionUser } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { characterSchema } from "@/lib/validation/rol";
 import { normalizeCharacterSheet } from "@/app/FU/lib/derivedStats";
+import { loadReferenceData } from "@/app/FU/data/loadReferenceData";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const { user, error } = await requireSessionUser();
@@ -21,7 +22,8 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 
   // Characters created before the cockpit-sheet rework are missing fields
   // added since — backfill on read so the sheet doesn't crash on them.
-  return NextResponse.json({ data: { ...data, sheet_data: normalizeCharacterSheet(data.sheet_data) } });
+  const { classesById } = await loadReferenceData();
+  return NextResponse.json({ data: { ...data, sheet_data: normalizeCharacterSheet(data.sheet_data, classesById) } });
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {

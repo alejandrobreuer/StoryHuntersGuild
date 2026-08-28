@@ -11,10 +11,10 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { cn } from "@/lib/utils";
-import { armors, shields, weapons } from "@/app/FU/data/equipment";
 import type { FUArmor, FUShield, FUWeapon } from "@/app/FU/data/types";
 import { equipCapabilities, findEquipmentItem } from "@/app/FU/lib/derivedStats";
 import { selectedClasses, useWizard } from "@/app/FU/lib/wizardState";
+import { useReferenceDataContext } from "@/app/FU/lib/ReferenceDataContext";
 import { EquipmentCard, type EquipmentCardData } from "./EquipmentCard";
 
 function weaponCardData(w: FUWeapon): EquipmentCardData {
@@ -37,8 +37,9 @@ type ShopTab = "weapons" | "armor" | "shields";
 const TAB_LABELS: Record<ShopTab, string> = { weapons: "Armas", armor: "Armaduras", shields: "Escudos" };
 
 function SlotZone({ id, label, itemId, onRemove }: { id: string; label: string; itemId?: string; onRemove: () => void }) {
+  const ref = useReferenceDataContext();
   const { setNodeRef, isOver } = useDroppable({ id });
-  const item = itemId ? findEquipmentItem(itemId) : undefined;
+  const item = itemId ? findEquipmentItem(itemId, ref) : undefined;
   const data = item && ("accuracy" in item ? weaponCardData(item) : "defenseBonus" in item ? shieldCardData(item) : armorCardData(item));
 
   return (
@@ -55,6 +56,7 @@ function SlotZone({ id, label, itemId, onRemove }: { id: string; label: string; 
 
 export function EquipmentBoard() {
   const { draft, dispatch } = useWizard();
+  const ref = useReferenceDataContext();
   const [tab, setTab] = useState<ShopTab>("weapons");
   const capabilities = useMemo(() => equipCapabilities(selectedClasses(draft)), [draft]);
 
@@ -64,13 +66,13 @@ export function EquipmentBoard() {
   );
 
   const purchasable = {
-    weapons: weapons.filter((w) => !w.martial || (w.range === "melee" ? capabilities.melee : capabilities.ranged)),
-    armor: armors.filter((a) => !a.martial || capabilities.armor),
-    shields: shields.filter((s) => !s.martial || capabilities.shield),
+    weapons: ref.weapons.filter((w) => !w.martial || (w.range === "melee" ? capabilities.melee : capabilities.ranged)),
+    armor: ref.armors.filter((a) => !a.martial || capabilities.armor),
+    shields: ref.shields.filter((s) => !s.martial || capabilities.shield),
   };
 
   function equip(itemId: string) {
-    const item = findEquipmentItem(itemId);
+    const item = findEquipmentItem(itemId, ref);
     if (!item) return;
     if ("accuracy" in item) {
       if (item.handedness === "two-handed") {
@@ -91,11 +93,11 @@ export function EquipmentBoard() {
     const overId = event.over?.id;
     const itemId = String(event.active.id);
     if (overId === "slot-weapon-0") {
-      const weapon = weapons.find((w) => w.id === itemId);
+      const weapon = ref.weapons.find((w) => w.id === itemId);
       dispatch({ type: "EQUIP_WEAPON", weaponId: itemId, slot: 0 });
       if (weapon?.handedness === "two-handed") dispatch({ type: "UNEQUIP_WEAPON", slot: 1 });
     } else if (overId === "slot-weapon-1") {
-      const weapon = weapons.find((w) => w.id === itemId);
+      const weapon = ref.weapons.find((w) => w.id === itemId);
       if (weapon?.handedness === "two-handed") return;
       dispatch({ type: "EQUIP_WEAPON", weaponId: itemId, slot: 1 });
     } else if (overId === "slot-shield") {

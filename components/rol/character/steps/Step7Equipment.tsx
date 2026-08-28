@@ -5,12 +5,14 @@ import { cn } from "@/lib/utils";
 import { calcSpent, rollSavings } from "@/app/FU/lib/derivedStats";
 import { STARTING_BUDGET } from "@/app/FU/lib/types";
 import { useWizard } from "@/app/FU/lib/wizardState";
+import { useReferenceDataContext } from "@/app/FU/lib/ReferenceDataContext";
 import { InfoDisclosure } from "../InfoDisclosure";
 import { EquipmentBoard } from "../EquipmentBoard";
 
 export function Step7Equipment() {
   const { draft, dispatch } = useWizard();
-  const spent = calcSpent(draft.equipment);
+  const ref = useReferenceDataContext();
+  const spent = calcSpent(draft.equipment, ref);
   const remaining = STARTING_BUDGET - spent;
   const overspent = remaining < 0;
   const leftover = Math.max(0, remaining);

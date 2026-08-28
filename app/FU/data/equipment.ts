@@ -4,6 +4,12 @@
  * "E" suffix in the source denotes a martial item (requires a class grant
  * to equip); the letter itself is stripped from `name` and captured in
  * `martial`.
+ *
+ * Source data for scripts/seed-fu-reference-data.ts only — the running app
+ * reads equipment from the DB (shg_fu_weapon / shg_fu_armor_shield, see
+ * app/FU/data/loadReferenceData.ts) via useReferenceDataContext(), not from
+ * this file. Kept as the human-editable source of truth — see classes.ts's
+ * doc comment for the edit → regenerate → run-migration workflow.
  */
 import type { FUArmor, FUShield, FUWeapon } from "./types";
 
