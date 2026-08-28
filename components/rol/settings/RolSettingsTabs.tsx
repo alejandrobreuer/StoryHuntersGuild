@@ -9,12 +9,14 @@ import { GuildRanksManager } from "./GuildRanksManager";
 import { LocationsManager } from "./LocationsManager";
 import { RolQuestsManager } from "./RolQuestsManager";
 import { NpcsManager } from "./NpcsManager";
+import { RitualsProjectsCalculator } from "./RitualsProjectsCalculator";
 
 const TABS = [
   { key: "guild", label: "Gremio" },
   { key: "map", label: "Mapa" },
   { key: "quests", label: "Misiones" },
   { key: "npcs", label: "NPCs" },
+  { key: "rituals", label: "Rituales/Proyectos" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -56,6 +58,7 @@ export function RolSettingsTabs() {
       {tab === "map" && <LocationsManager />}
       {tab === "quests" && <RolQuestsManager />}
       {tab === "npcs" && <NpcsManager />}
+      {tab === "rituals" && <RitualsProjectsCalculator />}
     </div>
   );
 }
