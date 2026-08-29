@@ -472,8 +472,9 @@ export function NpcsManager() {
         hidden: !n.hidden,
       }),
     });
+    const json = await res.json();
     if (res.ok) { toast.success(n.hidden ? "NPC visible para jugadores." : "NPC oculto para jugadores."); load(); }
-    else toast.error("No se pudo actualizar.");
+    else toast.error(json.error ?? "No se pudo actualizar.");
   }
 
   return (
