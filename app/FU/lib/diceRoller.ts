@@ -63,17 +63,27 @@ let diceBoxPromise: Promise<DiceBoxInstance> | null = null;
  * dimensions at creation time, but a freshly-appended <canvas> defaults to
  * 300x150 until something explicitly resizes it — leaving the dice rendered
  * in a tiny box in the corner instead of filling the overlay. Forcing the
- * canvas's own CSS + pixel dimensions to the viewport, then nudging the
- * engine with a synthetic resize event, fixes that on first render.
+ * canvas's CSS size to the viewport, then nudging the engine with a
+ * synthetic resize event, fixes that on first render.
+ *
+ * IMPORTANT: only touch the canvas's CSS (style.width/height), never its
+ * width/height *attributes*. dice-box transfers the canvas to an
+ * OffscreenCanvas in a worker (`transferControlToOffscreen()`), and once
+ * that happens the spec forbids setting width/height on the main-thread
+ * canvas element — it throws InvalidStateError, which previously rejected
+ * the memoized dice-box promise here and broke every roll from then on,
+ * regardless of the configured scale.
  */
 function fillViewport(container: HTMLElement) {
-  const canvas = container.querySelector("canvas");
-  if (!canvas) return;
-  canvas.style.width = "100%";
-  canvas.style.height = "100%";
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-  window.dispatchEvent(new Event("resize"));
+  try {
+    const canvas = container.querySelector("canvas");
+    if (!canvas) return;
+    canvas.style.width = "100%";
+    canvas.style.height = "100%";
+    window.dispatchEvent(new Event("resize"));
+  } catch {
+    // best-effort visual sizing — must never break dice rolling itself
+  }
 }
 
 async function getDiceBox(): Promise<DiceBoxInstance> {
@@ -102,7 +112,13 @@ async function getDiceBox(): Promise<DiceBoxInstance> {
       fillViewport(container);
       window.addEventListener("resize", () => fillViewport(container as HTMLElement));
       return box;
-    })();
+    })().catch((err) => {
+      // Don't leave a failed init memoized forever — otherwise one bad
+      // attempt (a transient asset-load hiccup, etc.) breaks every roll for
+      // the rest of the tab's session. Clear it so the next roll retries.
+      diceBoxPromise = null;
+      throw err;
+    });
   }
   return diceBoxPromise;
 }
@@ -120,8 +136,9 @@ export async function rollDice(notation: string, label?: string): Promise<void> 
   try {
     const [total] = await throwDice([notation]);
     toast.success(label ? `${label}: ${total}` : `Resultado: ${total}`, { duration: 6000 });
-  } catch {
-    toast.error("No se pudo tirar el dado.");
+  } catch (err) {
+    console.error("[diceRoller] rollDice failed:", err);
+    toast.error("No se pudo tirar el dado.", { description: err instanceof Error ? err.message : undefined });
   }
 }
 
@@ -137,8 +154,9 @@ export async function rollCheck(
     const total = hr + modifier;
     const detail = tokens.map((t, i) => `${t.label} d${t.die} = ${values[i]}`).join("  ·  ");
     toast.success(`${resultLabel}: ${total}`, { description: detail, duration: 7000 });
-  } catch {
-    toast.error("No se pudo tirar el dado.");
+  } catch (err) {
+    console.error("[diceRoller] rollCheck failed:", err);
+    toast.error("No se pudo tirar el dado.", { description: err instanceof Error ? err.message : undefined });
   }
 }
 
@@ -160,7 +178,8 @@ export async function rollAttack(args: {
       description: `${detail}  —  Precisión: ${accuracyTotal}  ·  Daño: ${damageTotal}${args.damageType ? ` ${args.damageType}` : ""}`,
       duration: 8000,
     });
-  } catch {
-    toast.error("No se pudo tirar el ataque.");
+  } catch (err) {
+    console.error("[diceRoller] rollAttack failed:", err);
+    toast.error("No se pudo tirar el ataque.", { description: err instanceof Error ? err.message : undefined });
   }
 }
