@@ -13,7 +13,8 @@ declare module "@3d-dice/dice-box" {
   export default class DiceBox {
     constructor(selector: string, config?: DiceBoxConfig);
     init(): Promise<unknown>;
-    roll(notation: string): Promise<unknown>;
+    roll(notation: string | string[]): Promise<unknown>;
     clear(): void;
+    updateConfig(config: DiceBoxConfig): void;
   }
 }

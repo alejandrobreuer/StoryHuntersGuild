@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { User, Info } from "lucide-react";
+import { User, Info, Dices } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Accordion } from "@/components/ui/Accordion";
 import { bondEmotionsById, bondPairings, bondsRulesNote, MAX_BONDS, type BondEmotionId } from "@/app/FU/data/bonds";
@@ -17,7 +17,7 @@ import {
 import type { FUBond, FUCharacter, FUCharacterAttributes } from "@/app/FU/lib/types";
 import { equipmentCardData, type EquipmentCardData } from "@/app/FU/lib/equipmentDisplay";
 import { ReferenceDataProvider, useReferenceDataContext } from "@/app/FU/lib/ReferenceDataContext";
-import { rollDice } from "@/app/FU/lib/diceRoller";
+import { rollDice, rollCheck, rollAttack } from "@/app/FU/lib/diceRoller";
 import { InfoDisclosure } from "./InfoDisclosure";
 import { SkillText } from "./SkillText";
 import { StatBar } from "./StatBar";
@@ -348,7 +348,20 @@ function resolveAccuracyFormula(formula: string, current: FUCharacterAttributes)
   });
 }
 
-/** Every equipped weapon's attack info — accuracy Check (with current dice resolved) and damage — falling back to Unarmed Strike when nothing's equipped. */
+/** Parses a "【DEX + INS】+1"-shaped accuracy formula into its two attribute tokens and flat modifier. */
+function parseAccuracyFormula(formula: string): { tokens: string[]; modifier: number } {
+  const m = formula.match(/【\s*([A-Z]+)\s*\+\s*([A-Z]+)\s*】\s*([+-]\d+)?/);
+  if (!m) return { tokens: [], modifier: 0 };
+  return { tokens: [m[1], m[2]], modifier: m[3] ? Number(m[3]) : 0 };
+}
+
+/** Parses a "【HR + 6】physical"-shaped damage formula into the HR bonus and damage type. */
+function parseDamageFormula(formula: string): { bonus: number; type: string } {
+  const m = formula.match(/【\s*HR\s*\+\s*(-?\d+)\s*】\s*(.*)/);
+  return { bonus: m ? Number(m[1]) : 0, type: m ? m[2].trim() : "" };
+}
+
+/** Every equipped weapon's attack info — accuracy Check (with current dice resolved) and damage — falling back to Unarmed Strike when nothing's equipped. Clicking a weapon throws its two accuracy dice once and derives both the accuracy total and the damage total from that single roll (HR), same as resolving an Attack action at the table. */
 function CombatPanel({ character, current }: { character: FUCharacter; current: FUCharacterAttributes }) {
   const ref = useReferenceDataContext();
   const equippedWeapons = character.equipment.weapons
@@ -357,6 +370,19 @@ function CombatPanel({ character, current }: { character: FUCharacter; current: 
   const unarmed = ref.weapons.find((w) => w.id === "unarmed-strike");
   const displayWeapons = equippedWeapons.length > 0 ? equippedWeapons : unarmed ? [unarmed] : [];
 
+  function handleAttack(w: FUWeapon) {
+    const { tokens, modifier } = parseAccuracyFormula(w.accuracy);
+    if (tokens.length < 2) return;
+    const { bonus, type } = parseDamageFormula(w.damage);
+    rollAttack({
+      weaponName: w.name,
+      accTokens: tokens.map((t) => ({ label: t, die: current[ATTACK_TOKEN_TO_ATTRIBUTE[t]] })),
+      accModifier: modifier,
+      damageBonus: bonus,
+      damageType: type,
+    });
+  }
+
   return (
     <Panel title="Combate">
       {displayWeapons.length === 0 ? (
@@ -364,12 +390,18 @@ function CombatPanel({ character, current }: { character: FUCharacter; current: 
       ) : (
         <div className="space-y-1.5">
           {displayWeapons.map((w) => (
-            <div key={w.id} className="rounded-sm border border-border px-2.5 py-2">
+            <button
+              type="button"
+              key={w.id}
+              onClick={() => handleAttack(w)}
+              title="Tirar ataque"
+              className="w-full rounded-sm border border-border px-2.5 py-2 text-left transition-colors hover:border-brass"
+            >
               <span className="font-body text-sm font-semibold text-ink">{w.name}</span>
               <p className="mt-0.5 text-xs text-ink font-body"><strong className="text-moss">Precisión:</strong> {resolveAccuracyFormula(w.accuracy, current)}</p>
               <p className="text-xs text-ink font-body"><strong className="text-moss">Daño:</strong> {w.damage}</p>
               {w.notes && <p className="mt-0.5 text-2xs text-ink-light font-body">{w.notes}</p>}
-            </div>
+            </button>
           ))}
         </div>
       )}
@@ -377,7 +409,7 @@ function CombatPanel({ character, current }: { character: FUCharacter; current: 
   );
 }
 
-function SpellsPanel({ character, onUpdate }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void }) {
+function SpellsPanel({ character, current, onUpdate }: { character: FUCharacter; current: FUCharacterAttributes; onUpdate: (updated: FUCharacter) => void }) {
   const ref = useReferenceDataContext();
 
   function spendMp(amount: number) {
@@ -389,7 +421,7 @@ function SpellsPanel({ character, onUpdate }: { character: FUCharacter; onUpdate
     const cls = ref.classesById[cl.classId];
     if (cls?.subsystem?.type === "spells") {
       for (const spell of cls.subsystem.entries) {
-        rows.push(<SpellRow key={`${cl.classId}-spell-${spell.name}`} spell={spell} currentMp={character.currentMp} onCast={spendMp} />);
+        rows.push(<SpellRow key={`${cl.classId}-spell-${spell.name}`} spell={spell} current={current} currentMp={character.currentMp} onCast={spendMp} />);
       }
     }
   }
@@ -413,7 +445,7 @@ function SpellsPanel({ character, onUpdate }: { character: FUCharacter; onUpdate
  * with no way to actually spend MP for it (unlike the old "Costo variable"
  * text-only fallback).
  */
-function SpellRow({ spell, currentMp, onCast }: { spell: FUSpell; currentMp: number; onCast: (mpCost: number) => void }) {
+function SpellRow({ spell, current, currentMp, onCast }: { spell: FUSpell; current: FUCharacterAttributes; currentMp: number; onCast: (mpCost: number) => void }) {
   const numericCost = Number(spell.mpCost);
   const fixed = Number.isFinite(numericCost) && numericCost > 0;
   const [cost, setCost] = React.useState(fixed ? String(numericCost) : "");
@@ -423,6 +455,20 @@ function SpellRow({ spell, currentMp, onCast }: { spell: FUSpell; currentMp: num
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <span className="font-body text-sm font-semibold text-ink">{spell.name} <span className="font-label text-2xs text-moss">{spell.mpCost} PM · {spell.target}</span></span>
         <div className="flex items-center gap-1.5 shrink-0">
+          {spell.offensive && (
+            <button
+              type="button"
+              onClick={() => rollCheck(
+                [{ label: "INS", die: current.insight }, { label: "WLP", die: current.willpower }],
+                0,
+                `${spell.name} — Check Mágico`
+              )}
+              title="Tirar Check Mágico (INS + WLP)"
+              className="rounded-sm border border-brass/50 p-1 text-brass hover:bg-brass/10 transition-colors"
+            >
+              <Dices className="h-3.5 w-3.5" />
+            </button>
+          )}
           <input
             type="number"
             min={0}
@@ -1121,7 +1167,7 @@ function CharacterSheetInner({
             </div>
             <div className="flex flex-col gap-3">
               <CombatPanel character={character} current={current} />
-              <SpellsPanel character={character} onUpdate={onUpdate} />
+              <SpellsPanel character={character} current={current} onUpdate={onUpdate} />
               <BondsAccordion character={character} onUpdate={onUpdate} />
               <AffinitiesAccordion character={character} onUpdate={onUpdate} />
               <ClassesAccordion character={character} onUpdate={onUpdate} />

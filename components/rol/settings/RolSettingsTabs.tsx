@@ -10,6 +10,7 @@ import { LocationsManager } from "./LocationsManager";
 import { RolQuestsManager } from "./RolQuestsManager";
 import { NpcsManager } from "./NpcsManager";
 import { RitualsProjectsCalculator } from "./RitualsProjectsCalculator";
+import { DiceSettingsManager } from "./DiceSettingsManager";
 
 const TABS = [
   { key: "guild", label: "Gremio" },
@@ -17,6 +18,7 @@ const TABS = [
   { key: "quests", label: "Misiones" },
   { key: "npcs", label: "NPCs" },
   { key: "rituals", label: "Rituales/Proyectos" },
+  { key: "dice", label: "Dados" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -59,6 +61,7 @@ export function RolSettingsTabs() {
       {tab === "quests" && <RolQuestsManager />}
       {tab === "npcs" && <NpcsManager />}
       {tab === "rituals" && <RitualsProjectsCalculator />}
+      {tab === "dice" && <DiceSettingsManager />}
     </div>
   );
 }
