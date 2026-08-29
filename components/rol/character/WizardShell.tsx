@@ -25,6 +25,8 @@ export function WizardShell({
   onNext,
   onFinish,
   children,
+  stepTitles = STEP_TITLES,
+  finishLabel = "Terminar personaje",
 }: {
   step: number;
   onStepChange: (step: number) => void;
@@ -35,14 +37,17 @@ export function WizardShell({
   onNext: () => void;
   onFinish: () => void;
   children: React.ReactNode;
+  /** Defaults to the full 8-step creation flow — pass a shorter list to reuse the shell for a narrower edit flow. */
+  stepTitles?: string[];
+  finishLabel?: string;
 }) {
-  const isLast = step === STEP_TITLES.length - 1;
+  const isLast = step === stepTitles.length - 1;
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-8 md:flex-row md:px-8">
       <aside className="md:w-56 md:shrink-0">
         <div className="flex gap-2 overflow-x-auto pb-2 md:flex-col md:overflow-visible md:pb-0">
-          {STEP_TITLES.map((title, i) => {
+          {stepTitles.map((title, i) => {
             const reached = i <= furthestStep;
             const active = i === step;
             return (
@@ -89,7 +94,7 @@ export function WizardShell({
           </button>
           {isLast ? (
             <div className="flex flex-col items-end gap-1.5">
-              <Button type="button" onClick={onFinish} disabled={!canFinish}>Terminar personaje</Button>
+              <Button type="button" onClick={onFinish} disabled={!canFinish}>{finishLabel}</Button>
               {!canFinish && finishHint && <span className="text-xs text-brass-light font-body">{finishHint}</span>}
             </div>
           ) : (

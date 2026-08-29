@@ -989,9 +989,14 @@ function CharacterSheetInner({
   return (
     <div className="w-full px-3 py-5 md:px-6">
       {!hideBackLink && (
-        <Link href={backHref} className="font-label text-2xs uppercase tracking-widest text-parchment-dark hover:text-parchment">
-          ← Mis personajes
-        </Link>
+        <div className="flex items-center justify-between gap-3">
+          <Link href={backHref} className="font-label text-2xs uppercase tracking-widest text-parchment-dark hover:text-parchment">
+            ← Mis personajes
+          </Link>
+          <Link href={`/rol/characters/${character.id}/edit`} className="font-label text-2xs uppercase tracking-widest text-parchment-dark hover:text-parchment">
+            Editar personaje ✎
+          </Link>
+        </div>
       )}
 
       <div className="relative flex surface-parchment overflow-hidden mt-2">
