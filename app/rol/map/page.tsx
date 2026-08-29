@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ZoomIn, ZoomOut, RotateCcw, X } from "lucide-react";
+import { RotateCcw, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { iconForLocationType, labelForLocationType, scaleForLocationType } from "@/lib/rol/locationTypes";
 import type { ShgRolLocation, ShgRolMap } from "@/types/database";
@@ -9,6 +9,10 @@ import type { ShgRolLocation, ShgRolMap } from "@/types/database";
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 3;
 const ZOOM_STEP = 0.25;
+
+// Extra clearance above/below the pin's own drawn box so the popup (or its
+// pointer tail) never overlaps the icon it belongs to.
+const POPUP_CLEARANCE_PX = 44;
 
 function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n));
@@ -41,11 +45,47 @@ function LocationMarker({ location, onSelect }: { location: ShgRolLocation; onSe
   );
 }
 
-function LocationPopup({ location, onClose }: { location: ShgRolLocation; onClose: () => void }) {
+/**
+ * Anchored to its pin in the same percentage coordinate space as the
+ * markers (so it pans/zooms with the map for free), but flips between
+ * appearing above vs. below the pin depending on which side actually has
+ * room for it in the container's *currently visible* (scrolled) area —
+ * otherwise a popup near the top of the map, or a long description, could
+ * render partly outside the scrollable viewport and get clipped.
+ */
+function LocationPopup({
+  location, containerRef, imgRef, onClose,
+}: {
+  location: ShgRolLocation;
+  containerRef: React.RefObject<HTMLDivElement>;
+  imgRef: React.RefObject<HTMLImageElement>;
+  onClose: () => void;
+}) {
+  const popupRef = React.useRef<HTMLDivElement>(null);
+  const [placement, setPlacement] = React.useState<"above" | "below">("above");
+
+  React.useLayoutEffect(() => {
+    const container = containerRef.current;
+    const img = imgRef.current;
+    const popup = popupRef.current;
+    if (!container || !img || !popup) return;
+    const pinScreenY = (location.y_pct / 100) * img.clientHeight - container.scrollTop;
+    const roomAbove = pinScreenY - POPUP_CLEARANCE_PX;
+    const roomBelow = container.clientHeight - pinScreenY - POPUP_CLEARANCE_PX;
+    setPlacement(roomAbove >= popup.offsetHeight || roomAbove >= roomBelow ? "above" : "below");
+  }, [location, containerRef, imgRef]);
+
+  const above = placement === "above";
+
   return (
     <div
+      ref={popupRef}
       className="absolute z-30 w-64 surface-parchment p-4 shadow-parchment-lg"
-      style={{ left: `${location.x_pct}%`, top: `calc(${location.y_pct}% - 2.75rem)`, transform: "translate(-50%, -100%)" }}
+      style={{
+        left: `${location.x_pct}%`,
+        top: `calc(${location.y_pct}% ${above ? "-" : "+"} ${POPUP_CLEARANCE_PX / 16}rem)`,
+        transform: `translate(-50%, ${above ? "-100%" : "0"})`,
+      }}
       onClick={(e) => e.stopPropagation()}
     >
       <button
@@ -58,8 +98,12 @@ function LocationPopup({ location, onClose }: { location: ShgRolLocation; onClos
       <p className="font-label text-2xs uppercase tracking-wide text-brass mb-1 pr-5">{labelForLocationType(location.type)}</p>
       <h2 className="font-display text-lg text-ink mb-1.5 pr-5">{location.name}</h2>
       <p className="font-body text-sm text-ink-light leading-snug">{location.description}</p>
-      {/* little pointer tail, echoing the pin it belongs to */}
-      <div className="absolute left-1/2 top-full -translate-x-1/2 h-2.5 w-2.5 rotate-45 -mt-1.5 surface-parchment border-r border-b border-border" />
+      {/* pointer tail: points down at the pin below when above it, up when below it */}
+      {above ? (
+        <div className="absolute left-1/2 top-full -translate-x-1/2 h-2.5 w-2.5 rotate-45 -mt-1.5 surface-parchment border-r border-b border-border" />
+      ) : (
+        <div className="absolute left-1/2 bottom-full -translate-x-1/2 h-2.5 w-2.5 rotate-45 -mb-1.5 surface-parchment border-l border-t border-border" />
+      )}
     </div>
   );
 }
@@ -71,11 +115,12 @@ export default function RolMapPage() {
   const [loading, setLoading] = React.useState(true);
   const [zoom, setZoom] = React.useState(1);
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
+  const imgRef = React.useRef<HTMLImageElement | null>(null);
   const [panning, setPanning] = React.useState(false);
   const panStartRef = React.useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
   // Captured right before a zoom-level change, so a layout effect can restore
-  // the same map point under the cursor (or viewport center for the +/-
-  // buttons) once the new zoom has been applied to the DOM.
+  // the same map point under the cursor once the new zoom has been applied
+  // to the DOM.
   const zoomOriginRef = React.useRef<{ x: number; y: number; oldZoom: number; oldScrollLeft: number; oldScrollTop: number } | null>(null);
 
   React.useEffect(() => {
@@ -100,9 +145,8 @@ export default function RolMapPage() {
     });
   }
 
-  // Restores the map point that was under the zoom origin (cursor, or
-  // viewport center for the toolbar buttons) so zooming feels anchored to
-  // that point instead of always growing from the top-left corner.
+  // Restores the map point that was under the cursor so zooming feels
+  // anchored to that point instead of always growing from the top-left.
   React.useLayoutEffect(() => {
     const el = scrollRef.current;
     const origin = zoomOriginRef.current;
@@ -127,12 +171,6 @@ export default function RolMapPage() {
     el.addEventListener("wheel", handleWheel, { passive: false });
     return () => el.removeEventListener("wheel", handleWheel);
   }, [map?.image_url]);
-
-  function centerOrigin(): [number, number] {
-    const el = scrollRef.current;
-    if (!el) return [0, 0];
-    return [el.clientWidth / 2, el.clientHeight / 2];
-  }
 
   function startPan(e: React.PointerEvent) {
     if (e.button !== 1 && e.button !== 2) return;
@@ -168,71 +206,68 @@ export default function RolMapPage() {
   }, [panning]);
 
   return (
-    <main className="flex flex-col h-[calc(100vh-60px)] px-4 py-3">
-      <div className="flex items-center gap-3 mb-2 shrink-0 flex-wrap">
-        <h1 className="font-display text-xl text-parchment">Mapa del Mundo</h1>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => zoomBy(-ZOOM_STEP, ...centerOrigin())}
-            disabled={zoom <= MIN_ZOOM}
-            className="p-1.5 border border-border text-parchment-dark hover:border-brass hover:text-brass transition-colors disabled:opacity-30"
-            aria-label="Alejar"
-          >
-            <ZoomOut size={15} />
-          </button>
-          <span className="font-label text-2xs text-parchment-dark w-10 text-center">{Math.round(zoom * 100)}%</span>
-          <button
-            type="button"
-            onClick={() => zoomBy(ZOOM_STEP, ...centerOrigin())}
-            disabled={zoom >= MAX_ZOOM}
-            className="p-1.5 border border-border text-parchment-dark hover:border-brass hover:text-brass transition-colors disabled:opacity-30"
-            aria-label="Acercar"
-          >
-            <ZoomIn size={15} />
-          </button>
-          {zoom !== 1 && (
-            <button
-              type="button"
-              onClick={() => setZoom(1)}
-              className="p-1.5 border border-border text-parchment-dark hover:border-brass hover:text-brass transition-colors"
-              aria-label="Restablecer zoom"
-            >
-              <RotateCcw size={15} />
-            </button>
-          )}
-        </div>
-        <span className="font-body text-2xs text-parchment-dark">
-          Rueda del mouse para zoom · click derecho o botón central + arrastrar para mover el mapa
-        </span>
-      </div>
-
+    <main className="relative h-[calc(100vh-60px)] w-full">
       {loading ? (
-        <p className="font-body italic text-parchment-dark">Cargando…</p>
-      ) : !map?.image_url ? (
-        <p className="font-body italic text-parchment-dark">El mapa todavía no tiene una imagen cargada.</p>
-      ) : (
-        <div
-          ref={scrollRef}
-          onPointerDown={startPan}
-          onContextMenu={(e) => e.preventDefault()}
-          className={cn("relative flex-1 min-h-0 surface-parchment overflow-auto", panning && "cursor-grabbing")}
-        >
-          <div className="relative" style={{ width: `${zoom * 100}%`, minWidth: "100%" }}>
-            {/* eslint-disable-next-line @next/next/no-img-element -- must render at its natural aspect ratio */}
-            <img
-              src={map.image_url}
-              alt=""
-              className="w-full h-auto block select-none"
-              draggable={false}
-              onClick={() => setSelected(null)}
-            />
-            {locations.map((l) => (
-              <LocationMarker key={l.id} location={l} onSelect={() => setSelected(l)} />
-            ))}
-            {selected && <LocationPopup location={selected} onClose={() => setSelected(null)} />}
-          </div>
+        <div className="flex h-full items-center justify-center">
+          <p className="font-body italic text-parchment-dark">Cargando…</p>
         </div>
+      ) : !map?.image_url ? (
+        <div className="flex h-full items-center justify-center">
+          <p className="font-body italic text-parchment-dark">El mapa todavía no tiene una imagen cargada.</p>
+        </div>
+      ) : (
+        <>
+          <div
+            ref={scrollRef}
+            onPointerDown={startPan}
+            onContextMenu={(e) => e.preventDefault()}
+            className={cn("absolute inset-0 overflow-auto surface-parchment", panning && "cursor-grabbing")}
+          >
+            <div className="relative" style={{ width: `${zoom * 100}%`, minWidth: "100%" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element -- must render at its natural aspect ratio */}
+              <img
+                ref={imgRef}
+                src={map.image_url}
+                alt=""
+                className="w-full h-auto block select-none"
+                draggable={false}
+                onClick={() => setSelected(null)}
+              />
+              {locations.map((l) => (
+                <LocationMarker key={l.id} location={l} onSelect={() => setSelected(l)} />
+              ))}
+              {selected && (
+                <LocationPopup location={selected} containerRef={scrollRef} imgRef={imgRef} onClose={() => setSelected(null)} />
+              )}
+            </div>
+          </div>
+
+          <div className="pointer-events-none absolute top-3 left-3 z-20">
+            <div className="pointer-events-auto surface-parchment px-3.5 py-2 shadow-parchment-lg">
+              <h1 className="font-display text-lg text-ink">Mapa del Mundo</h1>
+            </div>
+          </div>
+
+          <div className="pointer-events-none absolute bottom-3 right-3 z-20">
+            <div className="pointer-events-auto flex items-center gap-2.5 surface-parchment px-3 py-1.5 shadow-parchment-lg">
+              <span className="hidden sm:inline font-body text-2xs text-ink-light">
+                Rueda para zoom · clic derecho + arrastrar para mover
+              </span>
+              <span className="font-label text-2xs text-ink-light border-l border-border pl-2.5">{Math.round(zoom * 100)}%</span>
+              {zoom !== 1 && (
+                <button
+                  type="button"
+                  onClick={() => setZoom(1)}
+                  className="text-ink-light hover:text-brass transition-colors"
+                  aria-label="Restablecer zoom"
+                  title="Restablecer zoom"
+                >
+                  <RotateCcw size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+        </>
       )}
     </main>
   );
