@@ -17,6 +17,7 @@ import {
 import type { FUBond, FUCharacter, FUCharacterAttributes } from "@/app/FU/lib/types";
 import { equipmentCardData, type EquipmentCardData } from "@/app/FU/lib/equipmentDisplay";
 import { ReferenceDataProvider, useReferenceDataContext } from "@/app/FU/lib/ReferenceDataContext";
+import { rollDice } from "@/app/FU/lib/diceRoller";
 import { InfoDisclosure } from "./InfoDisclosure";
 import { SkillText } from "./SkillText";
 import { StatBar } from "./StatBar";
@@ -223,7 +224,13 @@ function AttributeGrid({ character, current }: { character: FUCharacter; current
         const reduced = curr !== base;
         const linked = ref.statusEffects.filter((e) => character.statusEffects.includes(e.id) && e.affects.includes(key));
         return (
-          <div key={key} className={cn("text-center rounded-sm border px-2 py-2", reduced ? "border-crimson bg-crimson/5" : "border-border")}>
+          <button
+            type="button"
+            key={key}
+            onClick={() => rollDice(`1d${curr}`, label)}
+            title={`Tirar 1d${curr}`}
+            className={cn("text-center rounded-sm border px-2 py-2 transition-colors hover:border-brass", reduced ? "border-crimson bg-crimson/5" : "border-border")}
+          >
             <div className="font-label text-xs text-ink-light">{label}</div>
             <div className="font-label text-xl font-bold leading-tight">
               {reduced ? (
@@ -233,7 +240,7 @@ function AttributeGrid({ character, current }: { character: FUCharacter; current
               )}
             </div>
             {linked.length > 0 && <div className="font-body text-2xs text-crimson truncate">{linked.map((e) => e.name).join("/")}</div>}
-          </div>
+          </button>
         );
       })}
     </div>
