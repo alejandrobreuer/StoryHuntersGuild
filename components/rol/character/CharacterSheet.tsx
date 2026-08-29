@@ -985,6 +985,9 @@ function CharacterSheetInner({
   function adjustXp(delta: number) {
     onUpdate({ ...character, xp: Math.max(0, character.xp + delta), updatedAt: new Date().toISOString() });
   }
+  function adjustIp(delta: number) {
+    onUpdate({ ...character, currentIp: Math.max(0, Math.min(stats.ip.value, character.currentIp + delta)), updatedAt: new Date().toISOString() });
+  }
 
   return (
     <div className="w-full px-3 py-5 md:px-6">
@@ -1069,9 +1072,10 @@ function CharacterSheetInner({
             </Panel>
 
             <Panel title="Acciones de Inventario">
-              <div className="flex items-center justify-between mb-2.5">
-                <span className="font-label text-xs uppercase tracking-wide text-ink-light">PI</span>
+              <div className="flex items-center justify-between mb-2.5 gap-2">
+                <span className="font-label text-xs uppercase tracking-wide text-ink-light shrink-0">PI</span>
                 <span className="font-label text-sm font-bold text-ink">{character.currentIp} / {stats.ip.value}</span>
+                <AmountAdjuster onApply={adjustIp} />
               </div>
               <div className="flex flex-col gap-1.5">
                 {ref.ipItems.map((item) => (
