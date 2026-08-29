@@ -1,134 +1,97 @@
 "use client";
 
 import * as React from "react";
-import { Accordion } from "@/components/ui/Accordion";
-import { SkillText } from "@/components/rol/character/SkillText";
+import { cn } from "@/lib/utils";
 import { ReferenceDataProvider, useReferenceDataContext } from "@/app/FU/lib/ReferenceDataContext";
-import type { FUClass, FUSubsystem } from "@/app/FU/data/types";
+import type { FUClass } from "@/app/FU/data/types";
 
-function ClassImage({ classId, name }: { classId: string; name: string }) {
-  const [errored, setErrored] = React.useState(false);
+/**
+ * A vertical strip per class (horizontal strip on mobile) — click one and it
+ * expands (flex-grow) while the rest collapse back to a thin labeled strip,
+ * matching the "choose your class" selector the user handed over as
+ * Images/Classes/class-selector.html. Not the site's usual parchment look on
+ * purpose — this is a full-bleed, dark "character select" screen.
+ */
+function ClassPanel({ cls, active, onSelect }: { cls: FUClass; active: boolean; onSelect: () => void }) {
+  const [imgError, setImgError] = React.useState(false);
+  const chips = [...cls.skills, ...(cls.subsystem?.entries ?? [])];
 
-  if (errored) {
-    return (
-      <div className="flex h-40 w-full shrink-0 items-center justify-center border border-border bg-parchment-dark/10 sm:h-auto sm:w-48">
-        <span className="px-3 text-center font-body text-xs italic text-ink-light">Todavía sin imagen</span>
-      </div>
-    );
-  }
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- static reference asset (public/images/classes), not a user upload
-    <img
-      src={`/images/classes/${classId}.webp`}
-      alt={name}
-      onError={() => setErrored(true)}
-      className="h-40 w-full shrink-0 border border-border object-cover object-top sm:h-auto sm:w-48"
-    />
-  );
-}
-
-function SkillsList({ skills }: { skills: FUClass["skills"] }) {
-  return (
-    <div className="space-y-1.5">
-      {skills.map((s) => (
-        <div key={s.name} className="rounded-sm border border-border px-2.5 py-2">
-          <span className="font-body text-sm font-semibold text-ink">
-            {s.name} {s.maxLevel > 1 && <span className="font-label text-2xs text-moss">(◇{s.maxLevel})</span>}
-          </span>
-          <SkillText text={s.text} className="mt-0.5 text-xs leading-snug text-ink-light font-body" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function SubsystemSection({ subsystem }: { subsystem: FUSubsystem }) {
-  if (subsystem.type === "spells") {
-    return (
-      <>
-        <h3 className="font-label mt-4 mb-1.5 text-xs font-bold uppercase tracking-widest text-brass">Hechizos</h3>
-        <div className="space-y-1.5">
-          {subsystem.entries.map((sp) => (
-            <div key={sp.name} className="rounded-sm border border-border px-2.5 py-2">
-              <span className="font-body text-sm font-semibold text-ink">
-                {sp.name} <span className="font-label text-2xs text-moss">{sp.mpCost} PM · {sp.target}</span>
-              </span>
-              <SkillText text={sp.text} className="mt-0.5 text-xs leading-snug text-ink-light font-body" />
-            </div>
-          ))}
-        </div>
-      </>
-    );
-  }
-
-  if (subsystem.type === "arcana") {
-    return (
-      <>
-        <h3 className="font-label mt-4 mb-1.5 text-xs font-bold uppercase tracking-widest text-brass">Arcana</h3>
-        <div className="space-y-1.5">
-          {subsystem.entries.map((a) => (
-            <div key={a.name} className="rounded-sm border border-border px-2.5 py-2">
-              <span className="font-body text-sm font-semibold text-ink">{a.name} <span className="font-label text-2xs text-moss">{a.domains.join(", ")}</span></span>
-              <p className="mt-0.5 text-xs leading-snug text-ink-light font-body"><strong className="text-ink">Fusión:</strong> {a.mergeText}</p>
-              <p className="mt-0.5 text-xs leading-snug text-ink-light font-body"><strong className="text-ink">Descarte:</strong> {a.dismissText}</p>
-            </div>
-          ))}
-        </div>
-      </>
-    );
-  }
-
-  // "inventions" — each invention type has its own basic/advanced/superior tiers
-  return (
-    <>
-      <h3 className="font-label mt-4 mb-1.5 text-xs font-bold uppercase tracking-widest text-brass">Inventos</h3>
-      <div className="space-y-3">
-        {subsystem.entries.map((inv) => (
-          <div key={inv.id} className="rounded-sm border border-border px-2.5 py-2">
-            <span className="font-body text-sm font-semibold text-ink">{inv.name}</span>
-            <p className="mt-0.5 text-xs leading-snug text-ink-light font-body">{inv.description}</p>
-            <div className="mt-1.5 space-y-1">
-              {inv.tiers.map((t, i) => (
-                <p key={i} className="text-xs leading-snug text-ink-light font-body">
-                  <span className="font-label text-2xs uppercase tracking-wide text-moss">{t.name ?? t.tier}{t.ipCost != null ? ` · ${t.ipCost} PI` : ""}:</span>{" "}
-                  {t.text}
-                </p>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </>
-  );
-}
-
-function ClassPanel({ cls }: { cls: FUClass }) {
-  return (
-    <Accordion
-      title={cls.name}
-      summary={cls.alsoKnownAs.length > 0 ? `También conocido como: ${cls.alsoKnownAs.join(", ")}` : undefined}
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-expanded={active}
+      className={cn(
+        "group relative overflow-hidden border-b border-r border-black/50 text-left last:border-b-0 last:border-r-0",
+        "min-h-[60px] transition-[flex] duration-500 ease-[cubic-bezier(0.65,0,0.35,1)] md:min-h-0 md:min-w-20",
+        active ? "flex-[6]" : "flex-1"
+      )}
     >
-      <div className="flex flex-col gap-4 sm:flex-row">
-        <ClassImage classId={cls.id} name={cls.name} />
-        <div className="min-w-0 flex-1">
-          <p className="font-body text-sm leading-relaxed text-ink-light">{cls.description}</p>
+      {imgError ? (
+        <div className="absolute inset-0 bg-gradient-to-br from-[#3a2a1c] to-[#5c3d24]" />
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element -- static reference asset (public/images/classes), covers its own panel
+        <img
+          src={`/images/classes/${cls.id}.webp`}
+          alt=""
+          onError={() => setImgError(true)}
+          className="absolute inset-0 h-full w-full object-cover object-top"
+        />
+      )}
 
-          <h3 className="font-label mt-4 mb-1.5 text-xs font-bold uppercase tracking-widest text-brass">Habilidades</h3>
-          <SkillsList skills={cls.skills} />
+      {/* darken the art so text stays legible, more so near the bottom where the content sits */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-black/55" />
 
-          {cls.subsystem && <SubsystemSection subsystem={cls.subsystem} />}
-        </div>
+      {/* collapsed label — vertical strip text on desktop, horizontal on the mobile (stacked) layout */}
+      <span
+        className={cn(
+          "pointer-events-none absolute bottom-5 left-1/2 hidden -translate-x-1/2 rotate-180 whitespace-nowrap font-label text-sm uppercase tracking-[0.2em] text-brass-bright transition-opacity duration-300 [writing-mode:vertical-rl] md:block",
+          active && "opacity-0"
+        )}
+      >
+        {cls.name}
+      </span>
+      <span
+        className={cn(
+          "pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 whitespace-nowrap font-label text-sm uppercase tracking-[0.15em] text-brass-bright transition-opacity duration-300 md:hidden",
+          active && "opacity-0"
+        )}
+      >
+        {cls.name}
+      </span>
+
+      {/* expanded content */}
+      <div
+        className={cn(
+          "absolute inset-x-0 bottom-0 p-6 transition-all duration-400 md:p-8",
+          active ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-4 opacity-0"
+        )}
+      >
+        <h2 className="mb-2 font-display text-2xl uppercase tracking-wide text-brass-bright">{cls.name}</h2>
+        <p className="mb-4 max-w-xl font-body text-sm leading-relaxed text-parchment-dark">{cls.description}</p>
+        <ul className="flex max-w-2xl flex-wrap gap-2">
+          {chips.map((c) => (
+            <li
+              key={c.name}
+              className="rounded-sm border border-brass/70 bg-brass/10 px-3 py-1 font-label text-2xs uppercase tracking-wide text-brass-bright"
+            >
+              {c.name}
+            </li>
+          ))}
+        </ul>
       </div>
-    </Accordion>
+    </button>
   );
 }
 
-function ClassesList() {
+function ClassSelector() {
   const ref = useReferenceDataContext();
+  const [activeId, setActiveId] = React.useState<string | null>(ref.classes[0]?.id ?? null);
+
   return (
-    <div className="flex max-w-4xl flex-col gap-3">
+    <div className="flex flex-1 min-h-0 flex-col overflow-hidden md:flex-row">
       {ref.classes.map((cls) => (
-        <ClassPanel key={cls.id} cls={cls} />
+        <ClassPanel key={cls.id} cls={cls} active={cls.id === activeId} onSelect={() => setActiveId(cls.id)} />
       ))}
     </div>
   );
@@ -136,11 +99,12 @@ function ClassesList() {
 
 export default function RolClassesPage() {
   return (
-    <main className="px-6 py-14">
-      <h1 className="font-display text-3xl text-parchment mb-2">Clases</h1>
-      <p className="font-body text-sm text-parchment-dark mb-8">Las 15 clases de Fabula Ultima — descripción, habilidades y, si corresponde, su subsistema (hechizos, arcana o inventos).</p>
+    <main className="flex h-[calc(100vh-60px)] flex-col bg-[#14100c]">
+      <h1 className="shrink-0 py-4 text-center font-display text-lg uppercase tracking-[0.3em] text-brass-bright">
+        Elegí tu Clase
+      </h1>
       <ReferenceDataProvider>
-        <ClassesList />
+        <ClassSelector />
       </ReferenceDataProvider>
     </main>
   );
