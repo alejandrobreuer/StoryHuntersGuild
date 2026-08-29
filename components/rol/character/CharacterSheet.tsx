@@ -207,10 +207,10 @@ function PassivesPanel({ character }: { character: FUCharacter }) {
 }
 
 const ATTRIBUTE_ROWS: { key: AttributeKey; label: string }[] = [
-  { key: "dexterity", label: "DES" },
-  { key: "insight", label: "PER" },
-  { key: "might", label: "VIG" },
-  { key: "willpower", label: "VOL" },
+  { key: "dexterity", label: "DEX" },
+  { key: "insight", label: "INS" },
+  { key: "might", label: "MIG" },
+  { key: "willpower", label: "WLP" },
 ];
 
 function AttributeGrid({ character, current }: { character: FUCharacter; current: FUCharacterAttributes }) {

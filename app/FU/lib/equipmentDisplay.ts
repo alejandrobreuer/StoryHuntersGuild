@@ -24,8 +24,8 @@ export function weaponCardData(w: FUWeapon): EquipmentCardData {
 }
 
 export function armorCardData(a: FUArmor): EquipmentCardData {
-  const def = "fixed" in a.defense ? `${a.defense.fixed}` : `DES${a.defense.dexPlus ? ` +${a.defense.dexPlus}` : ""}`;
-  const mdef = "fixed" in a.magicDefense ? `${a.magicDefense.fixed}` : `PER${a.magicDefense.insPlus ? ` +${a.magicDefense.insPlus}` : ""}`;
+  const def = "fixed" in a.defense ? `${a.defense.fixed}` : `DEX${a.defense.dexPlus ? ` +${a.defense.dexPlus}` : ""}`;
+  const mdef = "fixed" in a.magicDefense ? `${a.magicDefense.fixed}` : `INS${a.magicDefense.insPlus ? ` +${a.magicDefense.insPlus}` : ""}`;
   return { id: a.id, name: a.name, cost: a.cost, martial: a.martial, statLine: `Def ${def} · Def.M ${mdef} · Ini ${a.initiative}`, notes: a.notes };
 }
 
