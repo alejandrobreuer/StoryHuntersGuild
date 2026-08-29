@@ -123,11 +123,36 @@ async function getDiceBox(): Promise<DiceBoxInstance> {
   return diceBoxPromise;
 }
 
+// How long the dice stay fully visible after settling, and how long the
+// fade-out itself takes, before clear()ing them off the table.
+const DICE_VISIBLE_MS = 2500;
+const DICE_FADE_MS = 700;
+let fadeTimer: ReturnType<typeof setTimeout> | null = null;
+
 /** Throws one or more dice groups (e.g. ["1d8", "1d10"]) in the full-screen overlay and resolves each group's own value (dice + any modifier baked into that notation), in the same order passed in — no toast, for callers that need to combine multiple rolled values (an attribute pair, an attack's accuracy+damage) before showing one result. */
 async function throwDice(notations: string[]): Promise<number[]> {
   const box = await getDiceBox();
+  const canvas = document.getElementById(OVERLAY_ID)?.querySelector("canvas");
+
+  // Cancel any pending fade from a previous roll and snap the dice back to
+  // fully visible instantly (no transition) before throwing new ones.
+  if (fadeTimer) { clearTimeout(fadeTimer); fadeTimer = null; }
+  if (canvas) {
+    canvas.style.transition = "none";
+    canvas.style.opacity = "1";
+  }
+
   box.clear();
   const groups = (await box.roll(notations.length === 1 ? notations[0] : notations)) as RollGroupResult[];
+
+  if (canvas) {
+    fadeTimer = setTimeout(() => {
+      canvas.style.transition = `opacity ${DICE_FADE_MS}ms ease`;
+      canvas.style.opacity = "0";
+      fadeTimer = null;
+    }, DICE_VISIBLE_MS);
+  }
+
   return groups.map((g) => g.value ?? 0);
 }
 
