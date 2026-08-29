@@ -30,7 +30,7 @@ export async function signAdminSession(payload: ShgAdminSessionPayload): Promise
   return new SignJWT({ ...payload })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime("12h")
+    .setExpirationTime("7d")
     .sign(secretFor("admin"));
 }
 
@@ -56,9 +56,9 @@ export function setPublicSessionCookie(token: string): void {
   });
 }
 
-/** Sets the admin session cookie — maxAge matches signAdminSession's 12h expiry. */
+/** Sets the admin session cookie — maxAge matches signAdminSession's 7d expiry. */
 export function setAdminSessionCookie(token: string): void {
   cookies().set(ADMIN_SESSION_COOKIE, token, {
-    httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 12,
+    httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 7,
   });
 }
