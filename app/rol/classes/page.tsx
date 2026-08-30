@@ -22,7 +22,8 @@ function ClassPanel({
 }: {
   cls: FUClass; active: boolean; contentReady: boolean; onSelect: () => void;
 }) {
-  const [imgError, setImgError] = React.useState(false);
+  const [bgError, setBgError] = React.useState(false);
+  const [charError, setCharError] = React.useState(false);
 
   return (
     <button
@@ -35,15 +36,25 @@ function ClassPanel({
         active ? "flex-[6]" : "flex-1"
       )}
     >
-      {imgError ? (
+      {bgError ? (
         <div className="absolute inset-0 bg-gradient-to-br from-[#3a2a1c] to-[#5c3d24]" />
       ) : (
-        // eslint-disable-next-line @next/next/no-img-element -- static reference asset (public/images/classes), covers its own panel
+        // eslint-disable-next-line @next/next/no-img-element -- static reference asset (public/images/classes/backgrounds), covers its own panel
+        <img
+          src={`/images/classes/backgrounds/${cls.id}.webp`}
+          alt=""
+          onError={() => setBgError(true)}
+          className="absolute inset-0 h-full w-full scale-110 object-cover blur-sm"
+        />
+      )}
+
+      {!charError && (
+        // eslint-disable-next-line @next/next/no-img-element -- static reference asset (public/images/classes), the character art layered over the background
         <img
           src={`/images/classes/${cls.id}.webp`}
           alt=""
-          onError={() => setImgError(true)}
-          className="absolute inset-0 h-full w-full object-cover object-top"
+          onError={() => setCharError(true)}
+          className="absolute inset-x-[10%] bottom-0 h-[80%] w-[80%] object-contain object-bottom drop-shadow-2xl"
         />
       )}
 
