@@ -14,7 +14,6 @@ import type { FUClass } from "@/app/FU/data/types";
  */
 function ClassPanel({ cls, active, onSelect }: { cls: FUClass; active: boolean; onSelect: () => void }) {
   const [imgError, setImgError] = React.useState(false);
-  const chips = [...cls.skills, ...(cls.subsystem?.entries ?? [])];
 
   return (
     <button
@@ -68,17 +67,7 @@ function ClassPanel({ cls, active, onSelect }: { cls: FUClass; active: boolean; 
         )}
       >
         <h2 className="mb-2 font-display text-2xl uppercase tracking-wide text-brass-bright">{cls.name}</h2>
-        <p className="mb-4 max-w-xl font-body text-sm leading-relaxed text-parchment-dark">{cls.description}</p>
-        <ul className="flex max-w-2xl flex-wrap gap-2">
-          {chips.map((c) => (
-            <li
-              key={c.name}
-              className="rounded-sm border border-brass/70 bg-brass/10 px-3 py-1 font-label text-2xs uppercase tracking-wide text-brass-bright"
-            >
-              {c.name}
-            </li>
-          ))}
-        </ul>
+        <p className="max-w-xl font-body text-sm leading-relaxed text-parchment-dark">{cls.description}</p>
       </div>
     </button>
   );
