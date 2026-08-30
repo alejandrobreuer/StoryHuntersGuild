@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { ReferenceDataProvider, useReferenceDataContext } from "@/app/FU/lib/ReferenceDataContext";
 import type { FUClass } from "@/app/FU/data/types";
@@ -26,12 +27,14 @@ function ClassPanel({
   const [charError, setCharError] = React.useState(false);
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onSelect}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(); } }}
       aria-expanded={active}
       className={cn(
-        "group relative overflow-hidden border-b border-r border-black/50 text-left last:border-b-0 last:border-r-0",
+        "group relative cursor-pointer overflow-hidden border-b border-r border-black/50 text-left last:border-b-0 last:border-r-0",
         "min-h-[60px] transition-[flex] duration-500 ease-[cubic-bezier(0.65,0,0.35,1)] md:min-h-0 md:min-w-20",
         active ? "flex-[6]" : "flex-1"
       )}
@@ -44,7 +47,7 @@ function ClassPanel({
           src={`/images/classes/backgrounds/${cls.id}.webp`}
           alt=""
           onError={() => setBgError(true)}
-          className="absolute inset-0 h-full w-full scale-110 object-cover blur-sm"
+          className="absolute inset-0 h-full w-full scale-110 object-cover blur-[2px]"
         />
       )}
 
@@ -90,10 +93,17 @@ function ClassPanel({
           <>
             <h2 className="mb-2 font-display text-2xl uppercase tracking-wide text-brass-bright">{cls.name}</h2>
             <p className="max-w-xl font-body text-sm leading-relaxed text-parchment-dark">{cls.description}</p>
+            <Link
+              href={`/rol/classes/${cls.id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="mt-3 inline-block rounded-sm border border-brass/70 px-3 py-1.5 font-label text-2xs uppercase tracking-wide text-brass-bright transition-colors hover:bg-brass/10"
+            >
+              Más Detalle…
+            </Link>
           </>
         )}
       </div>
-    </button>
+    </div>
   );
 }
 
