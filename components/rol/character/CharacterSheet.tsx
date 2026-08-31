@@ -205,14 +205,19 @@ function EquipTag({ position, label, children }: { position: "tl" | "tr" | "bl" 
 }
 
 /** A hex/shield-shaped stat readout — Iniciativa/Defensa/Def. Mágica in the vitals rail. */
-function CombatBadge({ label, value, shape }: { label: string; value: React.ReactNode; shape: "hex" | "shield" }) {
-  const clipPath = shape === "hex"
-    ? "polygon(30% 0%,70% 0%,100% 30%,100% 70%,70% 100%,30% 100%,0% 70%,0% 30%)"
-    : "polygon(50% 0%,100% 16%,100% 58%,50% 100%,0% 58%,0% 16%)";
+/** Iniciativa/Defensa/Def. Mágica — the stat's own badge art (public/images/stats) with the number overlaid on top. */
+function CombatBadge({ label, value, icon }: { label: string; value: React.ReactNode; icon: "initiative" | "physical-defense" | "magic-defense" }) {
   return (
     <div className="flex flex-1 flex-col items-center gap-1">
-      <div style={{ clipPath }} className="flex size-12 items-center justify-center border-2 border-crimson bg-parchment">
-        <span className="font-display text-lg text-crimson">{value}</span>
+      <div className="relative flex size-14 items-center justify-center">
+        {/* eslint-disable-next-line @next/next/no-img-element -- static reference asset (public/images/stats), always rendered at icon size */}
+        <img src={`/images/stats/${icon}.webp`} alt="" className="absolute inset-0 h-full w-full object-contain" />
+        <span
+          className="relative font-display text-lg font-bold text-white"
+          style={{ textShadow: "0 1px 2px rgba(0,0,0,0.9), 0 0 5px rgba(0,0,0,0.85)" }}
+        >
+          {value}
+        </span>
       </div>
       <span className="font-label text-[10px] uppercase tracking-wide text-ink-light">{label}</span>
     </div>
@@ -1297,9 +1302,9 @@ function VitalsRail({
       </div>
 
       <div className="flex justify-between gap-2">
-        <CombatBadge label="Iniciativa" value={stats.initiative.value >= 0 ? `+${stats.initiative.value}` : stats.initiative.value} shape="hex" />
-        <CombatBadge label="Defensa" value={stats.defense.value} shape="shield" />
-        <CombatBadge label="Def. Mágica" value={stats.magicDefense.value} shape="shield" />
+        <CombatBadge label="Iniciativa" value={stats.initiative.value >= 0 ? `+${stats.initiative.value}` : stats.initiative.value} icon="initiative" />
+        <CombatBadge label="Defensa" value={stats.defense.value} icon="physical-defense" />
+        <CombatBadge label="Def. Mágica" value={stats.magicDefense.value} icon="magic-defense" />
       </div>
 
       <div className="flex items-center justify-between gap-2 rounded-md border border-brass bg-parchment px-2.5 py-2">
@@ -1569,7 +1574,7 @@ function CharacterSheetInner({
                   <h3 className="mb-2 flex items-center gap-1.5 border-b border-brass/40 pb-1.5 font-label text-xs uppercase tracking-wide text-ink-light">
                     <Sword size={14} className="text-crimson" /> Acciones de combate
                   </h3>
-                  <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
+                  <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
                     <ActionGrid />
                     <WeaponCards character={character} current={current} />
                   </div>
