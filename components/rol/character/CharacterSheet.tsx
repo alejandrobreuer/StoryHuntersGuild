@@ -134,6 +134,27 @@ function AmountAdjuster({ onApply }: { onApply: (delta: number) => void }) {
   );
 }
 
+/**
+ * A small item-art thumbnail — public/images/equipment/{id}.webp, resized
+ * down from the ~1-2MB originals to 160×160 so the character sheet only
+ * ever loads/displays icon-sized art, never the full source image. Silently
+ * renders nothing if an item has no art yet (id not found among the files).
+ */
+function EquipmentIcon({ id, alt, size = 36 }: { id: string; alt: string; size?: number }) {
+  const [errored, setErrored] = React.useState(false);
+  if (errored) return null;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- static reference asset (public/images/equipment), always rendered at icon size
+    <img
+      src={`/images/equipment/${id}.webp`}
+      alt={alt}
+      onError={() => setErrored(true)}
+      style={{ width: size, height: size }}
+      className="shrink-0 rounded-sm border border-brass/40 bg-parchment-dark/20 object-cover"
+    />
+  );
+}
+
 /** A corner label overlaid on the full-body portrait — read-only text, or an editable input (only Accessory needs one). */
 function EquipTag({ position, label, children }: { position: "tl" | "tr" | "bl" | "br"; label: string; children: React.ReactNode }) {
   const posClasses: Record<typeof position, string> = {
@@ -353,7 +374,10 @@ function WeaponCard({ w, current }: { w: FUWeapon; current: FUCharacterAttribute
 
   return (
     <div className="flex flex-col gap-1.5 rounded-md border border-brass/60 bg-leather p-3.5 text-parchment">
-      <h3 className="font-display text-base text-brass-light">{w.name}</h3>
+      <div className="flex items-center gap-2.5">
+        <EquipmentIcon id={w.id} alt={w.name} size={40} />
+        <h3 className="font-display text-base text-brass-light">{w.name}</h3>
+      </div>
       <div className="flex justify-between gap-3 font-body text-xs"><span className="shrink-0 text-brass-light">Precisión</span><span className="text-right">{resolveAccuracyFormula(w.accuracy, current)}</span></div>
       <div className="flex justify-between gap-3 font-body text-xs"><span className="shrink-0 text-brass-light">Daño</span><span className="text-right">{w.damage}</span></div>
       {w.notes && <div className="flex justify-between gap-3 font-body text-xs"><span className="shrink-0 text-brass-light">Notas</span><span className="text-right">{w.notes}</span></div>}
@@ -553,7 +577,12 @@ function OtherItemsNote({ character, onUpdate }: { character: FUCharacter; onUpd
 function EquipRow({ item, equipped, onToggle }: { item: EquipmentCardData; equipped: boolean; onToggle: () => void }) {
   return (
     <tr className={cn("border-b border-border/60 last:border-b-0", equipped && "bg-brass/5")}>
-      <td className={cn("px-2 py-2 font-body text-sm", equipped ? "font-semibold text-crimson" : "text-ink")}>{item.name}</td>
+      <td className={cn("px-2 py-2 font-body text-sm", equipped ? "font-semibold text-crimson" : "text-ink")}>
+        <div className="flex items-center gap-2">
+          <EquipmentIcon id={item.id} alt={item.name} size={30} />
+          <span>{item.name}</span>
+        </div>
+      </td>
       <td className="px-2 py-2 font-body text-xs text-moss">{item.statLine}</td>
       <td className="whitespace-nowrap px-2 py-2 font-body text-xs text-ink-light">{item.cost != null ? `${item.cost}z` : "—"}</td>
       <td className="hidden px-2 py-2 font-body text-xs text-ink-light sm:table-cell">{item.notes}</td>
@@ -695,7 +724,10 @@ function InventoryTab({ character, onUpdate, equipped }: { character: FUCharacte
         <div className="divide-y divide-border/60">
           {ref.ipItems.map((item) => (
             <div key={item.id} className="flex items-center justify-between gap-2 py-2">
-              <span className="font-body text-sm text-ink">{IP_ITEM_LABELS[item.id] ?? item.name}</span>
+              <span className="flex items-center gap-2 font-body text-sm text-ink">
+                <EquipmentIcon id={item.id} alt={item.name} size={30} />
+                {IP_ITEM_LABELS[item.id] ?? item.name}
+              </span>
               <span className="font-body text-2xs text-ink-light" title={item.effect}>Costo {item.ipCost}</span>
               <button
                 type="button"
@@ -1173,17 +1205,20 @@ function VitalsRail({
           />
         </EquipTag>
         <EquipTag position="tr" label="Armadura">
-          <span className={cn("block text-2xs font-semibold", equipped.equippedArmor ? "text-crimson" : "italic font-normal text-ink-light")}>
+          <span className={cn("flex items-center justify-end gap-1 text-2xs font-semibold", equipped.equippedArmor ? "text-crimson" : "italic font-normal text-ink-light")}>
+            {equipped.equippedArmor && <EquipmentIcon id={equipped.equippedArmor.id} alt="" size={16} />}
             {equipped.equippedArmor?.name ?? "Vacío"}
           </span>
         </EquipTag>
         <EquipTag position="bl" label="M. secundaria">
-          <span className={cn("block text-2xs font-semibold", equipped.isTwoHanded || !equipped.offHandItem ? "italic font-normal text-ink-light" : "text-crimson")}>
+          <span className={cn("flex items-center gap-1 text-2xs font-semibold", equipped.isTwoHanded || !equipped.offHandItem ? "italic font-normal text-ink-light" : "text-crimson")}>
+            {equipped.offHandItem && !equipped.isTwoHanded && <EquipmentIcon id={equipped.offHandItem.id} alt="" size={16} />}
             {equipped.isTwoHanded ? "Ocupada (2 manos)" : equipped.offHandItem?.name ?? "Vacío"}
           </span>
         </EquipTag>
         <EquipTag position="br" label="M. principal">
-          <span className={cn("block text-2xs font-semibold", equipped.mainHand ? "text-crimson" : "italic font-normal text-ink-light")}>
+          <span className={cn("flex items-center justify-end gap-1 text-2xs font-semibold", equipped.mainHand ? "text-crimson" : "italic font-normal text-ink-light")}>
+            {equipped.mainHand && <EquipmentIcon id={equipped.mainHand.id} alt="" size={16} />}
             {equipped.mainHand?.name ?? "Vacío"}
           </span>
         </EquipTag>
