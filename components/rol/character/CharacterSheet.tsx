@@ -346,17 +346,17 @@ const ACTION_ICONS: Record<string, LucideIcon> = {
 
 function ActionGrid() {
   return (
-    <div className="grid grid-cols-3 gap-2">
+    <div className="grid grid-cols-3 gap-1.5">
       {actions.map((a) => {
         const Icon = ACTION_ICONS[a.name] ?? Star;
         return (
           <div
             key={a.name}
-            title={a.description}
-            className="flex flex-col items-center gap-1 rounded-sm border border-border bg-parchment-dark/10 px-2 py-2.5 text-center transition-colors hover:border-brass"
+            className="flex flex-col items-center gap-1 rounded-sm border border-border bg-parchment-dark/10 px-1.5 py-2 text-center transition-colors hover:border-brass"
           >
-            <Icon size={18} className="text-crimson" />
-            <span className="font-body text-2xs text-ink">{a.name}</span>
+            <Icon size={15} className="text-crimson" />
+            <span className="font-body text-2xs font-semibold text-ink">{a.name}</span>
+            <span className="font-body text-[10px] leading-snug text-ink-light">{a.description}</span>
           </div>
         );
       })}
@@ -435,7 +435,7 @@ function WeaponCards({ character, current }: { character: FUCharacter; current: 
 
   if (displayWeapons.length === 0) return <p className="text-sm text-ink-light font-body">Sin arma equipada.</p>;
   return (
-    <div className="grid gap-2.5 sm:grid-cols-2">
+    <div className="grid gap-2.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
       {displayWeapons.map((w) => <WeaponCard key={w.id} w={w} current={current} />)}
     </div>
   );
@@ -839,30 +839,37 @@ function BondRow({ bond, onChange, onRemove }: { bond: FUBond; onChange: (bond: 
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md border border-border bg-parchment-dark/10 px-3.5 py-2.5">
-      <input
-        value={bond.name}
-        onChange={(e) => onChange({ ...bond, name: e.target.value })}
-        placeholder="Nombre"
-        className="min-w-[9rem] flex-1 border-b border-border bg-transparent px-0.5 py-1 font-body text-sm text-ink placeholder:text-leather-light/70 focus:border-brass focus:outline-none"
-      />
-      <span className="flex shrink-0 items-center gap-1.5">
-        <span className="font-label text-2xs text-ink-light">Nivel</span>
-        <span className="flex gap-1">
-          {[0, 1, 2].map((i) => <span key={i} className={cn("size-2.5 rounded-full border border-crimson", i < bond.emotions.length && "bg-crimson")} />)}
+    <div className="flex flex-wrap items-start gap-x-4 gap-y-2 rounded-md border border-border bg-parchment-dark/10 px-3.5 py-2.5">
+      <div className="flex min-w-[9rem] flex-1 flex-col gap-2">
+        <input
+          value={bond.name}
+          onChange={(e) => onChange({ ...bond, name: e.target.value })}
+          placeholder="Nombre"
+          className="border-b border-border bg-transparent px-0.5 py-1 font-body text-sm text-ink placeholder:text-leather-light/70 focus:border-brass focus:outline-none"
+        />
+        <span className="flex items-center gap-1.5">
+          <span className="font-label text-2xs text-ink-light">Nivel</span>
+          <span className="flex gap-1">
+            {[0, 1, 2].map((i) => <span key={i} className={cn("size-2.5 rounded-full border border-crimson", i < bond.emotions.length && "bg-crimson")} />)}
+          </span>
         </span>
-      </span>
-      <div className="flex flex-1 flex-wrap gap-x-3 gap-y-1">
-        {bondPairings.map((pair) => pair.map((emotionId) => {
-          const emotion = bondEmotionsById[emotionId];
-          const active = bond.emotions.includes(emotionId);
-          return (
-            <label key={emotionId} className="flex cursor-pointer items-center gap-1 font-body text-2xs text-ink-light">
-              <input type="checkbox" checked={active} onChange={() => toggle(pair, emotionId)} className="accent-crimson" />
-              {emotion.name}
-            </label>
-          );
-        }))}
+      </div>
+      {/* 3 mutually-exclusive pairs, each stacked so it's clear you can only pick one per group. */}
+      <div className="flex shrink-0 gap-2">
+        {bondPairings.map((pair) => (
+          <div key={pair.join("-")} className="flex flex-col gap-1 rounded-sm border border-border/70 px-2 py-1.5">
+            {pair.map((emotionId) => {
+              const emotion = bondEmotionsById[emotionId];
+              const active = bond.emotions.includes(emotionId);
+              return (
+                <label key={emotionId} className="flex cursor-pointer items-center gap-1.5 font-body text-2xs text-ink-light">
+                  <input type="checkbox" checked={active} onChange={() => toggle(pair, emotionId)} className="accent-crimson" />
+                  {emotion.name}
+                </label>
+              );
+            })}
+          </div>
+        ))}
       </div>
       <button type="button" onClick={onRemove} aria-label="Quitar Vínculo" className="shrink-0 text-sm text-leather-light hover:text-crimson">✕</button>
     </div>
@@ -1562,9 +1569,9 @@ function CharacterSheetInner({
                   <h3 className="mb-2 flex items-center gap-1.5 border-b border-brass/40 pb-1.5 font-label text-xs uppercase tracking-wide text-ink-light">
                     <Sword size={14} className="text-crimson" /> Acciones de combate
                   </h3>
-                  <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
+                  <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
                     <ActionGrid />
-                    <div className="lg:w-64"><WeaponCards character={character} current={current} /></div>
+                    <WeaponCards character={character} current={current} />
                   </div>
                 </div>
 
