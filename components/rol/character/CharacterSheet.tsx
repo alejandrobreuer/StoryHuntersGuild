@@ -213,8 +213,8 @@ function CombatBadge({ label, value, icon }: { label: string; value: React.React
         {/* eslint-disable-next-line @next/next/no-img-element -- static reference asset (public/images/stats), always rendered at icon size */}
         <img src={`/images/stats/${icon}.webp`} alt="" className="absolute inset-0 h-full w-full object-contain" />
         <span
-          className="relative font-display text-lg font-bold text-white"
-          style={{ textShadow: "0 1px 2px rgba(0,0,0,0.9), 0 0 5px rgba(0,0,0,0.85)" }}
+          className="relative font-display text-lg font-bold text-crimson"
+          style={{ textShadow: "0 1px 2px rgba(255,255,255,0.9), 0 0 5px rgba(255,255,255,0.75)" }}
         >
           {value}
         </span>
@@ -1303,7 +1303,7 @@ function VitalsRail({
 
       <div className="flex justify-between gap-2">
         <CombatBadge label="Iniciativa" value={stats.initiative.value >= 0 ? `+${stats.initiative.value}` : stats.initiative.value} icon="initiative" />
-        <CombatBadge label="Defensa" value={stats.defense.value} icon="physical-defense" />
+        <CombatBadge label="Def. Física" value={stats.defense.value} icon="physical-defense" />
         <CombatBadge label="Def. Mágica" value={stats.magicDefense.value} icon="magic-defense" />
       </div>
 
