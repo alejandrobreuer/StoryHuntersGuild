@@ -99,12 +99,45 @@ function SkillLevelDots({ current, max }: { current: number; max: number }) {
   );
 }
 
-/** Single-step +/- pair, no amount box — for XP, which only ever moves 1 at a time in play. */
-function StepAdjuster({ onChange }: { onChange: (delta: number) => void }) {
+/**
+ * One shared PV/PM/XP adjuster (below the three bars) instead of a separate
+ * amount box next to each bar — pick which stat, type an amount, Agregar or
+ * Quitar.
+ */
+function VitalsStatAdjuster({ onAdjust }: { onAdjust: (stat: "hp" | "mp" | "xp", delta: number) => void }) {
+  const [stat, setStat] = React.useState<"hp" | "mp" | "xp">("hp");
+  const [amount, setAmount] = React.useState("");
+
+  function apply(sign: 1 | -1) {
+    const n = Math.abs(Number(amount)) || 0;
+    if (n > 0) onAdjust(stat, sign * n);
+  }
+
   return (
-    <div className="flex items-center gap-1 shrink-0">
-      <button type="button" onClick={() => onChange(-1)} aria-label="Restar" className="flex size-6 items-center justify-center rounded-full border border-brass/60 text-xs leading-none text-ink hover:border-crimson hover:text-crimson">−</button>
-      <button type="button" onClick={() => onChange(1)} aria-label="Sumar" className="flex size-6 items-center justify-center rounded-full border border-brass/60 text-xs leading-none text-ink hover:border-moss hover:text-moss">+</button>
+    <div className="flex items-center gap-1.5">
+      <select
+        value={stat}
+        onChange={(e) => setStat(e.target.value as "hp" | "mp" | "xp")}
+        className="border border-brass/60 bg-parchment/60 px-1.5 py-1.5 font-label text-2xs uppercase text-ink focus:border-brass focus:outline-none"
+      >
+        <option value="hp">PV</option>
+        <option value="mp">PM</option>
+        <option value="xp">XP</option>
+      </select>
+      <input
+        type="number"
+        min={0}
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        placeholder="0"
+        className="w-14 flex-1 border border-brass/60 bg-parchment/60 px-1.5 py-1.5 text-center text-xs text-ink focus:border-brass focus:outline-none font-body"
+      />
+      <button type="button" onClick={() => apply(1)} className="rounded-sm border border-moss px-2.5 py-1.5 font-label text-2xs uppercase tracking-wide text-moss transition-colors hover:bg-moss/10">
+        Agregar
+      </button>
+      <button type="button" onClick={() => apply(-1)} className="rounded-sm border border-crimson px-2.5 py-1.5 font-label text-2xs uppercase tracking-wide text-crimson transition-colors hover:bg-crimson/10">
+        Quitar
+      </button>
     </div>
   );
 }
@@ -1225,20 +1258,29 @@ function VitalsRail({
       </div>
 
       <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-2">
-          <StatBar label="PV" value={character.currentHp} max={stats.hp.value} color="moss" markerAt={stats.crisis.value} />
-          <AmountAdjuster onApply={onAdjustHp} />
-        </div>
+        <StatBar label="PV" value={character.currentHp} max={stats.hp.value} color="moss" markerAt={stats.crisis.value} />
         {inCrisis && <p className="font-label text-2xs uppercase tracking-wide text-crimson font-bold">● Crisis</p>}
-        <div className="flex items-center gap-2">
-          <StatBar label="PM" value={character.currentMp} max={stats.mp.value} color="blue" />
-          <AmountAdjuster onApply={onAdjustMp} />
-        </div>
-        <div className="flex items-center gap-2">
+        <StatBar label="PM" value={character.currentMp} max={stats.mp.value} color="blue" />
+        <div className="relative">
           <StatBar label="XP" value={character.xp} max={XP_PER_LEVEL} color="brass" />
-          <StepAdjuster onChange={onAdjustXp} />
-          <button type="button" onClick={() => setXpModalOpen(true)} aria-label="Cómo funciona el XP" className="flex size-4 shrink-0 items-center justify-center rounded-full border border-brass/60 text-[9px] text-ink-light hover:border-brass hover:text-brass">i</button>
+          <button
+            type="button"
+            onClick={() => setXpModalOpen(true)}
+            aria-label="Cómo funciona el XP"
+            className="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full border border-brass bg-parchment text-[9px] text-ink-light hover:border-brass-bright hover:text-brass"
+          >
+            i
+          </button>
         </div>
+
+        <VitalsStatAdjuster
+          onAdjust={(stat, delta) => {
+            if (stat === "hp") onAdjustHp(delta);
+            else if (stat === "mp") onAdjustMp(delta);
+            else onAdjustXp(delta);
+          }}
+        />
+
         {canLevelUp && (
           <div className="mt-1 flex flex-col gap-1.5">
             <p className="font-label text-2xs uppercase tracking-wide text-brass-bright">¡Podés subir de nivel!</p>
@@ -1477,7 +1519,7 @@ function CharacterSheetInner({
           onOpenModal={setModal}
         />
 
-        <div className="grid gap-4 bg-gradient-to-br from-parchment to-parchment-dark p-3 md:grid-cols-[250px_1fr] md:p-5 md:items-start">
+        <div className="grid gap-4 bg-gradient-to-br from-parchment to-parchment-dark p-3 md:grid-cols-[340px_1fr] md:p-5 md:items-start">
           <VitalsRail
             character={character}
             stats={stats}
