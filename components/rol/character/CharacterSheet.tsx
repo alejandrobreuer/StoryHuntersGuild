@@ -2,11 +2,18 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { User, Info, Dices } from "lucide-react";
+import {
+  User, Info, Dices, Sword, Backpack, Shield, Hand, FlaskConical, Wand2, Trophy, Eye, Star,
+  Zap, Building2, Coins, type LucideIcon,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Accordion } from "@/components/ui/Accordion";
+import { Modal } from "@/components/ui/Modal";
 import { bondEmotionsById, bondPairings, bondsRulesNote, MAX_BONDS, type BondEmotionId } from "@/app/FU/data/bonds";
-import { actions, fabulaPointGains, fabulaPointUses, glossary } from "@/app/FU/data/reference";
+import {
+  actions, fabulaPointGains, fabulaPointUses, glossary,
+  opportunities, criticalFumbleNote, villageServices, villageServicesNote, xpNote,
+} from "@/app/FU/data/reference";
 import type { AttributeKey } from "@/app/FU/data/statusEffects";
 import { elements, affinityStatusOrder, affinityStatusLabels, type AffinityStatus } from "@/app/FU/data/affinities";
 import type { FUArmor, FUShield, FUWeapon, FUSpell } from "@/app/FU/data/types";
@@ -18,16 +25,14 @@ import type { FUBond, FUCharacter, FUCharacterAttributes } from "@/app/FU/lib/ty
 import { equipmentCardData, type EquipmentCardData } from "@/app/FU/lib/equipmentDisplay";
 import { ReferenceDataProvider, useReferenceDataContext } from "@/app/FU/lib/ReferenceDataContext";
 import { rollDice, rollCheck, rollAttack } from "@/app/FU/lib/diceRoller";
-import { InfoDisclosure } from "./InfoDisclosure";
 import { SkillText } from "./SkillText";
 import { StatBar } from "./StatBar";
-import { CharacterFullBodyDrawer } from "./CharacterFullBodyDrawer";
 import { toast } from "sonner";
 
 // Spanish display labels for the canonical (English) inventory-item catalog
 // — the DB stays in English to match the rulebook, only the visible label
-// is translated here, same pattern as the PV/PM/PI/DES/PER/VIG/VOL labels
-// below over their English rule concepts.
+// is translated here, same pattern as the PV/PM/PI labels below over their
+// English rule concepts.
 const IP_ITEM_LABELS: Record<string, string> = {
   remedy: "Remedio",
   elixir: "Elixir",
@@ -35,6 +40,21 @@ const IP_ITEM_LABELS: Record<string, string> = {
   "elemental-shard": "Fragmento elemental",
   "magic-tent": "Carpa mágica",
 };
+
+// The 6 status effects are stored in English in the DB (shg_fu_status_effect)
+// to match the rulebook — translated for display only, same pattern as
+// IP_ITEM_LABELS above.
+const STATUS_EFFECT_LABELS: Record<string, string> = {
+  dazed: "Aturdido",
+  enraged: "Enfurecido",
+  poisoned: "Envenenado",
+  shaken: "Sacudido",
+  slow: "Lento",
+  weak: "Débil",
+};
+function statusLabel(effect: { id: string; name: string }): string {
+  return STATUS_EFFECT_LABELS[effect.id] ?? effect.name;
+}
 
 // Which classes grant permission to equip martial ("E") gear, per
 // Reference/fabula_ultima_data_rules.txt — holding any level in one of these
@@ -58,7 +78,7 @@ function canEquipMartialShield(character: FUCharacter, shield: FUShield): boolea
 
 // ─── small shared bits ───────────────────────────────────────────────────────
 
-/** Always-visible titled panel — the non-collapsible sibling of Accordion, for the dashboard row (Vista General, Acciones, etc.) that should never hide its content. */
+/** Always-visible titled panel — used by the few sections that don't need to collapse. */
 function Panel({ title, className, children }: { title: string; className?: string; children: React.ReactNode }) {
   return (
     <div className={cn("surface-parchment p-3.5", className)}>
@@ -68,7 +88,7 @@ function Panel({ title, className, children }: { title: string; className?: stri
   );
 }
 
-/** Filled/empty dots showing how many more levels a repeatable Skill can still take (single-take Skills, max 1, don't get dots at all). */
+/** Filled/empty dots showing how many more levels a repeatable Skill can still take. */
 function SkillLevelDots({ current, max }: { current: number; max: number }) {
   return (
     <span className="inline-flex items-center gap-0.5">
@@ -79,26 +99,17 @@ function SkillLevelDots({ current, max }: { current: number; max: number }) {
   );
 }
 
-function StatTile({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="text-center rounded-sm border border-border px-2 py-2">
-      <div className="font-label text-xs text-ink-light">{label}</div>
-      <div className="font-label text-xl font-bold text-ink leading-tight">{value}</div>
-    </div>
-  );
-}
-
 /** Single-step +/- pair, no amount box — for XP, which only ever moves 1 at a time in play. */
 function StepAdjuster({ onChange }: { onChange: (delta: number) => void }) {
   return (
     <div className="flex items-center gap-1 shrink-0">
-      <button type="button" onClick={() => onChange(-1)} aria-label="Restar" className="flex size-7 items-center justify-center rounded-full border border-border text-sm leading-none text-ink hover:border-crimson hover:text-crimson">−</button>
-      <button type="button" onClick={() => onChange(1)} aria-label="Sumar" className="flex size-7 items-center justify-center rounded-full border border-border text-sm leading-none text-ink hover:border-moss hover:text-moss">+</button>
+      <button type="button" onClick={() => onChange(-1)} aria-label="Restar" className="flex size-6 items-center justify-center rounded-full border border-brass/60 text-xs leading-none text-ink hover:border-crimson hover:text-crimson">−</button>
+      <button type="button" onClick={() => onChange(1)} aria-label="Sumar" className="flex size-6 items-center justify-center rounded-full border border-brass/60 text-xs leading-none text-ink hover:border-moss hover:text-moss">+</button>
     </div>
   );
 }
 
-/** Amount box + Add/Remove buttons — lets the player apply any delta to HP/MP/Zenit instead of stepping by 1. */
+/** Amount box + Add/Remove buttons — lets the player apply any delta to a stat instead of stepping by 1. */
 function AmountAdjuster({ onApply }: { onApply: (delta: number) => void }) {
   const [amount, setAmount] = React.useState("");
 
@@ -115,71 +126,46 @@ function AmountAdjuster({ onApply }: { onApply: (delta: number) => void }) {
         value={amount}
         onChange={(e) => setAmount(e.target.value)}
         placeholder="0"
-        className="w-12 border border-border bg-parchment/60 px-1 py-1 text-center text-xs text-ink focus:border-brass focus:outline-none font-body"
+        className="w-11 border border-brass/60 bg-parchment/60 px-1 py-1 text-center text-xs text-ink focus:border-brass focus:outline-none font-body"
       />
-      <button type="button" onClick={() => apply(-1)} aria-label="Restar" className="flex size-7 items-center justify-center rounded-full border border-border text-sm leading-none text-ink hover:border-crimson hover:text-crimson">−</button>
-      <button type="button" onClick={() => apply(1)} aria-label="Sumar" className="flex size-7 items-center justify-center rounded-full border border-border text-sm leading-none text-ink hover:border-moss hover:text-moss">+</button>
+      <button type="button" onClick={() => apply(-1)} aria-label="Restar" className="flex size-6 items-center justify-center rounded-full border border-brass/60 text-xs leading-none text-ink hover:border-crimson hover:text-crimson">−</button>
+      <button type="button" onClick={() => apply(1)} aria-label="Sumar" className="flex size-6 items-center justify-center rounded-full border border-brass/60 text-xs leading-none text-ink hover:border-moss hover:text-moss">+</button>
     </div>
   );
 }
 
-function FabulaPointsPanel({ character, onUpdate }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void }) {
-  function adjust(delta: number) {
-    onUpdate({ ...character, fabulaPoints: Math.max(0, character.fabulaPoints + delta), updatedAt: new Date().toISOString() });
-  }
-
+/** A corner label overlaid on the full-body portrait — read-only text, or an editable input (only Accessory needs one). */
+function EquipTag({ position, label, children }: { position: "tl" | "tr" | "bl" | "br"; label: string; children: React.ReactNode }) {
+  const posClasses: Record<typeof position, string> = {
+    tl: "top-2 left-2",
+    tr: "top-2 right-2 text-right",
+    bl: "bottom-2 left-2",
+    br: "bottom-2 right-2 text-right",
+  };
   return (
-    <Panel title="Puntos de Fábula">
-      <div className="flex flex-col md:flex-row md:items-start gap-4">
-        <div className="flex items-center gap-3 shrink-0">
-          <span className="flex size-14 items-center justify-center rounded-full border-2 border-brass-light bg-crimson font-display text-2xl font-bold text-crimson-foreground">
-            {character.fabulaPoints}
-          </span>
-          <AmountAdjuster onApply={adjust} />
-        </div>
-        <div className="grid sm:grid-cols-2 gap-4 flex-1">
-          <div>
-            <p className="font-label text-2xs font-bold uppercase tracking-wide text-ink mb-1">Cómo conseguirlos</p>
-            <ul className="space-y-1 text-xs text-ink-light font-body">
-              {fabulaPointGains.map((g, i) => <li key={i}>· {g}</li>)}
-            </ul>
-          </div>
-          <div>
-            <p className="font-label text-2xs font-bold uppercase tracking-wide text-ink mb-1">Para qué usarlos</p>
-            <ul className="space-y-1 text-xs text-ink-light font-body">
-              {fabulaPointUses.map((u, i) => <li key={i}>· {u}</li>)}
-            </ul>
-          </div>
-        </div>
+    <div className={cn("absolute z-10 max-w-[46%] rounded-sm border border-brass/60 bg-parchment/90 px-2 py-1", posClasses[position])}>
+      <span className="block font-label text-[9px] uppercase tracking-wide text-ink-light">{label}</span>
+      {children}
+    </div>
+  );
+}
+
+/** A hex/shield-shaped stat readout — Iniciativa/Defensa/Def. Mágica in the vitals rail. */
+function CombatBadge({ label, value, shape }: { label: string; value: React.ReactNode; shape: "hex" | "shield" }) {
+  const clipPath = shape === "hex"
+    ? "polygon(30% 0%,70% 0%,100% 30%,100% 70%,70% 100%,30% 100%,0% 70%,0% 30%)"
+    : "polygon(50% 0%,100% 16%,100% 58%,50% 100%,0% 58%,0% 16%)";
+  return (
+    <div className="flex flex-1 flex-col items-center gap-1">
+      <div style={{ clipPath }} className="flex size-12 items-center justify-center border-2 border-crimson bg-parchment">
+        <span className="font-display text-lg text-crimson">{value}</span>
       </div>
-    </Panel>
-  );
-}
-
-/** One equip slot's display — item name + stat line/notes + unequip button, an empty "Vacío" placeholder, or a grayed-out note (the off hand when a two-handed weapon occupies both). */
-function SlotDisplay({ label, item, note, onUnequip }: { label: string; item?: EquipmentCardData; note?: string; onUnequip?: () => void }) {
-  return (
-    <div className={cn("rounded-sm border px-2 py-1.5", note ? "border-border/40 bg-parchment-dark/20 opacity-60" : "border-border")}>
-      <div className="font-label text-2xs uppercase tracking-wide text-ink-light">{label}</div>
-      {note ? (
-        <p className="text-2xs italic text-ink-light font-body mt-0.5">{note}</p>
-      ) : item ? (
-        <div className="mt-0.5">
-          <div className="flex items-center justify-between gap-1">
-            <span className="font-body text-xs font-semibold text-ink truncate">{item.name}</span>
-            {onUnequip && <button type="button" onClick={onUnequip} className="font-label text-2xs uppercase text-leather-light hover:text-crimson shrink-0">Quitar</button>}
-          </div>
-          <p className="text-2xs text-moss font-body">{item.statLine}</p>
-          {item.notes && <p className="text-2xs text-ink-light font-body">{item.notes}</p>}
-        </div>
-      ) : (
-        <p className="text-2xs text-ink-light font-body mt-0.5">Vacío</p>
-      )}
+      <span className="font-label text-[10px] uppercase tracking-wide text-ink-light">{label}</span>
     </div>
   );
 }
 
-/** Every held class's Free Benefit — the always-on passive bonuses from having levels in a class (as opposed to Skills, which are mostly active picks). */
+/** Every held class's Free Benefit — the always-on passive bonuses from having levels in a class. */
 function PassivesPanel({ character }: { character: FUCharacter }) {
   const ref = useReferenceDataContext();
   const rows: { className: string; text: string }[] = [];
@@ -207,81 +193,655 @@ function PassivesPanel({ character }: { character: FUCharacter }) {
   );
 }
 
+// ─── attributes (Combate tab) ─────────────────────────────────────────────
+
 const ATTRIBUTE_ROWS: { key: AttributeKey; label: string }[] = [
   { key: "dexterity", label: "DEX" },
   { key: "insight", label: "INS" },
   { key: "might", label: "MIG" },
   { key: "willpower", label: "WLP" },
 ];
+const ATTRIBUTE_LABELS: Record<AttributeKey, string> = Object.fromEntries(ATTRIBUTE_ROWS.map((r) => [r.key, r.label])) as Record<AttributeKey, string>;
+const ATTRIBUTE_PAIRS: [AttributeKey, AttributeKey][] = [
+  ["dexterity", "insight"],
+  ["might", "willpower"],
+];
 
-function AttributeGrid({ character, current }: { character: FUCharacter; current: FUCharacterAttributes }) {
-  const ref = useReferenceDataContext();
+function StatusToggle({ effect, character, onToggle }: { effect: { id: string; name: string }; character: FUCharacter; onToggle: (id: string) => void }) {
   return (
-    <div className="grid grid-cols-4 gap-2">
-      {ATTRIBUTE_ROWS.map(({ key, label }) => {
-        const base = character.attributes[key];
-        const curr = current[key];
-        const reduced = curr !== base;
-        const linked = ref.statusEffects.filter((e) => character.statusEffects.includes(e.id) && e.affects.includes(key));
+    <label className="flex items-center gap-1.5 text-xs text-ink-light font-body cursor-pointer">
+      <input type="checkbox" checked={character.statusEffects.includes(effect.id)} onChange={() => onToggle(effect.id)} className="accent-crimson" />
+      {statusLabel(effect)}
+    </label>
+  );
+}
+
+/** One attribute row — the die itself is clickable and throws a 3D die. */
+function AttributeRow({ attrKey, character, current, onToggle }: { attrKey: AttributeKey; character: FUCharacter; current: FUCharacterAttributes; onToggle: (id: string) => void }) {
+  const ref = useReferenceDataContext();
+  const label = ATTRIBUTE_LABELS[attrKey];
+  const base = character.attributes[attrKey];
+  const curr = current[attrKey];
+  const reduced = curr !== base;
+  const soloEffects = ref.statusEffects.filter((e) => e.affects.length === 1 && e.affects[0] === attrKey);
+
+  return (
+    <div className={cn("flex flex-wrap items-center gap-x-3 gap-y-1 px-2.5 py-2 transition-colors", reduced && "bg-crimson/5")}>
+      <span className="w-9 shrink-0 font-label text-xs uppercase tracking-wide text-ink-light">{label}</span>
+      <button
+        type="button"
+        onClick={() => rollDice(`1d${curr}`, label)}
+        title={`Tirar 1d${curr}`}
+        className="w-14 shrink-0 text-left font-display text-xl font-bold text-ink transition-colors hover:text-brass"
+      >
+        {reduced ? (
+          <><span className="mr-1 text-sm text-ink-light line-through">d{base}</span><span className="text-crimson">d{curr}</span></>
+        ) : (
+          <>d{base}</>
+        )}
+      </button>
+      <div className="flex flex-1 flex-wrap gap-x-3 gap-y-0.5">
+        {soloEffects.map((e) => <StatusToggle key={e.id} effect={e} character={character} onToggle={onToggle} />)}
+      </div>
+    </div>
+  );
+}
+
+/** DEX+INS and MIG+WLP, each pair sharing a "bracket" toggle for the status effect that reduces both at once (Enraged, Poisoned). */
+function AttributePairBlock({ pair, character, current, onToggle }: { pair: [AttributeKey, AttributeKey]; character: FUCharacter; current: FUCharacterAttributes; onToggle: (id: string) => void }) {
+  const ref = useReferenceDataContext();
+  const [a, b] = pair;
+  const sharedEffects = ref.statusEffects.filter((e) => e.affects.length > 1 && e.affects.includes(a) && e.affects.includes(b));
+
+  return (
+    <div className="rounded-sm border border-border">
+      <div className="divide-y divide-border/60">
+        <AttributeRow attrKey={a} character={character} current={current} onToggle={onToggle} />
+        <AttributeRow attrKey={b} character={character} current={current} onToggle={onToggle} />
+      </div>
+      {sharedEffects.length > 0 && (
+        <div className="flex flex-wrap gap-x-3 gap-y-0.5 border-t border-border/60 px-2.5 py-1.5">
+          {sharedEffects.map((e) => <StatusToggle key={e.id} effect={e} character={character} onToggle={onToggle} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AttributesSection({ character, current, onUpdate }: { character: FUCharacter; current: FUCharacterAttributes; onUpdate: (updated: FUCharacter) => void }) {
+  function toggle(id: string) {
+    const active = character.statusEffects.includes(id);
+    const next = active ? character.statusEffects.filter((e) => e !== id) : [...character.statusEffects, id];
+    onUpdate({ ...character, statusEffects: next, updatedAt: new Date().toISOString() });
+  }
+  return (
+    <div className="grid gap-2.5 sm:grid-cols-2">
+      {ATTRIBUTE_PAIRS.map((pair) => (
+        <AttributePairBlock key={pair.join("-")} pair={pair} character={character} current={current} onToggle={toggle} />
+      ))}
+    </div>
+  );
+}
+
+// ─── actions grid (Combate tab) ────────────────────────────────────────────
+
+const ACTION_ICONS: Record<string, LucideIcon> = {
+  "Ataque": Sword, "Equipo": Backpack, "Guardia": Shield, "Obstaculizar": Hand,
+  "Inventario": FlaskConical, "Hechizo": Wand2, "Objetivo": Trophy, "Estudiar": Eye, "Habilidad": Star,
+};
+
+function ActionGrid() {
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {actions.map((a) => {
+        const Icon = ACTION_ICONS[a.name] ?? Star;
         return (
-          <button
-            type="button"
-            key={key}
-            onClick={() => rollDice(`1d${curr}`, label)}
-            title={`Tirar 1d${curr}`}
-            className={cn("text-center rounded-sm border px-2 py-2 transition-colors hover:border-brass", reduced ? "border-crimson bg-crimson/5" : "border-border")}
+          <div
+            key={a.name}
+            title={a.description}
+            className="flex flex-col items-center gap-1 rounded-sm border border-border bg-parchment-dark/10 px-2 py-2.5 text-center transition-colors hover:border-brass"
           >
-            <div className="font-label text-xs text-ink-light">{label}</div>
-            <div className="font-label text-xl font-bold leading-tight">
-              {reduced ? (
-                <><span className="text-ink-light line-through text-xs mr-1">d{base}</span><span className="text-crimson">d{curr}</span></>
-              ) : (
-                <span className="text-ink">d{base}</span>
-              )}
-            </div>
-            {linked.length > 0 && <div className="font-body text-2xs text-crimson truncate">{linked.map((e) => e.name).join("/")}</div>}
-          </button>
+            <Icon size={18} className="text-crimson" />
+            <span className="font-body text-2xs text-ink">{a.name}</span>
+          </div>
         );
       })}
     </div>
   );
 }
 
-function EstadosPanel({ character, onUpdate }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void }) {
-  const ref = useReferenceDataContext();
+// ─── weapon card + attack (Combate tab) ────────────────────────────────────
 
-  function toggleEffect(id: string) {
-    const active = character.statusEffects.includes(id);
-    const next = active ? character.statusEffects.filter((e) => e !== id) : [...character.statusEffects, id];
-    onUpdate({ ...character, statusEffects: next, updatedAt: new Date().toISOString() });
+// Weapon accuracy formulas use these 3-letter attribute tokens (e.g. "【DEX + INS】+1").
+const ATTACK_TOKEN_TO_ATTRIBUTE: Record<string, AttributeKey> = { DEX: "dexterity", INS: "insight", MIG: "might", WLP: "willpower" };
+
+/** Substitutes each attribute token in an accuracy formula with its current (status-effect-adjusted) die size, keeping the token itself visible — "【DEX + INS】+1" → "【DEX d8 + INS d10】+1". */
+function resolveAccuracyFormula(formula: string, current: FUCharacterAttributes): string {
+  return formula.replace(/\b(DEX|INS|MIG|WLP)\b/g, (token) => {
+    const key = ATTACK_TOKEN_TO_ATTRIBUTE[token];
+    return key ? `${token} d${current[key]}` : token;
+  });
+}
+
+/** Parses a "【DEX + INS】+1"-shaped accuracy formula into its two attribute tokens and flat modifier. */
+function parseAccuracyFormula(formula: string): { tokens: string[]; modifier: number } {
+  const m = formula.match(/【\s*([A-Z]+)\s*\+\s*([A-Z]+)\s*】\s*([+-]\d+)?/);
+  if (!m) return { tokens: [], modifier: 0 };
+  return { tokens: [m[1], m[2]], modifier: m[3] ? Number(m[3]) : 0 };
+}
+
+/** Parses a "【HR + 6】physical"-shaped damage formula into the HR bonus and damage type. */
+function parseDamageFormula(formula: string): { bonus: number; type: string } {
+  const m = formula.match(/【\s*HR\s*\+\s*(-?\d+)\s*】\s*(.*)/);
+  return { bonus: m ? Number(m[1]) : 0, type: m ? m[2].trim() : "" };
+}
+
+/** One equipped weapon (or Unarmed Strike, falling back). Clicking "Atacar" throws both accuracy dice once and derives both the accuracy total and the damage total from that single roll (HR). */
+function WeaponCard({ w, current }: { w: FUWeapon; current: FUCharacterAttributes }) {
+  function attack() {
+    const { tokens, modifier } = parseAccuracyFormula(w.accuracy);
+    if (tokens.length < 2) return;
+    const { bonus, type } = parseDamageFormula(w.damage);
+    rollAttack({
+      weaponName: w.name,
+      accTokens: tokens.map((t) => ({ label: t, die: current[ATTACK_TOKEN_TO_ATTRIBUTE[t]] })),
+      accModifier: modifier,
+      damageBonus: bonus,
+      damageType: type,
+    });
   }
 
   return (
-    <Panel title="Estados">
-      <div className="flex flex-col gap-1">
-        {ref.statusEffects.map((effect) => {
-          const active = character.statusEffects.includes(effect.id);
-          return (
-            <button
-              key={effect.id}
-              type="button"
-              onClick={() => toggleEffect(effect.id)}
-              className={cn(
-                "font-label text-2xs px-2 py-1.5 rounded-sm border text-left transition-colors",
-                active ? "border-crimson bg-crimson/10 text-crimson font-semibold" : "border-border text-ink-light hover:border-crimson/50"
-              )}
-            >
-              {effect.name}
-            </button>
-          );
-        })}
-      </div>
-      <InfoDisclosure label="Qué hace cada estado">
-        {ref.statusEffects.map((e) => <p key={e.id} className="mb-1.5 last:mb-0"><strong className="text-ink">{e.name}:</strong> {e.description}</p>)}
-      </InfoDisclosure>
-    </Panel>
+    <div className="flex flex-col gap-1.5 rounded-md border border-brass/60 bg-leather p-3.5 text-parchment">
+      <h3 className="font-display text-base text-brass-light">{w.name}</h3>
+      <div className="flex justify-between gap-3 font-body text-xs"><span className="shrink-0 text-brass-light">Precisión</span><span className="text-right">{resolveAccuracyFormula(w.accuracy, current)}</span></div>
+      <div className="flex justify-between gap-3 font-body text-xs"><span className="shrink-0 text-brass-light">Daño</span><span className="text-right">{w.damage}</span></div>
+      {w.notes && <div className="flex justify-between gap-3 font-body text-xs"><span className="shrink-0 text-brass-light">Notas</span><span className="text-right">{w.notes}</span></div>}
+      <button
+        type="button"
+        onClick={attack}
+        className="mt-1 rounded-sm border border-brass-light bg-crimson px-3 py-2 font-label text-xs font-semibold uppercase tracking-wide text-crimson-foreground transition-colors hover:bg-crimson/85"
+      >
+        Atacar con {w.name}
+      </button>
+    </div>
   );
 }
+
+function WeaponCards({ character, current }: { character: FUCharacter; current: FUCharacterAttributes }) {
+  const ref = useReferenceDataContext();
+  const equippedWeapons = character.equipment.weapons
+    .map((id) => ref.weapons.find((w) => w.id === id))
+    .filter((w): w is NonNullable<typeof w> => Boolean(w));
+  const unarmed = ref.weapons.find((w) => w.id === "unarmed-strike");
+  const displayWeapons = equippedWeapons.length > 0 ? equippedWeapons : unarmed ? [unarmed] : [];
+
+  if (displayWeapons.length === 0) return <p className="text-sm text-ink-light font-body">Sin arma equipada.</p>;
+  return (
+    <div className="grid gap-2.5 sm:grid-cols-2">
+      {displayWeapons.map((w) => <WeaponCard key={w.id} w={w} current={current} />)}
+    </div>
+  );
+}
+
+// ─── skills + spells table (Combate tab) ───────────────────────────────────
+
+/**
+ * Some spells have a fixed MP cost ("10"), others a formula that depends on
+ * choices made when casting ("5 × T" — T = number of targets) — the input
+ * pre-fills with the fixed cost when there is one (one click still works)
+ * but stays editable either way.
+ */
+function SpellActionCell({ spell, current, currentMp, onCast }: { spell: FUSpell; current: FUCharacterAttributes; currentMp: number; onCast: (mpCost: number) => void }) {
+  const numericCost = Number(spell.mpCost);
+  const fixed = Number.isFinite(numericCost) && numericCost > 0;
+  const [cost, setCost] = React.useState(fixed ? String(numericCost) : "");
+
+  return (
+    <div className="flex items-center justify-end gap-1">
+      {spell.offensive && (
+        <button
+          type="button"
+          onClick={() => rollCheck(
+            [{ label: "INS", die: current.insight }, { label: "WLP", die: current.willpower }],
+            0,
+            `${spell.name} — Check Mágico`
+          )}
+          title="Tirar Check Mágico (INS + WLP)"
+          className="rounded-sm border border-brass/50 p-1 text-brass transition-colors hover:bg-brass/10"
+        >
+          <Dices className="h-3.5 w-3.5" />
+        </button>
+      )}
+      <input
+        type="number"
+        min={0}
+        max={currentMp}
+        value={cost}
+        onChange={(e) => setCost(e.target.value)}
+        placeholder="PM"
+        className="w-12 border border-border bg-parchment/60 px-1 py-0.5 text-xs text-ink placeholder:text-leather-light/70 focus:border-brass focus:outline-none font-body"
+      />
+      <button
+        type="button"
+        onClick={() => { const n = Number(cost) || 0; if (n > 0) { onCast(n); if (!fixed) setCost(""); } }}
+        className="whitespace-nowrap font-label text-2xs uppercase tracking-wide border border-brass/50 px-2 py-0.5 text-brass transition-colors hover:bg-brass/10"
+      >
+        Lanzar
+      </button>
+    </div>
+  );
+}
+
+interface ActiveAbilityRow {
+  key: string;
+  name: string;
+  level?: { current: number; max: number };
+  cost: string;
+  target: string;
+  duration: string;
+  effect: React.ReactNode;
+  action?: React.ReactNode;
+}
+
+/** Every taken Skill (full text, 【SL】resolved) and every Spell from a caster class, in one table — merges what used to be two separate panels. */
+function ActiveAbilitiesTable({ character, current, onUpdate }: { character: FUCharacter; current: FUCharacterAttributes; onUpdate: (updated: FUCharacter) => void }) {
+  const ref = useReferenceDataContext();
+
+  function spendMp(amount: number) {
+    onUpdate({ ...character, currentMp: Math.max(0, character.currentMp - amount), updatedAt: new Date().toISOString() });
+  }
+
+  const rows: ActiveAbilityRow[] = [];
+  for (const cl of character.classLevels) {
+    const cls = ref.classesById[cl.classId];
+    if (!cls) continue;
+
+    const counts = new Map<string, number>();
+    for (const name of cl.skillsTaken) counts.set(name, (counts.get(name) ?? 0) + 1);
+    for (const [name, count] of Array.from(counts.entries())) {
+      const skill = cls.skills.find((s) => s.name === name);
+      if (!skill) continue;
+      rows.push({
+        key: `${cl.classId}-skill-${name}`,
+        name,
+        level: skill.maxLevel > 1 ? { current: count, max: skill.maxLevel } : undefined,
+        cost: "—",
+        target: "—",
+        duration: "—",
+        effect: <SkillText text={skill.text} skillLevel={count} />,
+      });
+    }
+
+    if (cls.subsystem?.type === "spells") {
+      for (const spell of cls.subsystem.entries) {
+        rows.push({
+          key: `${cl.classId}-spell-${spell.name}`,
+          name: spell.name,
+          cost: `${spell.mpCost} PM`,
+          target: spell.target,
+          duration: spell.duration,
+          effect: <SkillText text={spell.text} />,
+          action: <SpellActionCell spell={spell} current={current} currentMp={character.currentMp} onCast={spendMp} />,
+        });
+      }
+    }
+  }
+
+  if (rows.length === 0) return <p className="text-sm text-ink-light font-body">Todavía sin habilidades ni hechizos.</p>;
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse text-sm">
+        <thead>
+          <tr>
+            <th className="border-b-2 border-brass px-2 py-1.5 text-left font-label text-2xs uppercase tracking-wide text-ink-light">Nombre</th>
+            <th className="border-b-2 border-brass px-2 py-1.5 text-left font-label text-2xs uppercase tracking-wide text-ink-light">Costo</th>
+            <th className="hidden border-b-2 border-brass px-2 py-1.5 text-left font-label text-2xs uppercase tracking-wide text-ink-light sm:table-cell">Objetivo</th>
+            <th className="hidden border-b-2 border-brass px-2 py-1.5 text-left font-label text-2xs uppercase tracking-wide text-ink-light sm:table-cell">Duración</th>
+            <th className="border-b-2 border-brass px-2 py-1.5 text-left font-label text-2xs uppercase tracking-wide text-ink-light">Efecto</th>
+            <th className="border-b-2 border-brass px-2 py-1.5" />
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.key} className="border-b border-border/60 align-top last:border-b-0">
+              <td className="whitespace-nowrap px-2 py-2 font-body text-sm font-semibold text-crimson">
+                {r.name}{r.level && <span className="ml-1.5 font-label text-2xs font-normal text-ink-light">Nv {r.level.current}/{r.level.max}</span>}
+              </td>
+              <td className="whitespace-nowrap px-2 py-2 font-body text-xs text-ink-light">{r.cost}</td>
+              <td className="hidden px-2 py-2 font-body text-xs text-ink-light sm:table-cell">{r.target}</td>
+              <td className="hidden px-2 py-2 font-body text-xs text-ink-light sm:table-cell">{r.duration}</td>
+              <td className="px-2 py-2 font-body text-xs leading-snug text-ink">{r.effect}</td>
+              <td className="px-2 py-2">{r.action}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ─── inventory tab ──────────────────────────────────────────────────────────
+
+function OtherItemsNote({ character, onUpdate }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void }) {
+  const [text, setText] = React.useState(character.otherItemsNote);
+  const dirty = text !== character.otherItemsNote;
+
+  return (
+    <div>
+      <label className="font-label text-2xs uppercase tracking-wide text-ink-light">Otros objetos de misión</label>
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        rows={2}
+        placeholder="Objetos que el GM te haya indicado anotar"
+        className="mt-1 w-full border border-border bg-parchment/60 px-2 py-1.5 text-xs text-ink focus:border-brass focus:outline-none font-body resize-none"
+      />
+      <button
+        type="button"
+        disabled={!dirty}
+        onClick={() => onUpdate({ ...character, otherItemsNote: text, updatedAt: new Date().toISOString() })}
+        className="mt-1 font-label text-2xs uppercase tracking-wide border border-brass/50 px-2 py-1 text-brass hover:bg-brass/10 transition-colors disabled:opacity-30"
+      >
+        Guardar
+      </button>
+    </div>
+  );
+}
+
+function EquipRow({ item, equipped, onToggle }: { item: EquipmentCardData; equipped: boolean; onToggle: () => void }) {
+  return (
+    <tr className={cn("border-b border-border/60 last:border-b-0", equipped && "bg-brass/5")}>
+      <td className={cn("px-2 py-2 font-body text-sm", equipped ? "font-semibold text-crimson" : "text-ink")}>{item.name}</td>
+      <td className="px-2 py-2 font-body text-xs text-moss">{item.statLine}</td>
+      <td className="whitespace-nowrap px-2 py-2 font-body text-xs text-ink-light">{item.cost != null ? `${item.cost}z` : "—"}</td>
+      <td className="hidden px-2 py-2 font-body text-xs text-ink-light sm:table-cell">{item.notes}</td>
+      <td className="px-2 py-2 text-right">
+        <button
+          type="button"
+          onClick={onToggle}
+          className={cn(
+            "whitespace-nowrap rounded-sm border px-2 py-1 font-label text-2xs uppercase tracking-wide transition-colors",
+            equipped ? "border-crimson text-crimson hover:bg-crimson/10" : "border-border text-ink hover:border-brass"
+          )}
+        >
+          {equipped ? "Quitar" : "Equipar"}
+        </button>
+      </td>
+    </tr>
+  );
+}
+
+interface EquippedRefs {
+  mainHand?: FUWeapon | FUArmor | FUShield;
+  offHandItem?: FUWeapon | FUArmor | FUShield;
+  offHandWeapon?: FUWeapon | FUArmor | FUShield;
+  equippedShield?: FUWeapon | FUArmor | FUShield;
+  equippedArmor?: FUWeapon | FUArmor | FUShield;
+  isTwoHanded: boolean;
+}
+
+function InventoryTab({ character, onUpdate, equipped }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void; equipped: EquippedRefs }) {
+  const ref = useReferenceDataContext();
+  const stats = calcDerivedStats(
+    character.level, character.attributes, character.equipment,
+    character.classLevels.map((cl) => ref.classesById[cl.classId]).filter((c): c is NonNullable<typeof c> => Boolean(c)),
+    character.statusEffects, ref
+  );
+  const backpackItems = character.backpack.map((id) => ({ id, item: findEquipmentItem(id, ref) }));
+  const spent = calcSpent(character.equipment, ref);
+  const [shopId, setShopId] = React.useState("");
+
+  function adjustIp(delta: number) {
+    onUpdate({ ...character, currentIp: Math.max(0, Math.min(stats.ip.value, character.currentIp + delta)), updatedAt: new Date().toISOString() });
+  }
+  function adjustZenit(delta: number) {
+    onUpdate({ ...character, zenit: Math.max(0, character.zenit + delta), updatedAt: new Date().toISOString() });
+  }
+
+  function moveToBackpack(kind: "weapon" | "shield" | "armor", id: string) {
+    const equipment = { ...character.equipment };
+    if (kind === "weapon") equipment.weapons = equipment.weapons.filter((w) => w !== id);
+    if (kind === "shield") equipment.shield = undefined;
+    if (kind === "armor") equipment.armor = undefined;
+    onUpdate({ ...character, equipment, backpack: [...character.backpack, id], updatedAt: new Date().toISOString() });
+  }
+
+  function equipFromBackpack(id: string) {
+    const equipment = { ...character.equipment };
+    const backpack = character.backpack.filter((i) => i !== id);
+    const weapon = ref.weapons.find((w) => w.id === id);
+    const shield = ref.shields.find((s) => s.id === id);
+    const armor = ref.armors.find((a) => a.id === id);
+    const equippedTwoHanded = ref.weapons.find((w) => w.id === equipment.weapons[0])?.handedness === "two-handed";
+
+    if (weapon) {
+      if (!canEquipMartialWeapon(character, weapon)) {
+        toast.error(`Necesitás una clase con entrenamiento marcial para equipar ${weapon.name}.`);
+        return;
+      }
+      if (weapon.handedness === "two-handed") {
+        backpack.push(...equipment.weapons.filter((wid) => wid !== id), ...(equipment.shield ? [equipment.shield] : []));
+        equipment.weapons = [id];
+        equipment.shield = undefined;
+      } else if (equippedTwoHanded) {
+        backpack.push(...equipment.weapons);
+        equipment.weapons = [id];
+      } else if (equipment.weapons.length >= 2) {
+        return;
+      } else if (equipment.weapons.length === 1) {
+        if (equipment.shield) backpack.push(equipment.shield);
+        equipment.shield = undefined;
+        equipment.weapons = [...equipment.weapons, id];
+      } else {
+        equipment.weapons = [id];
+      }
+    } else if (shield) {
+      if (!canEquipMartialShield(character, shield)) {
+        toast.error(`Necesitás una clase con entrenamiento marcial para equipar ${shield.name}.`);
+        return;
+      }
+      if (equippedTwoHanded) {
+        toast.error("No podés equipar un escudo junto a un arma a dos manos.");
+        return;
+      }
+      if (equipment.weapons.length >= 2) {
+        backpack.push(equipment.weapons[1]);
+        equipment.weapons = [equipment.weapons[0]];
+      }
+      if (equipment.shield) backpack.push(equipment.shield);
+      equipment.shield = id;
+    } else if (armor) {
+      if (!canEquipMartialArmor(character, armor)) {
+        toast.error(`Necesitás una clase con entrenamiento marcial para equipar ${armor.name}.`);
+        return;
+      }
+      if (equipment.armor) backpack.push(equipment.armor);
+      equipment.armor = id;
+    } else {
+      return;
+    }
+    onUpdate({ ...character, equipment, backpack, updatedAt: new Date().toISOString() });
+  }
+
+  function buy() {
+    if (!shopId) return;
+    const item = findEquipmentItem(shopId, ref);
+    if (!item || item.cost == null || item.cost > character.zenit) return;
+    onUpdate({ ...character, backpack: [...character.backpack, shopId], zenit: character.zenit - item.cost, updatedAt: new Date().toISOString() });
+    setShopId("");
+  }
+
+  const shopOptions = [...ref.weapons, ...ref.armors, ...ref.shields].filter((i) => i.cost != null);
+
+  const equippedRows: { item: EquipmentCardData; onToggle: () => void }[] = [];
+  if (equipped.mainHand) equippedRows.push({ item: equipmentCardData(equipped.mainHand), onToggle: () => moveToBackpack("weapon", equipped.mainHand!.id) });
+  if (equipped.offHandItem) equippedRows.push({ item: equipmentCardData(equipped.offHandItem), onToggle: () => moveToBackpack(equipped.offHandWeapon ? "weapon" : "shield", equipped.offHandItem!.id) });
+  if (equipped.equippedArmor) equippedRows.push({ item: equipmentCardData(equipped.equippedArmor), onToggle: () => moveToBackpack("armor", equipped.equippedArmor!.id) });
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-brass bg-parchment-dark/20 px-3.5 py-2.5">
+        <span className="font-label text-xs uppercase tracking-wide text-ink-light">Puntos de Inventario</span>
+        <span className="font-display text-lg text-ink">{character.currentIp} / {stats.ip.value}</span>
+        <AmountAdjuster onApply={adjustIp} />
+      </div>
+
+      <div>
+        <h3 className="mb-2 flex items-center gap-1.5 border-b border-brass/40 pb-1.5 font-label text-xs uppercase tracking-wide text-ink-light">
+          <FlaskConical size={14} className="text-crimson" /> Acciones de inventario
+        </h3>
+        <div className="divide-y divide-border/60">
+          {ref.ipItems.map((item) => (
+            <div key={item.id} className="flex items-center justify-between gap-2 py-2">
+              <span className="font-body text-sm text-ink">{IP_ITEM_LABELS[item.id] ?? item.name}</span>
+              <span className="font-body text-2xs text-ink-light" title={item.effect}>Costo {item.ipCost}</span>
+              <button
+                type="button"
+                disabled={character.currentIp < item.ipCost}
+                onClick={() => {
+                  let updated = { ...character, currentIp: character.currentIp - item.ipCost };
+                  if (item.id === "remedy") updated = { ...updated, currentHp: Math.min(stats.hp.value, updated.currentHp + 50) };
+                  if (item.id === "elixir") updated = { ...updated, currentMp: Math.min(stats.mp.value, updated.currentMp + 50) };
+                  onUpdate({ ...updated, updatedAt: new Date().toISOString() });
+                }}
+                className="font-label text-2xs uppercase tracking-wide border border-crimson px-3 py-1 text-crimson transition-colors hover:bg-crimson hover:text-crimson-foreground disabled:opacity-30"
+              >
+                Usar
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h3 className="mb-2 flex items-center gap-1.5 border-b border-brass/40 pb-1.5 font-label text-xs uppercase tracking-wide text-ink-light">
+          <Backpack size={14} className="text-crimson" /> Equipo ({equippedRows.length + backpackItems.length})
+        </h3>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr>
+                <th className="border-b-2 border-brass px-2 py-1.5 text-left font-label text-2xs uppercase tracking-wide text-ink-light">Nombre</th>
+                <th className="border-b-2 border-brass px-2 py-1.5 text-left font-label text-2xs uppercase tracking-wide text-ink-light">Stats</th>
+                <th className="border-b-2 border-brass px-2 py-1.5 text-left font-label text-2xs uppercase tracking-wide text-ink-light">Costo</th>
+                <th className="hidden border-b-2 border-brass px-2 py-1.5 text-left font-label text-2xs uppercase tracking-wide text-ink-light sm:table-cell">Notas</th>
+                <th className="border-b-2 border-brass px-2 py-1.5" />
+              </tr>
+            </thead>
+            <tbody>
+              {equippedRows.map(({ item, onToggle }) => <EquipRow key={item.id} item={item} equipped onToggle={onToggle} />)}
+              {backpackItems.map(({ id, item }) => item && (
+                <EquipRow key={id} item={equipmentCardData(item)} equipped={false} onToggle={() => equipFromBackpack(id)} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+          <select value={shopId} onChange={(e) => setShopId(e.target.value)} className="min-w-[8rem] flex-1 border border-border bg-parchment/60 px-2 py-1 text-xs text-ink font-body">
+            <option value="">Comprar…</option>
+            {shopOptions.map((i) => <option key={i.id} value={i.id}>{i.name} — {i.cost}z</option>)}
+          </select>
+          <button type="button" onClick={buy} disabled={!shopId} className="font-label text-2xs uppercase tracking-wide border border-brass/50 px-2 py-1 text-brass hover:bg-brass/10 transition-colors disabled:opacity-30">
+            Comprar
+          </button>
+        </div>
+      </div>
+
+      <OtherItemsNote character={character} onUpdate={onUpdate} />
+
+      <div className="flex items-center justify-end gap-2.5 rounded-md border border-brass bg-parchment-dark/20 px-3.5 py-2.5">
+        <span className="flex size-7 items-center justify-center rounded-full border border-brass bg-brass-light text-leather"><Coins size={14} /></span>
+        <span className="font-label text-xs uppercase tracking-wide text-ink-light">Zenit</span>
+        <span className="font-display text-lg text-ink">{character.zenit}z</span>
+        <span className="font-body text-2xs text-ink-light">({spent}z eq.)</span>
+        <AmountAdjuster onApply={adjustZenit} />
+      </div>
+    </div>
+  );
+}
+
+// ─── bonds tab ──────────────────────────────────────────────────────────────
+
+function BondRow({ bond, onChange, onRemove }: { bond: FUBond; onChange: (bond: FUBond) => void; onRemove: () => void }) {
+  function toggle(pair: [BondEmotionId, BondEmotionId], emotionId: BondEmotionId) {
+    const [a, b] = pair;
+    const isActive = bond.emotions.includes(emotionId);
+    const withoutPair = bond.emotions.filter((e) => e !== a && e !== b);
+    onChange({ ...bond, emotions: isActive ? withoutPair : [...withoutPair, emotionId] });
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md border border-border bg-parchment-dark/10 px-3.5 py-2.5">
+      <input
+        value={bond.name}
+        onChange={(e) => onChange({ ...bond, name: e.target.value })}
+        placeholder="Nombre"
+        className="min-w-[9rem] flex-1 border-b border-border bg-transparent px-0.5 py-1 font-body text-sm text-ink placeholder:text-leather-light/70 focus:border-brass focus:outline-none"
+      />
+      <span className="flex shrink-0 items-center gap-1.5">
+        <span className="font-label text-2xs text-ink-light">Nivel</span>
+        <span className="flex gap-1">
+          {[0, 1, 2].map((i) => <span key={i} className={cn("size-2.5 rounded-full border border-crimson", i < bond.emotions.length && "bg-crimson")} />)}
+        </span>
+      </span>
+      <div className="flex flex-1 flex-wrap gap-x-3 gap-y-1">
+        {bondPairings.map((pair) => pair.map((emotionId) => {
+          const emotion = bondEmotionsById[emotionId];
+          const active = bond.emotions.includes(emotionId);
+          return (
+            <label key={emotionId} className="flex cursor-pointer items-center gap-1 font-body text-2xs text-ink-light">
+              <input type="checkbox" checked={active} onChange={() => toggle(pair, emotionId)} className="accent-crimson" />
+              {emotion.name}
+            </label>
+          );
+        }))}
+      </div>
+      <button type="button" onClick={onRemove} aria-label="Quitar Vínculo" className="shrink-0 text-sm text-leather-light hover:text-crimson">✕</button>
+    </div>
+  );
+}
+
+function BondsTab({ character, onUpdate }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void }) {
+  function updateBond(index: number, bond: FUBond) {
+    onUpdate({ ...character, bonds: character.bonds.map((b, i) => (i === index ? bond : b)), updatedAt: new Date().toISOString() });
+  }
+  function removeBond(index: number) {
+    onUpdate({ ...character, bonds: character.bonds.filter((_, i) => i !== index), updatedAt: new Date().toISOString() });
+  }
+  function addBond() {
+    if (character.bonds.length >= MAX_BONDS) return;
+    onUpdate({ ...character, bonds: [...character.bonds, { name: "", emotions: [] }], updatedAt: new Date().toISOString() });
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      <h3 className="flex items-center gap-1.5 border-b border-brass/40 pb-1.5 font-label text-xs uppercase tracking-wide text-ink-light">
+        Vínculos <span className="font-body text-2xs normal-case text-ink-light">({character.bonds.length}/{MAX_BONDS})</span>
+      </h3>
+      {character.bonds.length === 0 ? (
+        <p className="text-sm text-ink-light font-body">Todavía no hay Vínculos.</p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {character.bonds.map((bond, i) => <BondRow key={i} bond={bond} onChange={(b) => updateBond(i, b)} onRemove={() => removeBond(i)} />)}
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={addBond}
+        disabled={character.bonds.length >= MAX_BONDS}
+        className="w-full rounded-md border border-dashed border-brass px-3 py-2.5 font-body text-sm text-ink-light transition-colors hover:bg-brass/5 disabled:opacity-30"
+      >
+        + Añadir vínculo
+      </button>
+      <p className="text-2xs leading-relaxed text-ink-light font-body">{bondsRulesNote}</p>
+    </div>
+  );
+}
+
+// ─── "personaje" tab (classes, heroic skills, affinities, traits) ─────────
 
 function AffinitiesAccordion({ character, onUpdate }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void }) {
   const nonNormalCount = elements.filter((el) => (character.elementalAffinities[el.id] ?? "normal") !== "normal").length;
@@ -318,177 +878,6 @@ function AffinitiesAccordion({ character, onUpdate }: { character: FUCharacter; 
         })}
       </div>
     </Accordion>
-  );
-}
-
-/** Static reference list — the 8 core conflict actions, same for every character (not skills or spells, which get their own panels). */
-function ActionsReferencePanel() {
-  return (
-    <Panel title="Acciones">
-      <div className="space-y-1.5">
-        {actions.map((a) => (
-          <div key={a.name} className="rounded-sm border border-border px-2.5 py-2">
-            <span className="font-body text-sm font-semibold text-ink">{a.name}</span>
-            <p className="mt-0.5 text-xs leading-snug text-ink-light font-body">{a.description}</p>
-          </div>
-        ))}
-      </div>
-    </Panel>
-  );
-}
-
-// Weapon accuracy formulas use these 3-letter attribute tokens (e.g. "【DEX + INS】+1").
-const ATTACK_TOKEN_TO_ATTRIBUTE: Record<string, AttributeKey> = { DEX: "dexterity", INS: "insight", MIG: "might", WLP: "willpower" };
-
-/** Substitutes each attribute token in an accuracy formula with its current (status-effect-adjusted) die size, keeping the token itself visible — "【DEX + INS】+1" → "【DEX d8 + INS d10】+1". */
-function resolveAccuracyFormula(formula: string, current: FUCharacterAttributes): string {
-  return formula.replace(/\b(DEX|INS|MIG|WLP)\b/g, (token) => {
-    const key = ATTACK_TOKEN_TO_ATTRIBUTE[token];
-    return key ? `${token} d${current[key]}` : token;
-  });
-}
-
-/** Parses a "【DEX + INS】+1"-shaped accuracy formula into its two attribute tokens and flat modifier. */
-function parseAccuracyFormula(formula: string): { tokens: string[]; modifier: number } {
-  const m = formula.match(/【\s*([A-Z]+)\s*\+\s*([A-Z]+)\s*】\s*([+-]\d+)?/);
-  if (!m) return { tokens: [], modifier: 0 };
-  return { tokens: [m[1], m[2]], modifier: m[3] ? Number(m[3]) : 0 };
-}
-
-/** Parses a "【HR + 6】physical"-shaped damage formula into the HR bonus and damage type. */
-function parseDamageFormula(formula: string): { bonus: number; type: string } {
-  const m = formula.match(/【\s*HR\s*\+\s*(-?\d+)\s*】\s*(.*)/);
-  return { bonus: m ? Number(m[1]) : 0, type: m ? m[2].trim() : "" };
-}
-
-/** Every equipped weapon's attack info — accuracy Check (with current dice resolved) and damage — falling back to Unarmed Strike when nothing's equipped. Clicking a weapon throws its two accuracy dice once and derives both the accuracy total and the damage total from that single roll (HR), same as resolving an Attack action at the table. */
-function CombatPanel({ character, current }: { character: FUCharacter; current: FUCharacterAttributes }) {
-  const ref = useReferenceDataContext();
-  const equippedWeapons = character.equipment.weapons
-    .map((id) => ref.weapons.find((w) => w.id === id))
-    .filter((w): w is NonNullable<typeof w> => Boolean(w));
-  const unarmed = ref.weapons.find((w) => w.id === "unarmed-strike");
-  const displayWeapons = equippedWeapons.length > 0 ? equippedWeapons : unarmed ? [unarmed] : [];
-
-  function handleAttack(w: FUWeapon) {
-    const { tokens, modifier } = parseAccuracyFormula(w.accuracy);
-    if (tokens.length < 2) return;
-    const { bonus, type } = parseDamageFormula(w.damage);
-    rollAttack({
-      weaponName: w.name,
-      accTokens: tokens.map((t) => ({ label: t, die: current[ATTACK_TOKEN_TO_ATTRIBUTE[t]] })),
-      accModifier: modifier,
-      damageBonus: bonus,
-      damageType: type,
-    });
-  }
-
-  return (
-    <Panel title="Combate">
-      {displayWeapons.length === 0 ? (
-        <p className="text-sm text-ink-light font-body">Sin arma equipada.</p>
-      ) : (
-        <div className="space-y-1.5">
-          {displayWeapons.map((w) => (
-            <button
-              type="button"
-              key={w.id}
-              onClick={() => handleAttack(w)}
-              title="Tirar ataque"
-              className="w-full rounded-sm border border-border px-2.5 py-2 text-left transition-colors hover:border-brass"
-            >
-              <span className="font-body text-sm font-semibold text-ink">{w.name}</span>
-              <p className="mt-0.5 text-xs text-ink font-body"><strong className="text-moss">Precisión:</strong> {resolveAccuracyFormula(w.accuracy, current)}</p>
-              <p className="text-xs text-ink font-body"><strong className="text-moss">Daño:</strong> {w.damage}</p>
-              {w.notes && <p className="mt-0.5 text-2xs text-ink-light font-body">{w.notes}</p>}
-            </button>
-          ))}
-        </div>
-      )}
-    </Panel>
-  );
-}
-
-function SpellsPanel({ character, current, onUpdate }: { character: FUCharacter; current: FUCharacterAttributes; onUpdate: (updated: FUCharacter) => void }) {
-  const ref = useReferenceDataContext();
-
-  function spendMp(amount: number) {
-    onUpdate({ ...character, currentMp: Math.max(0, character.currentMp - amount), updatedAt: new Date().toISOString() });
-  }
-
-  const rows: React.ReactNode[] = [];
-  for (const cl of character.classLevels) {
-    const cls = ref.classesById[cl.classId];
-    if (cls?.subsystem?.type === "spells") {
-      for (const spell of cls.subsystem.entries) {
-        rows.push(<SpellRow key={`${cl.classId}-spell-${spell.name}`} spell={spell} current={current} currentMp={character.currentMp} onCast={spendMp} />);
-      }
-    }
-  }
-
-  return (
-    <Panel title="Hechizos">
-      {rows.length === 0 ? (
-        <p className="text-sm text-ink-light font-body">Sin clase de lanzador de hechizos.</p>
-      ) : (
-        <div className="space-y-1.5">{rows}</div>
-      )}
-    </Panel>
-  );
-}
-
-/**
- * Some spells have a fixed MP cost ("10"), others a formula that depends on
- * choices made when casting ("5 × T" — T = number of targets) — the input
- * pre-fills with the fixed cost when there is one (one click still works)
- * but stays editable either way, so a variable-cost spell is never stuck
- * with no way to actually spend MP for it (unlike the old "Costo variable"
- * text-only fallback).
- */
-function SpellRow({ spell, current, currentMp, onCast }: { spell: FUSpell; current: FUCharacterAttributes; currentMp: number; onCast: (mpCost: number) => void }) {
-  const numericCost = Number(spell.mpCost);
-  const fixed = Number.isFinite(numericCost) && numericCost > 0;
-  const [cost, setCost] = React.useState(fixed ? String(numericCost) : "");
-
-  return (
-    <div className="rounded-sm border border-border px-2.5 py-2">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <span className="font-body text-sm font-semibold text-ink">{spell.name} <span className="font-label text-2xs text-moss">{spell.mpCost} PM · {spell.target}</span></span>
-        <div className="flex items-center gap-1.5 shrink-0">
-          {spell.offensive && (
-            <button
-              type="button"
-              onClick={() => rollCheck(
-                [{ label: "INS", die: current.insight }, { label: "WLP", die: current.willpower }],
-                0,
-                `${spell.name} — Check Mágico`
-              )}
-              title="Tirar Check Mágico (INS + WLP)"
-              className="rounded-sm border border-brass/50 p-1 text-brass hover:bg-brass/10 transition-colors"
-            >
-              <Dices className="h-3.5 w-3.5" />
-            </button>
-          )}
-          <input
-            type="number"
-            min={0}
-            max={currentMp}
-            value={cost}
-            onChange={(e) => setCost(e.target.value)}
-            placeholder="PM"
-            className="w-14 border border-border bg-parchment/60 px-1.5 py-0.5 text-xs text-ink placeholder:text-leather-light/70 focus:border-brass focus:outline-none font-body"
-          />
-          <button
-            type="button"
-            onClick={() => { const n = Number(cost) || 0; if (n > 0) { onCast(n); if (!fixed) setCost(""); } }}
-            className="font-label text-2xs uppercase tracking-wide border border-brass/50 px-2 py-0.5 text-brass hover:bg-brass/10 transition-colors"
-          >
-            Lanzar
-          </button>
-        </div>
-      </div>
-      <p className="mt-0.5 text-xs leading-snug text-ink-light font-body">{spell.text}</p>
-    </div>
   );
 }
 
@@ -549,7 +938,7 @@ function ClassesAccordion({ character, onUpdate }: { character: FUCharacter; onU
   }
 
   return (
-    <Accordion title="Clases y habilidades" summary={`${character.classLevels.length} clase(s)`}>
+    <Accordion title="Clases y habilidades" summary={`${character.classLevels.length} clase(s)`} defaultOpen>
       <div className="space-y-3">
         {character.classLevels.map((cl) => {
           const cls = ref.classesById[cl.classId];
@@ -587,10 +976,7 @@ function ClassesAccordion({ character, onUpdate }: { character: FUCharacter; onU
 
 /**
  * Mastering a class (reaching level MAX_CLASS_LEVEL) grants one free choice
- * of Heroic Skill, per Reference/fabula_ultima_data_rules.txt — modeled as a
- * derived "earned vs. spent" count (mastered-class count vs. heroicSkills
- * taken) rather than a one-time prompt at the exact level-up moment, so it
- * also works for characters that were already mastered before this existed.
+ * of Heroic Skill — modeled as a derived "earned vs. spent" count.
  */
 function HeroicSkillsAccordion({ character, onUpdate }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void }) {
   const ref = useReferenceDataContext();
@@ -657,287 +1043,6 @@ function HeroicSkillsAccordion({ character, onUpdate }: { character: FUCharacter
   );
 }
 
-function BondEditor({ bond, onChange, onRemove }: { bond: FUBond; onChange: (bond: FUBond) => void; onRemove: () => void }) {
-  const [editing, setEditing] = React.useState(false);
-
-  function toggle(pair: [BondEmotionId, BondEmotionId], emotionId: BondEmotionId) {
-    const [a, b] = pair;
-    const isActive = bond.emotions.includes(emotionId);
-    const withoutPair = bond.emotions.filter((e) => e !== a && e !== b);
-    onChange({ ...bond, emotions: isActive ? withoutPair : [...withoutPair, emotionId] });
-  }
-
-  return (
-    <div className="border-t border-border/60 first:border-t-0 py-2 first:pt-0">
-      <div className="flex items-center gap-2">
-        <button type="button" onClick={() => setEditing((o) => !o)} className="flex-1 min-w-0 flex items-center gap-2 text-left">
-          <span className="font-body text-sm font-semibold text-ink truncate">{bond.name || "Sin nombre"}</span>
-          <span className="font-label text-2xs uppercase tracking-wide text-brass-bright shrink-0">Nv {bond.emotions.length}{bond.emotions.length >= 3 && " máx"}</span>
-        </button>
-        <button type="button" onClick={onRemove} aria-label="Quitar Vínculo" className="text-leather-light hover:text-crimson text-xs shrink-0">✕</button>
-      </div>
-      {!editing && bond.emotions.length > 0 && (
-        <p className="text-2xs text-ink-light font-body mt-0.5">{bond.emotions.map((id) => bondEmotionsById[id].name).join(" · ")}</p>
-      )}
-      {editing && (
-        <div className="mt-2 flex flex-col gap-2">
-          <input
-            value={bond.name}
-            onChange={(e) => onChange({ ...bond, name: e.target.value })}
-            placeholder="¿Con quién o qué es este Vínculo?"
-            className="border border-border bg-parchment/60 px-2 py-1 text-xs text-ink placeholder:text-leather-light/70 focus:border-brass focus:outline-none font-body"
-          />
-          <div className="grid gap-1.5 sm:grid-cols-3">
-            {bondPairings.map((pair) => (
-              <div key={pair.join("-")} className="flex gap-1">
-                {pair.map((emotionId) => {
-                  const emotion = bondEmotionsById[emotionId];
-                  const active = bond.emotions.includes(emotionId);
-                  return (
-                    <button
-                      key={emotionId}
-                      type="button"
-                      onClick={() => toggle(pair, emotionId)}
-                      className={cn(
-                        "flex-1 border px-1.5 py-1 text-2xs font-body transition-colors",
-                        active ? "border-brass bg-brass/10 font-semibold text-brass-bright" : "border-border text-ink-light hover:border-brass"
-                      )}
-                    >
-                      {emotion.name}
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function BondsAccordion({ character, onUpdate }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void }) {
-  function updateBond(index: number, bond: FUBond) {
-    onUpdate({ ...character, bonds: character.bonds.map((b, i) => (i === index ? bond : b)), updatedAt: new Date().toISOString() });
-  }
-  function removeBond(index: number) {
-    onUpdate({ ...character, bonds: character.bonds.filter((_, i) => i !== index), updatedAt: new Date().toISOString() });
-  }
-  function addBond() {
-    if (character.bonds.length >= MAX_BONDS) return;
-    onUpdate({ ...character, bonds: [...character.bonds, { name: "", emotions: [] }], updatedAt: new Date().toISOString() });
-  }
-
-  return (
-    <Accordion title="Vínculos" summary={`${character.bonds.length}/${MAX_BONDS}`}>
-      {character.bonds.length === 0 ? (
-        <p className="text-sm text-ink-light font-body">Todavía no hay Vínculos.</p>
-      ) : (
-        <div>{character.bonds.map((bond, i) => <BondEditor key={i} bond={bond} onChange={(b) => updateBond(i, b)} onRemove={() => removeBond(i)} />)}</div>
-      )}
-      <button
-        type="button"
-        onClick={addBond}
-        disabled={character.bonds.length >= MAX_BONDS}
-        className="font-label mt-2 border border-brass/50 px-2 py-1 text-2xs uppercase tracking-wide text-brass transition-colors hover:bg-brass/10 disabled:opacity-30"
-      >
-        + Vínculo
-      </button>
-      <p className="mt-2 text-2xs leading-relaxed text-ink-light font-body">{bondsRulesNote}</p>
-    </Accordion>
-  );
-}
-
-function OtherItemsNote({ character, onUpdate }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void }) {
-  const [text, setText] = React.useState(character.otherItemsNote);
-  const dirty = text !== character.otherItemsNote;
-
-  return (
-    <div className="mt-2 pt-2 border-t border-border/60">
-      <label className="font-label text-2xs uppercase tracking-wide text-ink-light">Otros objetos de misión</label>
-      <textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        rows={2}
-        placeholder="Objetos que el GM te haya indicado anotar"
-        className="mt-1 w-full border border-border bg-parchment/60 px-2 py-1.5 text-xs text-ink focus:border-brass focus:outline-none font-body resize-none"
-      />
-      <button
-        type="button"
-        disabled={!dirty}
-        onClick={() => onUpdate({ ...character, otherItemsNote: text, updatedAt: new Date().toISOString() })}
-        className="mt-1 font-label text-2xs uppercase tracking-wide border border-brass/50 px-2 py-1 text-brass hover:bg-brass/10 transition-colors disabled:opacity-30"
-      >
-        Guardar
-      </button>
-    </div>
-  );
-}
-
-function InventarioPanel({ character, onUpdate }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void }) {
-  const ref = useReferenceDataContext();
-  const mainHandId = character.equipment.weapons[0];
-  const mainHand = mainHandId ? findEquipmentItem(mainHandId, ref) : undefined;
-  const isTwoHanded = mainHand && "handedness" in mainHand && mainHand.handedness === "two-handed";
-  const offHandWeaponId = character.equipment.weapons[1];
-  const offHandWeapon = offHandWeaponId ? findEquipmentItem(offHandWeaponId, ref) : undefined;
-  const equippedShield = character.equipment.shield ? findEquipmentItem(character.equipment.shield, ref) : undefined;
-  const offHandItem = offHandWeapon ?? equippedShield;
-  const equippedArmor = character.equipment.armor ? findEquipmentItem(character.equipment.armor, ref) : undefined;
-  const backpackItems = character.backpack.map((id) => ({ id, item: findEquipmentItem(id, ref) }));
-  const spent = calcSpent(character.equipment, ref);
-
-  const [shopId, setShopId] = React.useState("");
-
-  function adjustZenit(delta: number) {
-    onUpdate({ ...character, zenit: Math.max(0, character.zenit + delta), updatedAt: new Date().toISOString() });
-  }
-
-  function moveToBackpack(kind: "weapon" | "shield" | "armor", id: string) {
-    const equipment = { ...character.equipment };
-    if (kind === "weapon") equipment.weapons = equipment.weapons.filter((w) => w !== id);
-    if (kind === "shield") equipment.shield = undefined;
-    if (kind === "armor") equipment.armor = undefined;
-    onUpdate({ ...character, equipment, backpack: [...character.backpack, id], updatedAt: new Date().toISOString() });
-  }
-
-  function equipFromBackpack(id: string) {
-    const equipment = { ...character.equipment };
-    const backpack = character.backpack.filter((i) => i !== id);
-    const weapon = ref.weapons.find((w) => w.id === id);
-    const shield = ref.shields.find((s) => s.id === id);
-    const armor = ref.armors.find((a) => a.id === id);
-
-    const equippedTwoHanded = ref.weapons.find((w) => w.id === equipment.weapons[0])?.handedness === "two-handed";
-
-    if (weapon) {
-      if (!canEquipMartialWeapon(character, weapon)) {
-        toast.error(`Necesitás una clase con entrenamiento marcial para equipar ${weapon.name}.`);
-        return;
-      }
-      if (weapon.handedness === "two-handed") {
-        // Takes both hand slots — bumps any currently-equipped weapon(s) and shield back to the backpack.
-        backpack.push(...equipment.weapons.filter((wid) => wid !== id), ...(equipment.shield ? [equipment.shield] : []));
-        equipment.weapons = [id];
-        equipment.shield = undefined;
-      } else if (equippedTwoHanded) {
-        // Main hand only — the two-hander already had no shield equipped alongside it.
-        backpack.push(...equipment.weapons);
-        equipment.weapons = [id];
-      } else if (equipment.weapons.length >= 2) {
-        return;
-      } else if (equipment.weapons.length === 1) {
-        // Takes the off hand — a shield can't share it with a second weapon.
-        if (equipment.shield) backpack.push(equipment.shield);
-        equipment.shield = undefined;
-        equipment.weapons = [...equipment.weapons, id];
-      } else {
-        equipment.weapons = [id];
-      }
-    } else if (shield) {
-      if (!canEquipMartialShield(character, shield)) {
-        toast.error(`Necesitás una clase con entrenamiento marcial para equipar ${shield.name}.`);
-        return;
-      }
-      if (equippedTwoHanded) {
-        toast.error("No podés equipar un escudo junto a un arma a dos manos.");
-        return;
-      }
-      if (equipment.weapons.length >= 2) {
-        // Takes the off hand — bumps the second (off-hand) weapon back to the backpack.
-        backpack.push(equipment.weapons[1]);
-        equipment.weapons = [equipment.weapons[0]];
-      }
-      if (equipment.shield) backpack.push(equipment.shield);
-      equipment.shield = id;
-    } else if (armor) {
-      if (!canEquipMartialArmor(character, armor)) {
-        toast.error(`Necesitás una clase con entrenamiento marcial para equipar ${armor.name}.`);
-        return;
-      }
-      if (equipment.armor) backpack.push(equipment.armor);
-      equipment.armor = id;
-    } else {
-      return;
-    }
-    onUpdate({ ...character, equipment, backpack, updatedAt: new Date().toISOString() });
-  }
-
-  function buy() {
-    if (!shopId) return;
-    const item = findEquipmentItem(shopId, ref);
-    if (!item || item.cost == null || item.cost > character.zenit) return;
-    onUpdate({ ...character, backpack: [...character.backpack, shopId], zenit: character.zenit - item.cost, updatedAt: new Date().toISOString() });
-    setShopId("");
-  }
-
-  const shopOptions = [...ref.weapons, ...ref.armors, ...ref.shields].filter((i) => i.cost != null);
-
-  return (
-    <Panel title="Inventario">
-      <div className="grid grid-cols-2 gap-2">
-        <SlotDisplay
-          label="Mano derecha"
-          item={mainHand ? equipmentCardData(mainHand) : undefined}
-          onUnequip={mainHand ? () => moveToBackpack("weapon", mainHand.id) : undefined}
-        />
-        <SlotDisplay
-          label="Mano izquierda"
-          item={offHandItem ? equipmentCardData(offHandItem) : undefined}
-          note={isTwoHanded ? "Ocupada por arma a dos manos" : undefined}
-          onUnequip={offHandItem ? () => moveToBackpack(offHandWeapon ? "weapon" : "shield", offHandItem.id) : undefined}
-        />
-        <SlotDisplay
-          label="Armadura"
-          item={equippedArmor ? equipmentCardData(equippedArmor) : undefined}
-          onUnequip={equippedArmor ? () => moveToBackpack("armor", equippedArmor.id) : undefined}
-        />
-        <div className="rounded-sm border border-border px-2 py-1.5">
-          <label className="font-label text-2xs uppercase tracking-wide text-ink-light">Accesorio</label>
-          <input
-            value={character.equipment.accessory}
-            onChange={(e) => onUpdate({ ...character, equipment: { ...character.equipment, accessory: e.target.value }, updatedAt: new Date().toISOString() })}
-            placeholder="Objeto raro — libre"
-            className="mt-0.5 w-full bg-transparent text-xs text-ink placeholder:text-leather-light/70 focus:outline-none font-body"
-          />
-        </div>
-      </div>
-
-      {backpackItems.length > 0 && (
-        <div className="mt-2 pt-2 border-t border-border/60">
-          <p className="font-label text-2xs uppercase tracking-wide text-ink-light mb-1">Mochila</p>
-          {backpackItems.map(({ id, item }) => item && (
-            <div key={id} className="py-1 border-t border-border/60 first:border-t-0">
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-body text-xs font-semibold text-ink">{item.name}</span>
-                <button type="button" onClick={() => equipFromBackpack(id)} className="font-label text-2xs uppercase text-brass hover:text-brass-bright shrink-0">Equipar</button>
-              </div>
-              <p className="text-2xs text-moss font-body">{equipmentCardData(item).statLine}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <OtherItemsNote character={character} onUpdate={onUpdate} />
-
-      <div className="mt-2 pt-2 border-t border-border/60 flex items-center gap-1.5 flex-wrap">
-        <select value={shopId} onChange={(e) => setShopId(e.target.value)} className="border border-border bg-parchment/60 px-2 py-1 text-xs text-ink font-body flex-1 min-w-[8rem]">
-          <option value="">Comprar…</option>
-          {shopOptions.map((i) => <option key={i.id} value={i.id}>{i.name} — {i.cost}z</option>)}
-        </select>
-        <button type="button" onClick={buy} disabled={!shopId} className="font-label text-2xs uppercase tracking-wide border border-brass/50 px-2 py-1 text-brass hover:bg-brass/10 transition-colors disabled:opacity-30">
-          Comprar
-        </button>
-      </div>
-
-      <div className="mt-2 pt-2 border-t border-border/60 flex items-center justify-between gap-2">
-        <span className="font-label text-xs text-ink font-semibold">{character.zenit}z <span className="text-ink-light font-body text-2xs">({spent}z eq.)</span></span>
-        <AmountAdjuster onApply={adjustZenit} />
-      </div>
-    </Panel>
-  );
-}
-
 function TraitsGuildAccordion({ character, onUpdate, guildStanding }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void; guildStanding?: React.ReactNode }) {
   return (
     <Accordion title="Rasgos, peculiaridades y gremio" summary={character.trait || "Sin rasgo definido"}>
@@ -966,6 +1071,263 @@ function TraitsGuildAccordion({ character, onUpdate, guildStanding }: { characte
   );
 }
 
+function PersonajeTab({ character, onUpdate, guildStanding }: { character: FUCharacter; onUpdate: (updated: FUCharacter) => void; guildStanding?: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-3">
+      <ClassesAccordion character={character} onUpdate={onUpdate} />
+      <HeroicSkillsAccordion character={character} onUpdate={onUpdate} />
+      <AffinitiesAccordion character={character} onUpdate={onUpdate} />
+      <PassivesPanel character={character} />
+      <TraitsGuildAccordion character={character} onUpdate={onUpdate} guildStanding={guildStanding} />
+    </div>
+  );
+}
+
+// ─── level up (vitals rail) ────────────────────────────────────────────────
+
+function LevelUpControl({ character, onLevelUp }: { character: FUCharacter; onLevelUp: (classId: string, skillName: string) => void }) {
+  const ref = useReferenceDataContext();
+  const eligibleClasses = character.classLevels.filter((cl) => cl.levels < MAX_CLASS_LEVEL);
+  const [classId, setClassId] = React.useState(eligibleClasses[0]?.classId ?? "");
+  const cls = classId ? ref.classesById[classId] : undefined;
+  const [skillName, setSkillName] = React.useState("");
+
+  const skillOptions = cls?.skills.filter((s) => {
+    const cl = character.classLevels.find((c) => c.classId === classId);
+    const taken = (cl?.skillsTaken ?? []).filter((n) => n === s.name).length;
+    return taken < s.maxLevel;
+  }) ?? [];
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <select value={classId} onChange={(e) => { setClassId(e.target.value); setSkillName(""); }} className="border border-brass/60 bg-parchment/60 px-2 py-1 text-xs text-ink font-body">
+        {eligibleClasses.map((cl) => <option key={cl.classId} value={cl.classId}>{ref.classesById[cl.classId]?.name}</option>)}
+      </select>
+      <select value={skillName} onChange={(e) => setSkillName(e.target.value)} className="border border-brass/60 bg-parchment/60 px-2 py-1 text-xs text-ink font-body">
+        <option value="">Nueva habilidad…</option>
+        {skillOptions.map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}
+      </select>
+      <button
+        type="button"
+        disabled={!classId || !skillName}
+        onClick={() => classId && skillName && onLevelUp(classId, skillName)}
+        className="font-label text-2xs uppercase tracking-wide border border-brass bg-brass/10 px-3 py-1 text-brass-bright hover:bg-brass/20 transition-colors disabled:opacity-30"
+      >
+        Subir de nivel
+      </button>
+    </div>
+  );
+}
+
+// ─── vitals rail ────────────────────────────────────────────────────────────
+
+interface VitalsRailProps {
+  character: FUCharacter;
+  stats: ReturnType<typeof calcDerivedStats>;
+  inCrisis: boolean;
+  canLevelUp: boolean;
+  fullBodyUrl: string | null;
+  uploadingImage: boolean;
+  onUploadFullBody: (file: File) => void;
+  equipped: EquippedRefs;
+  onUpdate: (updated: FUCharacter) => void;
+  onLevelUp: (classId: string, skillName: string) => void;
+  onAdjustHp: (delta: number) => void;
+  onAdjustMp: (delta: number) => void;
+  onAdjustXp: (delta: number) => void;
+  onOpenModal: (modal: "opportunities" | "services") => void;
+}
+
+function VitalsRail({
+  character, stats, inCrisis, canLevelUp, fullBodyUrl, uploadingImage, onUploadFullBody,
+  equipped, onUpdate, onLevelUp, onAdjustHp, onAdjustMp, onAdjustXp, onOpenModal,
+}: VitalsRailProps) {
+  const [fpModalOpen, setFpModalOpen] = React.useState(false);
+  const [xpModalOpen, setXpModalOpen] = React.useState(false);
+
+  function adjustFp(delta: number) {
+    onUpdate({ ...character, fabulaPoints: Math.max(0, character.fabulaPoints + delta), updatedAt: new Date().toISOString() });
+  }
+
+  return (
+    <aside className="flex flex-col gap-3.5 surface-parchment p-3.5 md:sticky md:top-3">
+      <div className="relative aspect-[3/4] w-full overflow-hidden rounded-md border-2 border-brass bg-parchment-deep/50">
+        {fullBodyUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, size unknown ahead of render
+          <img src={fullBodyUrl} alt="" className="h-full w-full object-cover object-top" />
+        ) : (
+          <div className="flex h-full items-center justify-center px-3 text-center font-body text-xs text-ink-light">Retrato de cuerpo completo</div>
+        )}
+        <label className="absolute inset-0 z-20 flex cursor-pointer items-center justify-center bg-ink/0 text-center font-label text-2xs uppercase text-transparent transition-colors hover:bg-ink/50 hover:text-parchment">
+          {uploadingImage ? "…" : "Cambiar"}
+          <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => e.target.files?.[0] && onUploadFullBody(e.target.files[0])} />
+        </label>
+
+        <EquipTag position="tl" label="Accesorio">
+          <input
+            value={character.equipment.accessory}
+            onChange={(e) => onUpdate({ ...character, equipment: { ...character.equipment, accessory: e.target.value }, updatedAt: new Date().toISOString() })}
+            placeholder="Libre"
+            onClick={(e) => e.stopPropagation()}
+            className="relative z-30 block w-full bg-transparent font-body text-2xs font-semibold text-crimson placeholder:font-normal placeholder:italic placeholder:text-ink-light focus:outline-none"
+          />
+        </EquipTag>
+        <EquipTag position="tr" label="Armadura">
+          <span className={cn("block text-2xs font-semibold", equipped.equippedArmor ? "text-crimson" : "italic font-normal text-ink-light")}>
+            {equipped.equippedArmor?.name ?? "Vacío"}
+          </span>
+        </EquipTag>
+        <EquipTag position="bl" label="M. secundaria">
+          <span className={cn("block text-2xs font-semibold", equipped.isTwoHanded || !equipped.offHandItem ? "italic font-normal text-ink-light" : "text-crimson")}>
+            {equipped.isTwoHanded ? "Ocupada (2 manos)" : equipped.offHandItem?.name ?? "Vacío"}
+          </span>
+        </EquipTag>
+        <EquipTag position="br" label="M. principal">
+          <span className={cn("block text-2xs font-semibold", equipped.mainHand ? "text-crimson" : "italic font-normal text-ink-light")}>
+            {equipped.mainHand?.name ?? "Vacío"}
+          </span>
+        </EquipTag>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <StatBar label="PV" value={character.currentHp} max={stats.hp.value} color="moss" markerAt={stats.crisis.value} />
+          <AmountAdjuster onApply={onAdjustHp} />
+        </div>
+        {inCrisis && <p className="font-label text-2xs uppercase tracking-wide text-crimson font-bold">● Crisis</p>}
+        <div className="flex items-center gap-2">
+          <StatBar label="PM" value={character.currentMp} max={stats.mp.value} color="blue" />
+          <AmountAdjuster onApply={onAdjustMp} />
+        </div>
+        <div className="flex items-center gap-2">
+          <StatBar label="XP" value={character.xp} max={XP_PER_LEVEL} color="brass" />
+          <StepAdjuster onChange={onAdjustXp} />
+          <button type="button" onClick={() => setXpModalOpen(true)} aria-label="Cómo funciona el XP" className="flex size-4 shrink-0 items-center justify-center rounded-full border border-brass/60 text-[9px] text-ink-light hover:border-brass hover:text-brass">i</button>
+        </div>
+        {canLevelUp && (
+          <div className="mt-1 flex flex-col gap-1.5">
+            <p className="font-label text-2xs uppercase tracking-wide text-brass-bright">¡Podés subir de nivel!</p>
+            <LevelUpControl character={character} onLevelUp={onLevelUp} />
+          </div>
+        )}
+      </div>
+
+      <div className="flex justify-between gap-2">
+        <CombatBadge label="Iniciativa" value={stats.initiative.value >= 0 ? `+${stats.initiative.value}` : stats.initiative.value} shape="hex" />
+        <CombatBadge label="Defensa" value={stats.defense.value} shape="shield" />
+        <CombatBadge label="Def. Mágica" value={stats.magicDefense.value} shape="shield" />
+      </div>
+
+      <div className="flex items-center justify-between gap-2 rounded-md border border-brass bg-parchment px-2.5 py-2">
+        <span className="flex items-center gap-1 font-label text-2xs text-ink-light">
+          Puntos de Fábula
+          <button type="button" onClick={() => setFpModalOpen(true)} aria-label="Cómo funcionan los Puntos de Fábula" className="flex size-4 items-center justify-center rounded-full border border-brass/60 text-[9px] text-ink-light hover:border-brass hover:text-brass">i</button>
+        </span>
+        <span className="font-display text-xl text-crimson">{character.fabulaPoints}</span>
+        <AmountAdjuster onApply={adjustFp} />
+      </div>
+
+      <div className="flex gap-1.5">
+        <button type="button" onClick={() => onOpenModal("opportunities")} className="flex flex-1 flex-col items-center gap-1 rounded-md border border-brass px-1 py-2 font-label text-[10px] uppercase tracking-wide text-ink-light transition-colors hover:bg-parchment-deep/30">
+          <Zap size={16} className="text-crimson" /> Oport.
+        </button>
+        <button type="button" onClick={() => onOpenModal("services")} className="flex flex-1 flex-col items-center gap-1 rounded-md border border-brass px-1 py-2 font-label text-[10px] uppercase tracking-wide text-ink-light transition-colors hover:bg-parchment-deep/30">
+          <Building2 size={16} className="text-crimson" /> Pueblo
+        </button>
+      </div>
+
+      <Modal open={fpModalOpen} onClose={() => setFpModalOpen(false)} title="Puntos de Fábula">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <p className="font-label text-2xs font-bold uppercase tracking-wide text-ink mb-1">Cómo conseguirlos</p>
+            <ul className="space-y-1 text-xs text-ink-light font-body">{fabulaPointGains.map((g, i) => <li key={i}>· {g}</li>)}</ul>
+          </div>
+          <div>
+            <p className="font-label text-2xs font-bold uppercase tracking-wide text-ink mb-1">Para qué usarlos</p>
+            <ul className="space-y-1 text-xs text-ink-light font-body">{fabulaPointUses.map((u, i) => <li key={i}>· {u}</li>)}</ul>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal open={xpModalOpen} onClose={() => setXpModalOpen(false)} title="Puntos de experiencia">
+        <p className="text-sm leading-relaxed text-ink-light font-body">{xpNote}</p>
+      </Modal>
+    </aside>
+  );
+}
+
+// ─── header ─────────────────────────────────────────────────────────────────
+
+interface SheetHeaderProps {
+  character: FUCharacter;
+  portraitUrl: string | null;
+  uploadingImage: boolean;
+  onUploadPortrait: (file: File) => void;
+  onOpenModal: (modal: "opportunities" | "services") => void;
+}
+
+function SheetHeader({ character, portraitUrl, uploadingImage, onUploadPortrait, onOpenModal }: SheetHeaderProps) {
+  const ref = useReferenceDataContext();
+  return (
+    <header className="flex flex-wrap items-center gap-4 rounded-t-md border-b-[3px] border-brass bg-gradient-to-b from-leather to-[#241b12] px-4 py-3.5 md:px-6">
+      <div className="relative size-16 shrink-0 overflow-hidden rounded-full border-2 border-brass-light bg-parchment-dark/30">
+        {portraitUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, size unknown ahead of render
+          <img src={portraitUrl} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center"><User size={26} className="text-leather-lighter" /></div>
+        )}
+        <label className="absolute inset-0 flex cursor-pointer items-center justify-center bg-ink/0 text-center font-label text-[9px] uppercase text-transparent transition-colors hover:bg-ink/60 hover:text-parchment">
+          {uploadingImage ? "…" : "Cambiar"}
+          <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => e.target.files?.[0] && onUploadPortrait(e.target.files[0])} />
+        </label>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <div className="flex items-baseline gap-2.5">
+          <h1 className="font-display text-2xl tracking-wide text-parchment">{character.name || "Héroe sin nombre"}</h1>
+          <span className="rounded-full border border-brass-light bg-crimson px-2.5 py-0.5 font-label text-xs font-semibold text-crimson-foreground">Nv. {character.level}</span>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {character.classLevels.length === 0 ? (
+            <span className="font-label text-xs text-parchment-dark">Sin clase</span>
+          ) : (
+            character.classLevels.map((cl) => (
+              <span key={cl.classId} className="rounded-md border border-brass bg-parchment/10 px-2 py-0.5 font-label text-2xs font-medium tracking-wide text-brass-light">
+                {ref.classesById[cl.classId]?.name ?? "?"} Nv. {cl.levels}
+              </span>
+            ))
+          )}
+        </div>
+      </div>
+
+      <div className="ml-2 hidden flex-1 gap-2.5 lg:flex">
+        <div className="min-w-0 flex-1 rounded-md border border-brass bg-black/20 px-3 py-1.5">
+          <div className="font-label text-[10px] text-brass-light">Identidad</div>
+          <div className="truncate font-body text-sm text-parchment">{character.identity || "—"}</div>
+        </div>
+        <div className="min-w-0 flex-1 rounded-md border border-brass bg-black/20 px-3 py-1.5">
+          <div className="font-label text-[10px] text-brass-light">Tema</div>
+          <div className="truncate font-body text-sm text-parchment">{character.theme || "—"}</div>
+        </div>
+        <div className="min-w-0 flex-1 rounded-md border border-brass bg-black/20 px-3 py-1.5">
+          <div className="font-label text-[10px] text-brass-light">Origen</div>
+          <div className="truncate font-body text-sm text-parchment">{character.origin || "—"}</div>
+        </div>
+      </div>
+
+      <div className="ml-auto flex shrink-0 gap-2">
+        <button type="button" onClick={() => onOpenModal("opportunities")} className="flex items-center gap-1.5 rounded-md border border-brass px-2.5 py-2 font-label text-xs text-brass-light transition-colors hover:bg-parchment/10">
+          <Zap size={14} /> <span className="hidden sm:inline">Oportunidades</span>
+        </button>
+        <button type="button" onClick={() => onOpenModal("services")} className="flex items-center gap-1.5 rounded-md border border-brass px-2.5 py-2 font-label text-xs text-brass-light transition-colors hover:bg-parchment/10">
+          <Building2 size={14} /> <span className="hidden sm:inline">Servicios</span>
+        </button>
+      </div>
+    </header>
+  );
+}
+
 // ─── sheet ────────────────────────────────────────────────────────────────
 
 interface CharacterSheetProps {
@@ -988,6 +1350,14 @@ export function CharacterSheet(props: CharacterSheetProps) {
   );
 }
 
+const TABS = [
+  { key: "combat", label: "Combate" },
+  { key: "inventory", label: "Inventario" },
+  { key: "bonds", label: "Vínculos" },
+  { key: "character", label: "Personaje" },
+] as const;
+type TabKey = (typeof TABS)[number]["key"];
+
 function CharacterSheetInner({
   character,
   portraitUrl,
@@ -1005,7 +1375,18 @@ function CharacterSheetInner({
   const inCrisis = character.currentHp <= stats.crisis.value;
   const canLevelUp = character.xp >= XP_PER_LEVEL && character.classLevels.length > 0 && character.classLevels.some((cl) => cl.levels < MAX_CLASS_LEVEL);
   const [uploadingImage, setUploadingImage] = React.useState(false);
-  const [drawerOpen, setDrawerOpen] = React.useState(false);
+  const [tab, setTab] = React.useState<TabKey>("combat");
+  const [modal, setModal] = React.useState<null | "opportunities" | "services">(null);
+
+  const mainHandId = character.equipment.weapons[0];
+  const mainHand = mainHandId ? findEquipmentItem(mainHandId, ref) : undefined;
+  const isTwoHanded = Boolean(mainHand && "handedness" in mainHand && mainHand.handedness === "two-handed");
+  const offHandWeaponId = character.equipment.weapons[1];
+  const offHandWeapon = offHandWeaponId ? findEquipmentItem(offHandWeaponId, ref) : undefined;
+  const equippedShield = character.equipment.shield ? findEquipmentItem(character.equipment.shield, ref) : undefined;
+  const offHandItem = offHandWeapon ?? equippedShield;
+  const equippedArmor = character.equipment.armor ? findEquipmentItem(character.equipment.armor, ref) : undefined;
+  const equipped: EquippedRefs = { mainHand, offHandItem, offHandWeapon, equippedShield, equippedArmor, isTwoHanded };
 
   async function uploadImage(file: File, kind: "portrait" | "full_body") {
     setUploadingImage(true);
@@ -1038,14 +1419,11 @@ function CharacterSheetInner({
   function adjustXp(delta: number) {
     onUpdate({ ...character, xp: Math.max(0, character.xp + delta), updatedAt: new Date().toISOString() });
   }
-  function adjustIp(delta: number) {
-    onUpdate({ ...character, currentIp: Math.max(0, Math.min(stats.ip.value, character.currentIp + delta)), updatedAt: new Date().toISOString() });
-  }
 
   return (
     <div className="w-full px-3 py-5 md:px-6">
       {!hideBackLink && (
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center justify-between gap-3 mb-2">
           <Link href={backHref} className="font-label text-2xs uppercase tracking-widest text-parchment-dark hover:text-parchment">
             ← Mis personajes
           </Link>
@@ -1055,177 +1433,127 @@ function CharacterSheetInner({
         </div>
       )}
 
-      <div className="relative flex surface-parchment overflow-hidden mt-2">
-        <CharacterFullBodyDrawer
-          imageUrl={fullBodyUrl}
-          open={drawerOpen}
-          onToggle={() => setDrawerOpen((o) => !o)}
-          onUpload={(file) => uploadImage(file, "full_body")}
-          uploading={uploadingImage}
+      <div className="overflow-hidden rounded-md border border-border shadow-parchment-lg">
+        <SheetHeader
+          character={character}
+          portraitUrl={portraitUrl}
+          uploadingImage={uploadingImage}
+          onUploadPortrait={(file) => uploadImage(file, "portrait")}
+          onOpenModal={setModal}
         />
 
-        <div className="min-w-0 flex-1 p-3.5 md:p-5 lg:p-7 space-y-3.5">
-          {/* Header */}
-          <div className="flex flex-wrap items-start gap-4 pl-6">
-            <div className="relative size-20 shrink-0 rounded-full border-2 border-brass/40 overflow-hidden bg-parchment-dark/30 flex items-center justify-center">
-              {portraitUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, size unknown ahead of render
-                <img src={portraitUrl} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <User size={32} className="text-leather-light" />
-              )}
-              <label className="absolute inset-0 flex items-center justify-center bg-ink/0 hover:bg-ink/50 text-transparent hover:text-parchment transition-colors cursor-pointer text-2xs font-label uppercase text-center">
-                {uploadingImage ? "…" : "Cambiar"}
-                <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => e.target.files?.[0] && uploadImage(e.target.files[0], "portrait")} />
-              </label>
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-baseline gap-2 flex-wrap">
-                <h1 className="font-display text-2xl font-bold text-ink truncate">{character.name || "Héroe sin nombre"}</h1>
-                <span className="font-label text-sm uppercase tracking-wide text-ink-light shrink-0">Nv {character.level}</span>
-              </div>
-              <p className="font-label text-xs uppercase tracking-wide text-brass mt-0.5">{classes.map((c) => c.name).join(" / ") || "Sin clase"}</p>
-              <p className="font-body text-2xs text-ink-light mt-1">
-                <span className="text-moss">Identidad</span> {character.identity} · <span className="text-moss">Tema</span> {character.theme} · <span className="text-moss">Origen</span> {character.origin}
-              </p>
-            </div>
-          </div>
+        <div className="grid gap-4 bg-gradient-to-br from-parchment to-parchment-dark p-3 md:grid-cols-[250px_1fr] md:p-5 md:items-start">
+          <VitalsRail
+            character={character}
+            stats={stats}
+            inCrisis={inCrisis}
+            canLevelUp={canLevelUp}
+            fullBodyUrl={fullBodyUrl}
+            uploadingImage={uploadingImage}
+            onUploadFullBody={(file) => uploadImage(file, "full_body")}
+            equipped={equipped}
+            onUpdate={onUpdate}
+            onLevelUp={levelUp}
+            onAdjustHp={adjustHp}
+            onAdjustMp={adjustMp}
+            onAdjustXp={adjustXp}
+            onOpenModal={setModal}
+          />
 
-          {/* Vista General / Acciones de Inventario / Estados — Vista General
-              takes half the row, the other two split the remaining half. */}
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-3 items-start">
-            <Panel title="Vista General" className="lg:col-span-2">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <StatBar label="PV" value={character.currentHp} max={stats.hp.value} color="moss" markerAt={stats.crisis.value} />
-                  <AmountAdjuster onApply={adjustHp} />
+          <main className="min-w-0">
+            <nav className="mb-4 flex gap-1 border-b-2 border-brass">
+              {TABS.map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => setTab(t.key)}
+                  className={cn(
+                    "-mb-0.5 border-b-[3px] px-4 py-2.5 font-label text-sm font-medium transition-colors",
+                    tab === t.key ? "border-crimson text-crimson" : "border-transparent text-ink-light hover:text-ink"
+                  )}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </nav>
+
+            {tab === "combat" && (
+              <div className="flex flex-col gap-5">
+                <AttributesSection character={character} current={current} onUpdate={onUpdate} />
+
+                <div>
+                  <h3 className="mb-2 flex items-center gap-1.5 border-b border-brass/40 pb-1.5 font-label text-xs uppercase tracking-wide text-ink-light">
+                    <Sword size={14} className="text-crimson" /> Acciones de combate
+                  </h3>
+                  <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
+                    <ActionGrid />
+                    <div className="lg:w-64"><WeaponCards character={character} current={current} /></div>
+                  </div>
                 </div>
-                {inCrisis && <p className="font-label text-2xs uppercase tracking-wide text-crimson font-bold">● Crisis</p>}
-                <div className="flex items-center gap-2">
-                  <StatBar label="PM" value={character.currentMp} max={stats.mp.value} color="blue" />
-                  <AmountAdjuster onApply={adjustMp} />
+
+                <div>
+                  <h3 className="mb-2 flex items-center gap-1.5 border-b border-brass/40 pb-1.5 font-label text-xs uppercase tracking-wide text-ink-light">
+                    Habilidades y hechizos
+                  </h3>
+                  <ActiveAbilitiesTable character={character} current={current} onUpdate={onUpdate} />
                 </div>
-                <div className="flex items-center gap-2">
-                  <StatBar label="XP" value={character.xp} max={XP_PER_LEVEL} color="brass" />
-                  <StepAdjuster onChange={adjustXp} />
-                </div>
-                {canLevelUp && <p className="font-label text-2xs uppercase tracking-wide text-brass-bright">¡Podés subir de nivel!</p>}
-                {canLevelUp && <LevelUpControl character={character} onLevelUp={levelUp} />}
               </div>
+            )}
 
-              <div className="mt-3">
-                <AttributeGrid character={character} current={current} />
-              </div>
+            {tab === "inventory" && <InventoryTab character={character} onUpdate={onUpdate} equipped={equipped} />}
+            {tab === "bonds" && <BondsTab character={character} onUpdate={onUpdate} />}
+            {tab === "character" && <PersonajeTab character={character} onUpdate={onUpdate} guildStanding={guildStanding} />}
 
-              <div className="mt-2 grid grid-cols-3 gap-2">
-                <StatTile label="DEF" value={stats.defense.value} />
-                <StatTile label="DEF.M" value={stats.magicDefense.value} />
-                <StatTile label="Iniciativa" value={stats.initiative.value} />
-              </div>
-            </Panel>
-
-            <Panel title="Acciones de Inventario">
-              <div className="flex items-center justify-between mb-2.5 gap-2">
-                <span className="font-label text-xs uppercase tracking-wide text-ink-light shrink-0">PI</span>
-                <span className="font-label text-sm font-bold text-ink">{character.currentIp} / {stats.ip.value}</span>
-                <AmountAdjuster onApply={adjustIp} />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                {ref.ipItems.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    title={item.effect}
-                    disabled={character.currentIp < item.ipCost}
-                    onClick={() => {
-                      let updated = { ...character, currentIp: character.currentIp - item.ipCost };
-                      if (item.id === "remedy") updated = { ...updated, currentHp: Math.min(stats.hp.value, updated.currentHp + 50) };
-                      if (item.id === "elixir") updated = { ...updated, currentMp: Math.min(stats.mp.value, updated.currentMp + 50) };
-                      onUpdate({ ...updated, updatedAt: new Date().toISOString() });
-                    }}
-                    className="font-label text-2xs px-2 py-1.5 border border-border rounded-sm hover:border-brass disabled:opacity-30 transition-colors text-left"
-                  >
-                    {IP_ITEM_LABELS[item.id] ?? item.name} ({item.ipCost})
-                  </button>
-                ))}
-              </div>
-            </Panel>
-
-            <EstadosPanel character={character} onUpdate={onUpdate} />
-          </div>
-
-          {/* Puntos de Fábula — wide, side to side */}
-          <FabulaPointsPanel character={character} onUpdate={onUpdate} />
-
-          {/* Acciones / Hechizos / Inventario, each column stacked with the
-              accordions that don't need their own row — Acciones (the static
-              8-item list) runs longest, so the other two columns absorb the
-              rest instead of leaving a separate section below. */}
-          <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3 items-start">
-            <div className="flex flex-col gap-3">
-              <ActionsReferencePanel />
-            </div>
-            <div className="flex flex-col gap-3">
-              <CombatPanel character={character} current={current} />
-              <SpellsPanel character={character} current={current} onUpdate={onUpdate} />
-              <BondsAccordion character={character} onUpdate={onUpdate} />
-              <AffinitiesAccordion character={character} onUpdate={onUpdate} />
-              <ClassesAccordion character={character} onUpdate={onUpdate} />
-            </div>
-            <div className="flex flex-col gap-3">
-              <InventarioPanel character={character} onUpdate={onUpdate} />
-              <PassivesPanel character={character} />
-              <HeroicSkillsAccordion character={character} onUpdate={onUpdate} />
-              <TraitsGuildAccordion character={character} onUpdate={onUpdate} guildStanding={guildStanding} />
-            </div>
-          </div>
-
-          {/* Glossary */}
-          <p className="text-2xs text-ink-light font-body border-t border-border/60 pt-2 flex items-start gap-1">
-            <Info size={12} className="shrink-0 mt-px" />
-            {glossary.map((g, i) => (
-              <React.Fragment key={g.term}>
-                {i > 0 && " · "}
-                <strong className="text-ink">{g.term}:</strong> {g.definition}
-              </React.Fragment>
-            ))}
-          </p>
+            <p className="mt-6 flex items-start gap-1 border-t border-border/60 pt-2 text-2xs text-ink-light font-body">
+              <Info size={12} className="shrink-0 mt-px" />
+              {glossary.map((g, i) => (
+                <React.Fragment key={g.term}>
+                  {i > 0 && " · "}
+                  <strong className="text-ink">{g.term}:</strong> {g.definition}
+                </React.Fragment>
+              ))}
+            </p>
+          </main>
         </div>
       </div>
-    </div>
-  );
-}
 
-function LevelUpControl({ character, onLevelUp }: { character: FUCharacter; onLevelUp: (classId: string, skillName: string) => void }) {
-  const ref = useReferenceDataContext();
-  const eligibleClasses = character.classLevels.filter((cl) => cl.levels < MAX_CLASS_LEVEL);
-  const [classId, setClassId] = React.useState(eligibleClasses[0]?.classId ?? "");
-  const cls = classId ? ref.classesById[classId] : undefined;
-  const [skillName, setSkillName] = React.useState("");
+      <Modal open={modal === "opportunities"} onClose={() => setModal(null)} title="Oportunidades" className="max-w-2xl">
+        <p className="mb-3 text-xs text-ink-light font-body">{criticalFumbleNote}</p>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
+            <tbody>
+              {opportunities.map((o) => (
+                <tr key={o.term} className="border-b border-border/60 last:border-b-0">
+                  <td className="whitespace-nowrap px-2 py-1.5 align-top font-body text-sm font-semibold text-crimson">{o.term}</td>
+                  <td className="px-2 py-1.5 font-body text-sm text-ink">{o.effect}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Modal>
 
-  const skillOptions = cls?.skills.filter((s) => {
-    const cl = character.classLevels.find((c) => c.classId === classId);
-    const taken = (cl?.skillsTaken ?? []).filter((n) => n === s.name).length;
-    return taken < s.maxLevel;
-  }) ?? [];
-
-  return (
-    <div className="mt-2 flex flex-col gap-1.5 sm:flex-row sm:items-end">
-      <select value={classId} onChange={(e) => { setClassId(e.target.value); setSkillName(""); }} className="flex-1 border border-border bg-parchment/60 px-2 py-1 text-xs text-ink font-body">
-        {eligibleClasses.map((cl) => <option key={cl.classId} value={cl.classId}>{ref.classesById[cl.classId]?.name}</option>)}
-      </select>
-      <select value={skillName} onChange={(e) => setSkillName(e.target.value)} className="flex-1 border border-border bg-parchment/60 px-2 py-1 text-xs text-ink font-body">
-        <option value="">Nueva habilidad…</option>
-        {skillOptions.map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}
-      </select>
-      <button
-        type="button"
-        disabled={!classId || !skillName}
-        onClick={() => classId && skillName && onLevelUp(classId, skillName)}
-        className="font-label text-2xs uppercase tracking-wide border border-brass bg-brass/10 px-3 py-1 text-brass-bright hover:bg-brass/20 transition-colors disabled:opacity-30"
-      >
-        Subir de nivel
-      </button>
+      <Modal open={modal === "services"} onClose={() => setModal(null)} title="Servicios del pueblo">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr>
+                <th className="border-b border-brass px-2 py-1.5 text-left font-label text-2xs uppercase tracking-wide text-ink-light">Servicio</th>
+                <th className="border-b border-brass px-2 py-1.5 text-left font-label text-2xs uppercase tracking-wide text-ink-light">Costo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {villageServices.map((s) => (
+                <tr key={s.service} className="border-b border-border/60 last:border-b-0">
+                  <td className="px-2 py-1.5 font-body text-sm font-semibold text-crimson">{s.service}</td>
+                  <td className="px-2 py-1.5 font-body text-sm text-ink">{s.cost}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-3 text-xs text-ink-light font-body">{villageServicesNote}</p>
+      </Modal>
     </div>
   );
 }
