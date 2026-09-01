@@ -34,7 +34,33 @@ export async function GET() {
       (applications ?? []).map((a) => [a.quest_id, { status: a.status, character_id: a.character_id, character_name: myCharacterName.get(a.character_id) ?? "" }])
     );
   }
-  const availableWithApplication = (available ?? []).map((q) => ({ ...q, my_application: myApplicationByQuest.get(q.id) ?? null }));
+
+  // Everyone's *approved* application per available quest — "confirmed
+  // participants" shown on the board before the DM has actually Started the
+  // quest (real shg_rol_quest_participant rows only exist after that).
+  let confirmedByQuest = new Map<string, { id: string; name: string; portrait_url: string | null }[]>();
+  if ((available ?? []).length > 0) {
+    const { data: approved } = await admin
+      .from("shg_rol_quest_application")
+      .select("quest_id, character:shg_rol_character(id, name, portrait_url)")
+      .eq("status", "approved")
+      .in("quest_id", (available ?? []).map((q) => q.id));
+
+    confirmedByQuest = new Map();
+    for (const row of approved ?? []) {
+      const c = Array.isArray(row.character) ? row.character[0] : row.character;
+      if (!c) continue;
+      const list = confirmedByQuest.get(row.quest_id) ?? [];
+      list.push({ id: c.id, name: c.name, portrait_url: c.portrait_url });
+      confirmedByQuest.set(row.quest_id, list);
+    }
+  }
+
+  const availableWithApplication = (available ?? []).map((q) => ({
+    ...q,
+    my_application: myApplicationByQuest.get(q.id) ?? null,
+    confirmed_participants: confirmedByQuest.get(q.id) ?? [],
+  }));
 
   let mine: unknown[] = [];
   if (myCharacterIds.length > 0) {

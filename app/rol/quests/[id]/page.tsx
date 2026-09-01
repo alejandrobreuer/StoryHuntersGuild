@@ -2,16 +2,14 @@
 
 import * as React from "react";
 import { useParams } from "next/navigation";
-import { Contact } from "lucide-react";
+import { Contact, Coins, Trophy, Boxes } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { CharacterSheet } from "@/components/rol/character/CharacterSheet";
-import { NoteEditor } from "@/components/rol/quest/NoteEditor";
+import { Textarea } from "@/components/ui/Textarea";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { RolQuestStatus, RolQuestApplicationStatus } from "@/types/database";
-import type { FUCharacter } from "@/app/FU/lib/types";
 
 interface ParticipantRef { id: string; name: string; portrait_url: string | null }
 
@@ -24,13 +22,11 @@ interface QuestDetail {
   };
   participants: ParticipantRef[];
   myCharacterId: string | null;
-  myCharacterSheet: { sheet_data: FUCharacter; portrait_url: string | null; full_body_url: string | null } | null;
   myApplication: { id: string; status: RolQuestApplicationStatus; character_id: string } | null;
   leaderVotes: { voter_character_id: string; candidate_character_id: string }[];
   isLeader: boolean;
   eligibleFeatures: { id: string; title: string; cost_supplies: number; supplies_allocated: number }[];
   publicNote: { content: string; updated_at: string } | null;
-  myNote: { content: string; updated_at: string } | null;
 }
 
 interface CharacterOption { id: string; name: string }
@@ -55,8 +51,8 @@ function ParticipantPortrait({ p }: { p: ParticipantRef }) {
   );
 }
 
-// Full-width bar right below the top nav — title, short description, and
-// every participant's portrait, laid out side by side.
+// Full-width bar right below the top nav — title, status, and every
+// participant's portrait, laid out side by side.
 function MissionTopBar({ quest, participants }: { quest: QuestDetail["quest"]; participants: ParticipantRef[] }) {
   return (
     <div className="w-full bg-[#1c1810] border-b border-brass/25 px-4 py-3 md:px-8">
@@ -68,7 +64,6 @@ function MissionTopBar({ quest, participants }: { quest: QuestDetail["quest"]; p
             </span>
             <h1 className="font-display text-lg text-parchment truncate">{quest.title}</h1>
           </div>
-          <p className="font-body text-xs text-parchment-dark line-clamp-1">{quest.description}</p>
         </div>
         {participants.length > 0 && (
           <div className="flex items-center gap-3 shrink-0">
@@ -80,6 +75,18 @@ function MissionTopBar({ quest, participants }: { quest: QuestDetail["quest"]; p
             ))}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function RewardStat({ icon: Icon, label, value }: { icon: typeof Coins; label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-2.5 rounded-sm border border-border px-3 py-2">
+      <Icon size={18} className="shrink-0 text-brass" />
+      <div className="min-w-0">
+        <p className="font-label text-2xs uppercase tracking-wide text-ink-light">{label}</p>
+        <p className="font-display text-base text-ink truncate">{value}</p>
       </div>
     </div>
   );
@@ -264,50 +271,6 @@ export default function RolQuestDetailPage() {
 
   React.useEffect(() => { load(); }, [load]);
 
-  async function saveNote(kind: "public" | "private", content: string): Promise<boolean> {
-    const res = await fetch(
-      kind === "public" ? `/api/admin/rol/quests/${params.id}/notes` : `/api/rol/quests/${params.id}/notes`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(kind === "public" ? { visibility: "public", content } : { content }),
-      }
-    );
-    const ok = res.ok;
-    if (ok) load();
-    return ok;
-  }
-
-  async function handleSheetUpdate(updated: FUCharacter) {
-    if (!detail?.myCharacterSheet || !detail.myCharacterId) return;
-    setDetail({ ...detail, myCharacterSheet: { ...detail.myCharacterSheet, sheet_data: updated } });
-    await fetch(`/api/rol/characters/${detail.myCharacterId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: updated.name,
-        sheet_data: updated,
-        portrait_url: detail.myCharacterSheet.portrait_url,
-        full_body_url: detail.myCharacterSheet.full_body_url,
-      }),
-    });
-  }
-
-  async function handleSheetImagesChange(portraitUrl: string | null, fullBodyUrl: string | null) {
-    if (!detail?.myCharacterSheet || !detail.myCharacterId) return;
-    setDetail({ ...detail, myCharacterSheet: { ...detail.myCharacterSheet, portrait_url: portraitUrl, full_body_url: fullBodyUrl } });
-    await fetch(`/api/rol/characters/${detail.myCharacterId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: detail.myCharacterSheet.sheet_data.name,
-        sheet_data: detail.myCharacterSheet.sheet_data,
-        portrait_url: portraitUrl,
-        full_body_url: fullBodyUrl,
-      }),
-    });
-  }
-
   async function handleTurnIn() {
     if (!confirm("¿Entregar esta misión al DM?")) return;
     setTurningIn(true);
@@ -345,16 +308,40 @@ export default function RolQuestDetailPage() {
     );
   }
 
-  const { quest, participants, myCharacterId, myCharacterSheet, myApplication, leaderVotes, isLeader, eligibleFeatures, publicNote, myNote } = detail;
+  const { quest, participants, myCharacterId, myApplication, leaderVotes, isLeader, eligibleFeatures, publicNote } = detail;
   const leader = quest.leader_character_id ? participants.find((p) => p.id === quest.leader_character_id) : null;
 
   return (
     <>
       <MissionTopBar quest={quest} participants={participants} />
 
-      <main className="max-w-2xl mx-auto px-6 py-10">
+      <main className="max-w-2xl mx-auto px-6 py-10 flex flex-col gap-6">
+        <section className="surface-parchment p-5">
+          <h2 className="font-label text-sm font-bold uppercase tracking-widest text-ink mb-3">Descripción</h2>
+          <p className="font-body text-sm leading-relaxed text-ink-light whitespace-pre-wrap">{quest.description}</p>
+        </section>
+
+        <section className="surface-parchment p-5">
+          <h2 className="font-label text-sm font-bold uppercase tracking-widest text-ink mb-3">Recompensas</h2>
+          <div className="grid gap-2.5 sm:grid-cols-3">
+            <RewardStat icon={Coins} label="Zenit" value={`${quest.reward_coin}z`} />
+            <RewardStat icon={Trophy} label="Pts. de gremio" value={String(quest.reward_standing)} />
+            <RewardStat icon={Boxes} label="Suministros" value={String(quest.reward_supplies)} />
+          </div>
+          <p className="mt-3 font-body text-2xs text-ink-light">
+            Hasta {quest.max_participants} participante{quest.max_participants !== 1 ? "s" : ""}
+            {quest.scheduled_date && <> · {new Date(quest.scheduled_date + "T00:00:00").toLocaleDateString("es-AR")}</>}
+            {" "}· {quest.session_count} sesión{quest.session_count !== 1 ? "es" : ""}
+          </p>
+        </section>
+
+        <section className="surface-parchment p-5">
+          <h2 className="font-label text-sm font-bold uppercase tracking-widest text-ink mb-3">Notas públicas</h2>
+          <Textarea rows={5} value={publicNote?.content ?? ""} readOnly placeholder="El DM todavía no dejó notas sobre esta misión." />
+        </section>
+
         {quest.status === "available" && (
-          <section className="surface-parchment p-5 mb-6">
+          <section className="surface-parchment p-5">
             <h2 className="font-label text-sm font-bold uppercase tracking-widest text-ink mb-3">Postulación</h2>
             {myApplication ? (
               <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -368,7 +355,7 @@ export default function RolQuestDetailPage() {
         )}
 
         {quest.status === "active" && (
-          <section className="surface-parchment p-5 mb-6">
+          <section className="surface-parchment p-5">
             <h2 className="font-label text-sm font-bold uppercase tracking-widest text-ink mb-3">Líder de la misión</h2>
             {leader ? (
               <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -386,7 +373,7 @@ export default function RolQuestDetailPage() {
         )}
 
         {quest.status === "turned_in" && (
-          <section className="surface-parchment p-5 mb-6">
+          <section className="surface-parchment p-5">
             <p className="font-body text-sm text-ink-light">
               {leader?.name ?? "El líder"} entregó esta misión — esperando que el DM la acepte.
             </p>
@@ -394,11 +381,8 @@ export default function RolQuestDetailPage() {
         )}
 
         {quest.status === "accepted" && (
-          <section className="surface-parchment p-5 mb-6">
-            <h2 className="font-label text-sm font-bold uppercase tracking-widest text-ink mb-3">Recompensas</h2>
-            <p className="font-body text-sm text-ink-light mb-3">
-              {quest.reward_standing} pts. de gremio otorgados a cada participante.
-            </p>
+          <section className="surface-parchment p-5">
+            <h2 className="font-label text-sm font-bold uppercase tracking-widest text-ink mb-3">Reparto de suministros</h2>
             {isLeader ? (
               <AllocateSection questId={quest.id} remaining={quest.supplies_pool_remaining} features={eligibleFeatures} onChanged={load} />
             ) : (
@@ -409,33 +393,6 @@ export default function RolQuestDetailPage() {
           </section>
         )}
       </main>
-
-      {myCharacterSheet && (
-        <div className="grid lg:grid-cols-[1fr_320px] gap-6 items-start pb-14">
-          <CharacterSheet
-            character={myCharacterSheet.sheet_data}
-            portraitUrl={myCharacterSheet.portrait_url}
-            fullBodyUrl={myCharacterSheet.full_body_url}
-            backHref="/rol/characters"
-            hideBackLink
-            onUpdate={handleSheetUpdate}
-            onImagesChange={handleSheetImagesChange}
-          />
-          <aside className="lg:sticky lg:top-4 flex flex-col gap-4 px-4 md:pr-8">
-            <div className="surface-parchment p-4">
-              <NoteEditor label="Notas públicas" initialContent={publicNote?.content ?? ""} onSave={(c) => saveNote("public", c)} />
-            </div>
-            <div className="surface-parchment p-4">
-              <NoteEditor
-                label="Tus notas privadas"
-                initialContent={myNote?.content ?? ""}
-                onSave={(c) => saveNote("private", c)}
-                placeholder="Solo vos y el DM ven esto."
-              />
-            </div>
-          </aside>
-        </div>
-      )}
     </>
   );
 }
