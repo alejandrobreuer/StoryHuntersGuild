@@ -7,9 +7,12 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
+import { NoteEditor } from "@/components/rol/quest/NoteEditor";
+import { CharacterSheet } from "@/components/rol/character/CharacterSheet";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { RolQuestStatus, RolQuestApplicationStatus } from "@/types/database";
+import type { FUCharacter } from "@/app/FU/lib/types";
 
 interface ParticipantRef { id: string; name: string; portrait_url: string | null }
 
@@ -22,6 +25,7 @@ interface QuestDetail {
   };
   participants: ParticipantRef[];
   myCharacterId: string | null;
+  isRolAdmin: boolean;
   myApplication: { id: string; status: RolQuestApplicationStatus; character_id: string } | null;
   leaderVotes: { voter_character_id: string; candidate_character_id: string }[];
   isLeader: boolean;
@@ -40,13 +44,14 @@ const APPLICATION_LABELS: Record<RolQuestApplicationStatus, string> = {
   rejected: "Tu postulación no fue seleccionada esta vez.",
 };
 
-function ParticipantPortrait({ p }: { p: ParticipantRef }) {
+function ParticipantPortrait({ p, big }: { p: ParticipantRef; big?: boolean }) {
+  const boxClass = big ? "size-16 border-2" : "size-10 border";
   return p.portrait_url ? (
     // eslint-disable-next-line @next/next/no-img-element -- user-uploaded, size unknown ahead of render
-    <img src={p.portrait_url} alt="" className="size-10 rounded-full object-cover border border-brass/40" />
+    <img src={p.portrait_url} alt="" className={cn(boxClass, "rounded-full object-cover border-brass/40")} />
   ) : (
-    <div className="size-10 rounded-full border border-brass/40 bg-brass/15 flex items-center justify-center">
-      <Contact size={16} className="text-brass" />
+    <div className={cn(boxClass, "rounded-full border-brass/40 bg-brass/15 flex items-center justify-center")}>
+      <Contact size={big ? 26 : 16} className="text-brass" />
     </div>
   );
 }
@@ -257,6 +262,200 @@ function AllocateSection({
   );
 }
 
+// ─── DM view ────────────────────────────────────────────────────────────────
+// Different from the player view above: no single "your own character"
+// front and center — a mission overview on the left (editable notes, since
+// the DM is the one who writes them) and, on the right, whichever
+// participant's character sheet the DM clicks on up top.
+
+interface DmNotes {
+  publicNote: { content: string } | null;
+  dmNote: { content: string } | null;
+}
+
+function DmMissionSidebar({
+  quest, notes, onNotesSaved,
+}: {
+  quest: QuestDetail["quest"];
+  notes: DmNotes | null;
+  onNotesSaved: () => void;
+}) {
+  async function saveNote(visibility: "public" | "dm_private", content: string): Promise<boolean> {
+    const res = await fetch(`/api/admin/rol/quests/${quest.id}/notes`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ visibility, content }),
+    });
+    if (res.ok) onNotesSaved();
+    return res.ok;
+  }
+
+  return (
+    <div className="flex flex-col gap-5">
+      <section className="surface-parchment p-4">
+        <h2 className="font-label text-sm font-bold uppercase tracking-widest text-ink mb-2.5">Descripción</h2>
+        <p className="font-body text-sm leading-relaxed text-ink-light whitespace-pre-wrap">{quest.description}</p>
+      </section>
+
+      <section className="surface-parchment p-4">
+        <h2 className="font-label text-sm font-bold uppercase tracking-widest text-ink mb-2.5">Recompensas</h2>
+        <div className="grid gap-2 grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+          <RewardStat icon={Coins} label="Zenit" value={`${quest.reward_coin}z`} />
+          <RewardStat icon={Trophy} label="Pts. de gremio" value={String(quest.reward_standing)} />
+          <RewardStat icon={Boxes} label="Suministros" value={String(quest.reward_supplies)} />
+        </div>
+        <p className="mt-3 font-body text-2xs text-ink-light">
+          Hasta {quest.max_participants} participante{quest.max_participants !== 1 ? "s" : ""}
+          {quest.scheduled_date && <> · {new Date(quest.scheduled_date + "T00:00:00").toLocaleDateString("es-AR")}</>}
+          {" "}· {quest.session_count} sesión{quest.session_count !== 1 ? "es" : ""}
+        </p>
+      </section>
+
+      <section className="surface-parchment p-4">
+        {notes ? (
+          <NoteEditor
+            label="Notas públicas (todos ven esto)"
+            initialContent={notes.publicNote?.content ?? ""}
+            onSave={(c) => saveNote("public", c)}
+          />
+        ) : (
+          <p className="font-body text-sm italic text-ink-light">Cargando notas…</p>
+        )}
+      </section>
+
+      <section className="surface-parchment p-4">
+        {notes ? (
+          <NoteEditor
+            label="Notas privadas del DM"
+            initialContent={notes.dmNote?.content ?? ""}
+            onSave={(c) => saveNote("dm_private", c)}
+            placeholder="Solo vos ves esto."
+          />
+        ) : (
+          <p className="font-body text-sm italic text-ink-light">Cargando notas…</p>
+        )}
+      </section>
+    </div>
+  );
+}
+
+interface FullCharacter { sheet_data: FUCharacter; portrait_url: string | null; full_body_url: string | null }
+
+function DmCharacterPanel({ characterId }: { characterId: string | null }) {
+  const [data, setData] = React.useState<FullCharacter | null | undefined>(undefined);
+
+  React.useEffect(() => {
+    if (!characterId) { setData(undefined); return; }
+    let cancelled = false;
+    setData(undefined);
+    fetch(`/api/rol/characters/${characterId}`)
+      .then((r) => r.json())
+      .then((json) => { if (!cancelled) setData(json.data ?? null); })
+      .catch(() => { if (!cancelled) setData(null); });
+    return () => { cancelled = true; };
+  }, [characterId]);
+
+  async function handleUpdate(updated: FUCharacter) {
+    if (!data || !characterId) return;
+    setData({ ...data, sheet_data: updated });
+    await fetch(`/api/rol/characters/${characterId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: updated.name, sheet_data: updated, portrait_url: data.portrait_url, full_body_url: data.full_body_url }),
+    });
+  }
+
+  async function handleImagesChange(portraitUrl: string | null, fullBodyUrl: string | null) {
+    if (!data || !characterId) return;
+    setData({ ...data, portrait_url: portraitUrl, full_body_url: fullBodyUrl });
+    await fetch(`/api/rol/characters/${characterId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: data.sheet_data.name, sheet_data: data.sheet_data, portrait_url: portraitUrl, full_body_url: fullBodyUrl }),
+    });
+  }
+
+  if (!characterId) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <p className="font-body italic text-ink-light">Elegí un participante arriba para ver su ficha.</p>
+      </div>
+    );
+  }
+  if (data === undefined) return <p className="font-body italic text-ink-light px-2">Cargando ficha…</p>;
+  if (data === null) return <p className="font-body italic text-ink-light px-2">No se pudo cargar el personaje.</p>;
+
+  return (
+    <CharacterSheet
+      character={data.sheet_data}
+      portraitUrl={data.portrait_url}
+      fullBodyUrl={data.full_body_url}
+      backHref="/rol/characters"
+      hideBackLink
+      onUpdate={handleUpdate}
+      onImagesChange={handleImagesChange}
+    />
+  );
+}
+
+function DmQuestView({ detail, onReload }: { detail: QuestDetail; onReload: () => void }) {
+  const { quest, participants } = detail;
+  const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  const [notes, setNotes] = React.useState<DmNotes | null>(null);
+
+  const loadNotes = React.useCallback(async () => {
+    const res = await fetch(`/api/admin/rol/quests/${quest.id}/notes`);
+    const json = await res.json();
+    const rows: { visibility: string; content: string }[] = res.ok ? json.data ?? [] : [];
+    setNotes({
+      publicNote: rows.find((n) => n.visibility === "public") ?? null,
+      dmNote: rows.find((n) => n.visibility === "dm_private") ?? null,
+    });
+  }, [quest.id]);
+
+  React.useEffect(() => { loadNotes(); }, [loadNotes]);
+
+  return (
+    <div className="w-full">
+      <div className="w-full bg-[#1c1810] border-b border-brass/25 px-4 py-4 md:px-8">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-brass/15 text-brass shrink-0">
+            {STATUS_LABELS[quest.status]}
+          </span>
+          <h1 className="font-display text-xl text-parchment">{quest.title}</h1>
+        </div>
+        {participants.length === 0 ? (
+          <p className="font-body text-sm italic text-parchment-dark">Todavía no hay participantes confirmados.</p>
+        ) : (
+          <div className="flex items-center gap-6 overflow-x-auto pb-1">
+            {participants.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setSelectedId(p.id === selectedId ? null : p.id)}
+                className={cn(
+                  "flex shrink-0 flex-col items-center gap-1.5 transition-opacity",
+                  selectedId && selectedId !== p.id && "opacity-50 hover:opacity-80"
+                )}
+              >
+                <ParticipantPortrait p={p} big />
+                <span className="font-label text-sm text-parchment">{p.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="grid gap-5 p-4 md:p-6 lg:grid-cols-[360px_1fr] items-start">
+        <DmMissionSidebar quest={quest} notes={notes} onNotesSaved={() => { loadNotes(); onReload(); }} />
+        <div className="min-w-0 surface-parchment">
+          <DmCharacterPanel characterId={selectedId} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function RolQuestDetailPage() {
   const params = useParams<{ id: string }>();
   const [detail, setDetail] = React.useState<QuestDetail | null | undefined>(undefined);
@@ -306,6 +505,10 @@ export default function RolQuestDetailPage() {
         <p className="font-body italic text-parchment-dark">No tenés acceso a esta misión.</p>
       </main>
     );
+  }
+
+  if (detail.isRolAdmin) {
+    return <DmQuestView detail={detail} onReload={load} />;
   }
 
   const { quest, participants, myCharacterId, myApplication, leaderVotes, isLeader, eligibleFeatures, publicNote } = detail;

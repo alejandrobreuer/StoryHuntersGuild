@@ -99,6 +99,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       quest,
       participants: allParticipants.map((c) => ({ id: c.id, name: c.name, portrait_url: c.portrait_url })),
       myCharacterId: myCharacter?.id ?? null,
+      isRolAdmin,
       myApplication,
       leaderVotes,
       isLeader,
