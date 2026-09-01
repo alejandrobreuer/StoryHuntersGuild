@@ -4,11 +4,13 @@ import * as React from "react";
 import Link from "next/link";
 import {
   User, Info, Dices, Sword, Backpack, Shield, Hand, FlaskConical, Wand2, Trophy, Eye, Star,
-  Zap, Building2, Coins, type LucideIcon,
+  Zap, Building2, Coins, NotebookPen, ChevronLeft, History, type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Accordion } from "@/components/ui/Accordion";
 import { Modal } from "@/components/ui/Modal";
+import { Textarea } from "@/components/ui/Textarea";
+import { Button } from "@/components/ui/Button";
 import { bondEmotionsById, bondPairings, bondsRulesNote, MAX_BONDS, type BondEmotionId } from "@/app/FU/data/bonds";
 import {
   actions, fabulaPointGains, fabulaPointUses, glossary,
@@ -25,6 +27,7 @@ import type { FUBond, FUCharacter, FUCharacterAttributes } from "@/app/FU/lib/ty
 import { equipmentCardData, type EquipmentCardData } from "@/app/FU/lib/equipmentDisplay";
 import { ReferenceDataProvider, useReferenceDataContext } from "@/app/FU/lib/ReferenceDataContext";
 import { rollDice, rollCheck, rollAttack } from "@/app/FU/lib/diceRoller";
+import { RollLogProvider, useRollLogContext } from "@/app/FU/lib/RollLogContext";
 import { SkillText } from "./SkillText";
 import { StatBar } from "./StatBar";
 import { toast } from "sonner";
@@ -278,6 +281,7 @@ function StatusToggle({ effect, character, onToggle }: { effect: { id: string; n
 /** One attribute row — the die itself is clickable and throws a 3D die. */
 function AttributeRow({ attrKey, character, current, onToggle }: { attrKey: AttributeKey; character: FUCharacter; current: FUCharacterAttributes; onToggle: (id: string) => void }) {
   const ref = useReferenceDataContext();
+  const logCtx = useRollLogContext();
   const label = ATTRIBUTE_LABELS[attrKey];
   const base = character.attributes[attrKey];
   const curr = current[attrKey];
@@ -289,7 +293,7 @@ function AttributeRow({ attrKey, character, current, onToggle }: { attrKey: Attr
       <span className="w-9 shrink-0 font-label text-xs uppercase tracking-wide text-ink-light">{label}</span>
       <button
         type="button"
-        onClick={() => rollDice(`1d${curr}`, label)}
+        onClick={() => rollDice(`1d${curr}`, label, logCtx)}
         title={`Tirar 1d${curr}`}
         className="w-14 shrink-0 text-left font-display text-xl font-bold text-ink transition-colors hover:text-brass"
       >
@@ -397,6 +401,8 @@ function parseDamageFormula(formula: string): { bonus: number; type: string } {
 
 /** One equipped weapon (or Unarmed Strike, falling back). Clicking "Atacar" throws both accuracy dice once and derives both the accuracy total and the damage total from that single roll (HR). */
 function WeaponCard({ w, current }: { w: FUWeapon; current: FUCharacterAttributes }) {
+  const logCtx = useRollLogContext();
+
   function attack() {
     const { tokens, modifier } = parseAccuracyFormula(w.accuracy);
     if (tokens.length < 2) return;
@@ -407,6 +413,7 @@ function WeaponCard({ w, current }: { w: FUWeapon; current: FUCharacterAttribute
       accModifier: modifier,
       damageBonus: bonus,
       damageType: type,
+      logCtx,
     });
   }
 
@@ -455,6 +462,7 @@ function WeaponCards({ character, current }: { character: FUCharacter; current: 
  * but stays editable either way.
  */
 function SpellActionCell({ spell, current, currentMp, onCast }: { spell: FUSpell; current: FUCharacterAttributes; currentMp: number; onCast: (mpCost: number) => void }) {
+  const logCtx = useRollLogContext();
   const numericCost = Number(spell.mpCost);
   const fixed = Number.isFinite(numericCost) && numericCost > 0;
   const [cost, setCost] = React.useState(fixed ? String(numericCost) : "");
@@ -467,7 +475,8 @@ function SpellActionCell({ spell, current, currentMp, onCast }: { spell: FUSpell
           onClick={() => rollCheck(
             [{ label: "INS", die: current.insight }, { label: "WLP", die: current.willpower }],
             0,
-            `${spell.name} — Check Mágico`
+            `${spell.name} — Check Mágico`,
+            logCtx
           )}
           title="Tirar Check Mágico (INS + WLP)"
           className="rounded-sm border border-brass/50 p-1 text-brass transition-colors hover:bg-brass/10"
@@ -1417,6 +1426,163 @@ function SheetHeader({ character, portraitUrl, uploadingImage, onUploadPortrait,
   );
 }
 
+// ─── notes drawer ───────────────────────────────────────────────────────────
+
+interface CheckHistoryRow { id: string; label: string; result: string; created_at: string }
+
+/**
+ * Slide-in panel from the right edge — public (DM-written, read-only) and
+ * personal notes, plus a log of dice Checks this character rolled, all
+ * scoped to whichever quest is currently "active" for this character (see
+ * /api/rol/characters/[id]/active-quest). Nothing to show (and nothing
+ * fetched) when the character isn't in an active mission.
+ */
+function NotesDrawer({ activeQuest }: { activeQuest: { id: string; title: string } | null }) {
+  const [open, setOpen] = React.useState(false);
+  const [loading, setLoading] = React.useState(false);
+  const [publicNote, setPublicNote] = React.useState("");
+  const [personalNote, setPersonalNote] = React.useState("");
+  const [savedPersonalNote, setSavedPersonalNote] = React.useState("");
+  const [history, setHistory] = React.useState<CheckHistoryRow[]>([]);
+  const [saving, setSaving] = React.useState(false);
+  const dirty = personalNote !== savedPersonalNote;
+
+  async function loadPanelData(questId: string) {
+    setLoading(true);
+    try {
+      const [questRes, checksRes] = await Promise.all([
+        fetch(`/api/rol/quests/${questId}`),
+        fetch(`/api/rol/quests/${questId}/checks`),
+      ]);
+      const questJson = await questRes.json();
+      const checksJson = await checksRes.json();
+      setPublicNote(questJson.data?.publicNote?.content ?? "");
+      const mine = questJson.data?.myNote?.content ?? "";
+      setPersonalNote(mine);
+      setSavedPersonalNote(mine);
+      setHistory(checksJson.data ?? []);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function savePersonalNote(): Promise<boolean> {
+    if (!activeQuest) return false;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/rol/quests/${activeQuest.id}/notes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: personalNote }),
+      });
+      if (res.ok) { setSavedPersonalNote(personalNote); return true; }
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function toggle() {
+    if (open) {
+      if (dirty) void savePersonalNote();
+      setOpen(false);
+    } else {
+      setOpen(true);
+      if (activeQuest) void loadPanelData(activeQuest.id);
+    }
+  }
+
+  async function handleManualSave() {
+    const ok = await savePersonalNote();
+    if (ok) toast.success("Nota guardada.");
+    else toast.error("No se pudo guardar la nota.");
+  }
+
+  return (
+    <>
+      {open && <div className="fixed inset-0 z-30" onClick={toggle} />}
+
+      <button
+        type="button"
+        onClick={toggle}
+        aria-label={open ? "Cerrar notas" : "Abrir notas"}
+        className={cn(
+          "fixed top-1/2 z-40 flex -translate-y-1/2 flex-col items-center gap-1.5 rounded-l-md border border-r-0 border-brass bg-leather px-1.5 py-3 text-parchment shadow-parchment-lg transition-[right] duration-300",
+          open ? "right-80 max-[420px]:right-[90vw]" : "right-0"
+        )}
+      >
+        <NotebookPen size={16} />
+        <span className="[writing-mode:vertical-rl] font-label text-2xs uppercase tracking-widest">Notas</span>
+      </button>
+
+      <aside
+        className={cn(
+          "fixed inset-y-0 right-0 z-40 flex w-80 max-w-[90vw] flex-col surface-parchment shadow-parchment-lg transition-transform duration-300",
+          open ? "translate-x-0" : "translate-x-full"
+        )}
+      >
+        <div className="flex items-center justify-between border-b border-border/60 px-4 py-3 shrink-0">
+          <h2 className="font-display text-base text-ink">Notas de la misión</h2>
+          <button type="button" onClick={toggle} aria-label="Cerrar">
+            <ChevronLeft size={18} className="text-ink-light hover:text-ink" />
+          </button>
+        </div>
+
+        <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-4 py-3.5">
+          {!activeQuest ? (
+            <p className="text-sm text-ink-light font-body">No estás participando en ninguna misión activa ahora mismo.</p>
+          ) : loading ? (
+            <p className="text-sm text-ink-light font-body">Cargando…</p>
+          ) : (
+            <>
+              <p className="font-label text-2xs uppercase tracking-wide text-brass">{activeQuest.title}</p>
+
+              <div>
+                <p className="font-label text-2xs uppercase tracking-widest text-leather-light mb-1.5">Notas Públicas</p>
+                <Textarea rows={5} value={publicNote} readOnly placeholder="Sin notas del GM todavía." />
+              </div>
+
+              <div>
+                <p className="font-label text-2xs uppercase tracking-widest text-leather-light mb-1.5">Notas Personales</p>
+                <Textarea
+                  rows={6}
+                  value={personalNote}
+                  onChange={(e) => setPersonalNote(e.target.value)}
+                  placeholder="Escribí acá — se guarda solo al cerrar el panel, o con el botón."
+                />
+                <Button size="sm" className="mt-2" onClick={handleManualSave} loading={saving} disabled={!dirty}>Guardar</Button>
+              </div>
+
+              <div>
+                <p className="mb-1.5 flex items-center gap-1.5 font-label text-2xs uppercase tracking-widest text-leather-light">
+                  <History size={13} /> Historial de Tiradas
+                </p>
+                {history.length === 0 ? (
+                  <p className="text-xs italic text-ink-light font-body">Todavía no tiraste dados en esta misión.</p>
+                ) : (
+                  <div className="flex flex-col gap-1.5">
+                    {history.map((h) => (
+                      <div key={h.id} className="rounded-sm border border-border/60 px-2 py-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-body text-xs font-semibold text-ink">{h.label}</span>
+                          <span className="shrink-0 font-label text-2xs text-ink-light">
+                            {new Date(h.created_at).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </div>
+                        <p className="font-body text-xs text-moss">{h.result}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </aside>
+    </>
+  );
+}
+
 // ─── sheet ────────────────────────────────────────────────────────────────
 
 interface CharacterSheetProps {
@@ -1466,6 +1632,16 @@ function CharacterSheetInner({
   const [uploadingImage, setUploadingImage] = React.useState(false);
   const [tab, setTab] = React.useState<TabKey>("combat");
   const [modal, setModal] = React.useState<null | "opportunities" | "services">(null);
+  const [activeQuest, setActiveQuest] = React.useState<{ id: string; title: string } | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/rol/characters/${character.id}/active-quest`)
+      .then((r) => r.json())
+      .then((json) => { if (!cancelled) setActiveQuest(json.data ?? null); })
+      .catch(() => { if (!cancelled) setActiveQuest(null); });
+    return () => { cancelled = true; };
+  }, [character.id]);
 
   const mainHandId = character.equipment.weapons[0];
   const mainHand = mainHandId ? findEquipmentItem(mainHandId, ref) : undefined;
@@ -1510,6 +1686,7 @@ function CharacterSheetInner({
   }
 
   return (
+    <RollLogProvider value={activeQuest ? { questId: activeQuest.id } : undefined}>
     <div className="w-full px-3 py-5 md:px-6">
       {!hideBackLink && (
         <div className="flex items-center justify-between gap-3 mb-2">
@@ -1643,6 +1820,12 @@ function CharacterSheetInner({
         </div>
         <p className="mt-3 text-xs text-ink-light font-body">{villageServicesNote}</p>
       </Modal>
+
+      {/* Suppressed when embedded in the quest page (hideBackLink) — that page
+          already has its own public/personal note editors in its sidebar;
+          dice rolls still log to history there via RollLogProvider above. */}
+      {!hideBackLink && <NotesDrawer activeQuest={activeQuest} />}
     </div>
+    </RollLogProvider>
   );
 }

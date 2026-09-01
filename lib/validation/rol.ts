@@ -181,6 +181,11 @@ export const playerQuestNoteCreateSchema = z.object({
   content: z.string().min(1).max(5000),
 });
 
+export const checkLogCreateSchema = z.object({
+  label:  z.string().min(1).max(200),
+  result: z.string().min(1).max(300),
+});
+
 // ─── NPCs & factions ────────────────────────────────────────────────────────
 
 export const factionSchema = z.object({

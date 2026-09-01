@@ -129,6 +129,25 @@ const DICE_VISIBLE_MS = 2500;
 const DICE_FADE_MS = 700;
 let fadeTimer: ReturnType<typeof setTimeout> | null = null;
 
+/** Where to log a Check's result — supplied by RollLogContext when the sheet has an active quest. */
+export interface RollLogContext {
+  questId: string;
+}
+
+/** Best-effort — a failed/slow history write must never block or error out the roll itself. */
+async function logCheck(ctx: RollLogContext | undefined, label: string, result: string): Promise<void> {
+  if (!ctx) return;
+  try {
+    await fetch(`/api/rol/quests/${ctx.questId}/checks`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ label, result }),
+    });
+  } catch {
+    // swallow — see doc comment
+  }
+}
+
 /** Throws one or more dice groups (e.g. ["1d8", "1d10"]) in the full-screen overlay and resolves each group's own value (dice + any modifier baked into that notation), in the same order passed in — no toast, for callers that need to combine multiple rolled values (an attribute pair, an attack's accuracy+damage) before showing one result. */
 async function throwDice(notations: string[]): Promise<number[]> {
   const box = await getDiceBox();
@@ -157,10 +176,11 @@ async function throwDice(notations: string[]): Promise<number[]> {
 }
 
 /** Rolls a single die/notation (e.g. "1d8", "2d6+4") and toasts its total. */
-export async function rollDice(notation: string, label?: string): Promise<void> {
+export async function rollDice(notation: string, label?: string, logCtx?: RollLogContext): Promise<void> {
   try {
     const [total] = await throwDice([notation]);
     toast.success(label ? `${label}: ${total}` : `Resultado: ${total}`, { duration: 6000 });
+    void logCheck(logCtx, label ?? notation, String(total));
   } catch (err) {
     console.error("[diceRoller] rollDice failed:", err);
     toast.error("No se pudo tirar el dado.", { description: err instanceof Error ? err.message : undefined });
@@ -171,7 +191,8 @@ export async function rollDice(notation: string, label?: string): Promise<void> 
 export async function rollCheck(
   tokens: { label: string; die: number }[],
   modifier: number,
-  resultLabel: string
+  resultLabel: string,
+  logCtx?: RollLogContext
 ): Promise<void> {
   try {
     const values = await throwDice(tokens.map((t) => `1d${t.die}`));
@@ -179,6 +200,7 @@ export async function rollCheck(
     const total = hr + modifier;
     const detail = tokens.map((t, i) => `${t.label} d${t.die} = ${values[i]}`).join("  ·  ");
     toast.success(`${resultLabel}: ${total}`, { description: detail, duration: 7000 });
+    void logCheck(logCtx, resultLabel, `${total} (${detail})`);
   } catch (err) {
     console.error("[diceRoller] rollCheck failed:", err);
     toast.error("No se pudo tirar el dado.", { description: err instanceof Error ? err.message : undefined });
@@ -192,6 +214,7 @@ export async function rollAttack(args: {
   accModifier: number;
   damageBonus: number;
   damageType: string;
+  logCtx?: RollLogContext;
 }): Promise<void> {
   try {
     const values = await throwDice(args.accTokens.map((t) => `1d${t.die}`));
@@ -199,10 +222,9 @@ export async function rollAttack(args: {
     const accuracyTotal = hr + args.accModifier;
     const damageTotal = hr + args.damageBonus;
     const detail = args.accTokens.map((t, i) => `${t.label} d${t.die} = ${values[i]}`).join("  ·  ");
-    toast.success(args.weaponName, {
-      description: `${detail}  —  Precisión: ${accuracyTotal}  ·  Daño: ${damageTotal}${args.damageType ? ` ${args.damageType}` : ""}`,
-      duration: 8000,
-    });
+    const resultText = `Precisión: ${accuracyTotal} · Daño: ${damageTotal}${args.damageType ? ` ${args.damageType}` : ""}`;
+    toast.success(args.weaponName, { description: `${detail}  —  ${resultText}`, duration: 8000 });
+    void logCheck(args.logCtx, `Ataque — ${args.weaponName}`, resultText);
   } catch (err) {
     console.error("[diceRoller] rollAttack failed:", err);
     toast.error("No se pudo tirar el ataque.", { description: err instanceof Error ? err.message : undefined });
