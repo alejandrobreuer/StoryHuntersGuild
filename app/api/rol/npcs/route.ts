@@ -19,6 +19,9 @@ export async function GET() {
   if (!isRolAdmin) query = query.eq("hidden", false);
   const { data, error: dbErr } = await query.order("name", { ascending: true });
 
-  if (dbErr) return NextResponse.json({ error: "Error al obtener los NPCs." }, { status: 500 });
+  if (dbErr) {
+    console.error("[GET /api/rol/npcs] query failed:", dbErr);
+    return NextResponse.json({ error: `Error al obtener los NPCs: ${dbErr.message}` }, { status: 500 });
+  }
   return NextResponse.json({ data: data ?? [] });
 }

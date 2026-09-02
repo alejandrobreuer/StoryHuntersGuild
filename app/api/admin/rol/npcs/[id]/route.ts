@@ -31,7 +31,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     })
     .eq("id", params.id);
 
-  if (updateError) return NextResponse.json({ error: "No se pudo actualizar el NPC." }, { status: 500 });
+  if (updateError) {
+    console.error("[PATCH /api/admin/rol/npcs/[id]] update failed:", updateError);
+    return NextResponse.json({ error: `No se pudo actualizar el NPC: ${updateError.message}` }, { status: 500 });
+  }
 
   // Replace-all: simplest correct way to sync a GM-edited faction list —
   // this is a low-cardinality, admin-only relation, not a hot path.
