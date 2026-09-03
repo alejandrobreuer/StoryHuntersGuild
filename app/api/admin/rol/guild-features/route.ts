@@ -45,6 +45,9 @@ export async function POST(req: NextRequest) {
     .select()
     .single();
 
-  if (insertError) return NextResponse.json({ error: "No se pudo crear la función." }, { status: 500 });
+  if (insertError) {
+    console.error("[POST /api/admin/rol/guild-features] insert failed:", insertError);
+    return NextResponse.json({ error: `No se pudo crear la función: ${insertError.message}` }, { status: 500 });
+  }
   return NextResponse.json({ data }, { status: 201 });
 }

@@ -42,6 +42,9 @@ export async function PATCH(req: NextRequest) {
     .select()
     .single();
 
-  if (updateError) return NextResponse.json({ error: "No se pudo actualizar el gremio." }, { status: 500 });
+  if (updateError) {
+    console.error("[PATCH /api/admin/rol/guild] update failed:", updateError);
+    return NextResponse.json({ error: `No se pudo actualizar el gremio: ${updateError.message}` }, { status: 500 });
+  }
   return NextResponse.json({ data });
 }

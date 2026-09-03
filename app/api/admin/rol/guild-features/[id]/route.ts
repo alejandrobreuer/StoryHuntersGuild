@@ -24,7 +24,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     .select()
     .single();
 
-  if (updateError) return NextResponse.json({ error: "No se pudo actualizar la función." }, { status: 500 });
+  if (updateError) {
+    console.error("[PATCH /api/admin/rol/guild-features/[id]] update failed:", updateError);
+    return NextResponse.json({ error: `No se pudo actualizar la función: ${updateError.message}` }, { status: 500 });
+  }
   return NextResponse.json({ data });
 }
 
