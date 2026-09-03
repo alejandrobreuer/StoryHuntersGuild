@@ -65,7 +65,10 @@ export default async function RolGuildPage() {
 
   return (
     <>
-      <section className="relative min-h-screen overflow-hidden flex items-end">
+      {/* min-h-[calc(100vh-60px)], not min-h-screen: this section renders below
+          the ~60px site Nav, so a literal 100vh here overshoots the visible
+          viewport by that same amount before <main> begins. */}
+      <section className="relative min-h-[calc(100vh-60px)] overflow-hidden flex items-end">
         {guild.image_url ? (
           // eslint-disable-next-line @next/next/no-img-element -- full-bleed hero, fills its container by design
           <img src={guild.image_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
@@ -78,7 +81,7 @@ export default async function RolGuildPage() {
 
         <GuildFeaturesDrawer features={featureList} statuses={(statuses ?? []) as ShgRolGuildStatus[]} />
 
-        <div className="relative z-10 w-full max-w-6xl mx-auto px-6 pb-14 pt-24">
+        <div className="relative z-10 w-full max-w-6xl mx-auto px-6 pb-24 pt-24">
           <h1 className="font-display text-4xl text-parchment mb-1">{guild.name}</h1>
           <p className="font-label text-xs uppercase tracking-widest text-brass-light mb-4">
             {guild.supplies} suministros del gremio

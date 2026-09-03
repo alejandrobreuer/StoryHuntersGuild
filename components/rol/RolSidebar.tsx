@@ -44,9 +44,14 @@ export function RolSidebar({ isDM }: { isDM: boolean }) {
   }
 
   return (
+    // min-h-[calc(100vh-60px)], not min-h-screen: this renders below the
+    // ~60px site Nav, so a literal 100vh here would flex-stretch <main>
+    // (default align-items: stretch) 60px taller than the viewport too —
+    // exactly the "gap before the footer" bug on pages that size their own
+    // content to fill the remaining viewport (e.g. /rol/map).
     <aside
       className={cn(
-        "shrink-0 bg-[#1c1810] border-r border-brass/20 min-h-screen flex flex-col p-3 transition-[width] duration-200",
+        "shrink-0 bg-[#1c1810] border-r border-brass/20 min-h-[calc(100vh-60px)] flex flex-col p-3 transition-[width] duration-200",
         collapsed ? "w-14" : "w-56"
       )}
     >
