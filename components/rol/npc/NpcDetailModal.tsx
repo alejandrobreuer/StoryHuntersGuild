@@ -60,20 +60,43 @@ function NpcGalleryModal({ images, initialIndex, onClose }: { images: GalleryIma
 
   return createPortal(
     <div className="fixed inset-0 z-[300] flex flex-col items-center justify-center bg-ink/90 p-4" onClick={onClose}>
-      <button onClick={onClose} aria-label="Cerrar" className="absolute top-4 right-4 text-parchment hover:text-brass-bright transition-colors">
+      <button onClick={onClose} aria-label="Cerrar" className="absolute top-4 right-4 z-10 text-parchment hover:text-brass-bright transition-colors">
         <X size={28} />
       </button>
 
-      <div className="relative flex items-center justify-center flex-1 w-full min-h-0" onClick={(e) => e.stopPropagation()}>
+      {/*
+        No stopPropagation here — this wrapper is w-full/flex-1 (nearly the
+        whole overlay) so its own hitbox is much bigger than the image inside
+        it (object-contain leaves empty space around non-square images).
+        stopPropagation on the wrapper itself was swallowing clicks in that
+        empty space — and, painted after the close button in DOM order with
+        no z-index of its own, was sitting on top of it too, making the X
+        unclickable. Only the image and the nav buttons should block the
+        close-on-background-click; each stops propagation individually.
+      */}
+      <div className="relative flex items-center justify-center flex-1 w-full min-h-0">
         {hasMultiple && (
-          <button onClick={goPrev} aria-label="Imagen anterior" className="absolute left-0 sm:left-4 p-2 text-parchment hover:text-brass-bright transition-colors">
+          <button
+            onClick={(e) => { e.stopPropagation(); goPrev(); }}
+            aria-label="Imagen anterior"
+            className="absolute left-0 sm:left-4 z-10 p-2 text-parchment hover:text-brass-bright transition-colors"
+          >
             <ChevronLeft size={32} />
           </button>
         )}
         {/* eslint-disable-next-line @next/next/no-img-element -- must render at its natural aspect ratio, full scale */}
-        <img src={current.url} alt={current.label} className="max-w-full max-h-full object-contain shadow-parchment-lg" />
+        <img
+          src={current.url}
+          alt={current.label}
+          onClick={(e) => e.stopPropagation()}
+          className="max-w-full max-h-full object-contain shadow-parchment-lg select-none"
+        />
         {hasMultiple && (
-          <button onClick={goNext} aria-label="Imagen siguiente" className="absolute right-0 sm:right-4 p-2 text-parchment hover:text-brass-bright transition-colors">
+          <button
+            onClick={(e) => { e.stopPropagation(); goNext(); }}
+            aria-label="Imagen siguiente"
+            className="absolute right-0 sm:right-4 z-10 p-2 text-parchment hover:text-brass-bright transition-colors"
+          >
             <ChevronRight size={32} />
           </button>
         )}
@@ -82,11 +105,11 @@ function NpcGalleryModal({ images, initialIndex, onClose }: { images: GalleryIma
       <p className="font-label text-xs uppercase tracking-widest text-parchment-dark mt-3">{current.label}</p>
 
       {hasMultiple && (
-        <div className="flex gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
+        <div className="flex gap-2 mt-3">
           {images.map((img, i) => (
             <button
               key={img.url}
-              onClick={() => setIndex(i)}
+              onClick={(e) => { e.stopPropagation(); setIndex(i); }}
               aria-label={img.label}
               className={cn(
                 "size-14 border-2 overflow-hidden transition-colors",
