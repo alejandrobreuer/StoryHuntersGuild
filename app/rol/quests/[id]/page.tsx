@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useParams } from "next/navigation";
-import { Contact, Coins, Trophy, Boxes } from "lucide-react";
+import { Contact, Coins, Trophy, Boxes, Crown } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -439,7 +439,10 @@ function DmQuestView({ detail, onReload }: { detail: QuestDetail; onReload: () =
                 )}
               >
                 <ParticipantPortrait p={p} big />
-                <span className="font-label text-sm text-parchment">{p.name}</span>
+                <span className="flex items-center gap-1 font-label text-sm text-parchment">
+                  {p.id === quest.leader_character_id && <Crown size={13} className="text-brass-light" />}
+                  {p.name}
+                </span>
               </button>
             ))}
           </div>
