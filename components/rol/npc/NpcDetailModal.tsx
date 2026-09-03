@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { Contact, X, ZoomIn, Images, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
@@ -26,9 +27,20 @@ export function NpcPortrait({ npc, className }: { npc: NpcRow; className?: strin
 
 // Full-screen, navigable across every image the NPC has (just portrait +
 // full body for now — built to take more without changing shape later).
+// Rendered via a portal straight to <body>: NpcDetailModal that opens this
+// is a descendant of Modal's card, which carries the shared animate-fade-in
+// animation — its keyframes include a transform, and with fill-mode:both
+// that transform stays applied the whole time the modal is open, which
+// creates a new containing block for any position:fixed descendant. Left
+// un-portaled, this "full-screen" overlay actually gets boxed into the
+// modal card instead of covering the viewport, and its close button ends
+// up mispositioned/unclickable along with it.
 function NpcGalleryModal({ images, initialIndex, onClose }: { images: GalleryImage[]; initialIndex: number; onClose: () => void }) {
   const [index, setIndex] = React.useState(initialIndex);
+  const [mounted, setMounted] = React.useState(false);
   const hasMultiple = images.length > 1;
+
+  React.useEffect(() => { setMounted(true); }, []);
 
   const goPrev = React.useCallback(() => setIndex((i) => (i - 1 + images.length) % images.length), [images.length]);
   const goNext = React.useCallback(() => setIndex((i) => (i + 1) % images.length), [images.length]);
@@ -44,9 +56,9 @@ function NpcGalleryModal({ images, initialIndex, onClose }: { images: GalleryIma
   }, [onClose, goPrev, goNext, hasMultiple]);
 
   const current = images[index];
-  if (!current) return null;
+  if (!current || !mounted) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[300] flex flex-col items-center justify-center bg-ink/90 p-4" onClick={onClose}>
       <button onClick={onClose} aria-label="Cerrar" className="absolute top-4 right-4 text-parchment hover:text-brass-bright transition-colors">
         <X size={28} />
@@ -87,7 +99,8 @@ function NpcGalleryModal({ images, initialIndex, onClose }: { images: GalleryIma
           ))}
         </div>
       )}
-    </div>
+    </div>,
+    document.body
   );
 }
 
