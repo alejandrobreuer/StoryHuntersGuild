@@ -210,7 +210,7 @@ export default function RolQuestsPage() {
               <section className="mb-12">
                 <h2 className="font-label text-sm font-bold uppercase tracking-widest text-parchment-dark mb-3 text-center">Tus misiones</h2>
                 {/* max-w-2xl: a board sized like something mounted on the wall, not stretched to fill it */}
-                <div className="quest-board-frame rounded-md overflow-hidden mx-auto max-w-2xl">
+                <div className="quest-board-frame rounded-md overflow-hidden mx-auto max-w-2xl shadow-[0_25px_50px_-8px_rgba(0,0,0,0.65)]">
                   <div className="quest-board-safe">
                     <div className="grid grid-cols-2 sm:grid-cols-3 justify-items-center gap-4">
                       {mine.map((q, i) => (
@@ -246,7 +246,7 @@ export default function RolQuestsPage() {
                   <p className="font-body italic text-parchment-dark">No hay misiones disponibles por ahora.</p>
                 </div>
               ) : (
-                <div className="quest-board-frame rounded-md overflow-hidden mx-auto max-w-2xl">
+                <div className="quest-board-frame rounded-md overflow-hidden mx-auto max-w-2xl shadow-[0_25px_50px_-8px_rgba(0,0,0,0.65)]">
                   <div className="quest-board-safe">
                     <div className="grid grid-cols-2 sm:grid-cols-3 justify-items-center gap-4">
                       {available.map((q, i) => (
