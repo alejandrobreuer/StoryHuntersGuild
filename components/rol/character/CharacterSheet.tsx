@@ -1221,7 +1221,7 @@ interface VitalsRailProps {
   onAdjustHp: (delta: number) => void;
   onAdjustMp: (delta: number) => void;
   onAdjustXp: (delta: number) => void;
-  onOpenModal: (modal: "opportunities" | "services") => void;
+  onOpenModal: (modal: "opportunities" | "services" | "roll") => void;
 }
 
 function VitalsRail({
@@ -1361,7 +1361,7 @@ interface SheetHeaderProps {
   portraitUrl: string | null;
   uploadingImage: boolean;
   onUploadPortrait: (file: File) => void;
-  onOpenModal: (modal: "opportunities" | "services") => void;
+  onOpenModal: (modal: "opportunities" | "services" | "roll") => void;
 }
 
 function SheetHeader({ character, portraitUrl, uploadingImage, onUploadPortrait, onOpenModal }: SheetHeaderProps) {
@@ -1421,8 +1421,98 @@ function SheetHeader({ character, portraitUrl, uploadingImage, onUploadPortrait,
         <button type="button" onClick={() => onOpenModal("services")} className="flex items-center gap-1.5 rounded-md border border-brass px-2.5 py-2 font-label text-xs text-brass-light transition-colors hover:bg-parchment/10">
           <Building2 size={14} /> <span className="hidden sm:inline">Servicios</span>
         </button>
+        <button type="button" onClick={() => onOpenModal("roll")} className="flex items-center gap-1.5 rounded-md border border-crimson bg-crimson/10 px-2.5 py-2 font-label text-xs text-crimson transition-colors hover:bg-crimson/20">
+          <Dices size={14} /> <span className="hidden sm:inline">Tirar</span>
+        </button>
       </div>
     </header>
+  );
+}
+
+// ─── free roll picker (header "Tirar" button) ──────────────────────────────
+
+const ROLL_DIE_SIZES = [6, 8, 10, 12] as const;
+
+/**
+ * A generic "roll N dice of size S, see the total" tool — distinct from the
+ * attribute/weapon/spell rolls elsewhere on the sheet, which each resolve a
+ * specific Fabula Ultima mechanic (HR, accuracy+damage, etc.). This is just
+ * for whenever the table needs an arbitrary roll the rules don't already
+ * have a dedicated button for. Two clearly sequenced steps (die, then how
+ * many) plus a live preview of the exact notation before committing —
+ * closing the modal and throwing the dice happen together on "Tirar".
+ */
+function RollDicePanel({ onClose }: { onClose: () => void }) {
+  const logCtx = useRollLogContext();
+  const [size, setSize] = React.useState<(typeof ROLL_DIE_SIZES)[number]>(6);
+  const [qty, setQty] = React.useState(1);
+
+  function adjustQty(delta: number) {
+    setQty((q) => Math.min(10, Math.max(1, q + delta)));
+  }
+
+  function handleRoll() {
+    const notation = `${qty}d${size}`;
+    onClose();
+    rollDice(notation, notation, logCtx);
+  }
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div>
+        <p className="mb-2 font-label text-2xs font-bold uppercase tracking-wide text-ink">1. Elegí el dado</p>
+        <div className="grid grid-cols-4 gap-2">
+          {ROLL_DIE_SIZES.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setSize(s)}
+              aria-pressed={size === s}
+              className={cn(
+                "rounded-md border-2 py-3 text-center font-display text-lg transition-colors",
+                size === s ? "border-crimson bg-crimson/10 text-crimson" : "border-border text-ink hover:border-brass"
+              )}
+            >
+              d{s}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <p className="mb-2 font-label text-2xs font-bold uppercase tracking-wide text-ink">2. Elegí cuántos</p>
+        <div className="flex items-center justify-center gap-4">
+          <button
+            type="button"
+            onClick={() => adjustQty(-1)}
+            disabled={qty <= 1}
+            aria-label="Menos dados"
+            className="flex size-9 items-center justify-center rounded-full border border-brass/60 text-lg leading-none text-ink transition-colors hover:border-crimson hover:text-crimson disabled:opacity-30"
+          >
+            −
+          </button>
+          <span className="w-10 text-center font-display text-2xl text-ink">{qty}</span>
+          <button
+            type="button"
+            onClick={() => adjustQty(1)}
+            disabled={qty >= 10}
+            aria-label="Más dados"
+            className="flex size-9 items-center justify-center rounded-full border border-brass/60 text-lg leading-none text-ink transition-colors hover:border-moss hover:text-moss disabled:opacity-30"
+          >
+            +
+          </button>
+        </div>
+      </div>
+
+      <div className="rounded-md border border-brass/40 bg-parchment-dark/20 px-4 py-3 text-center">
+        <p className="font-label text-2xs uppercase tracking-wide text-ink-light">Vas a tirar</p>
+        <p className="font-display text-2xl text-crimson">{qty}d{size}</p>
+      </div>
+
+      <Button type="button" onClick={handleRoll} className="w-full">
+        <Dices size={16} className="mr-1.5" /> Tirar
+      </Button>
+    </div>
   );
 }
 
@@ -1631,7 +1721,7 @@ function CharacterSheetInner({
   const canLevelUp = character.xp >= XP_PER_LEVEL && character.classLevels.length > 0 && character.classLevels.some((cl) => cl.levels < MAX_CLASS_LEVEL);
   const [uploadingImage, setUploadingImage] = React.useState(false);
   const [tab, setTab] = React.useState<TabKey>("combat");
-  const [modal, setModal] = React.useState<null | "opportunities" | "services">(null);
+  const [modal, setModal] = React.useState<null | "opportunities" | "services" | "roll">(null);
   const [activeQuest, setActiveQuest] = React.useState<{ id: string; title: string } | null>(null);
 
   React.useEffect(() => {
@@ -1819,6 +1909,10 @@ function CharacterSheetInner({
           </table>
         </div>
         <p className="mt-3 text-xs text-ink-light font-body">{villageServicesNote}</p>
+      </Modal>
+
+      <Modal open={modal === "roll"} onClose={() => setModal(null)} title="Tirar Dados">
+        <RollDicePanel onClose={() => setModal(null)} />
       </Modal>
 
       {/* Suppressed when embedded in the quest page (hideBackLink) — that page
