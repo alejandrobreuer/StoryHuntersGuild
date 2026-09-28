@@ -10,7 +10,7 @@ import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { FieldStatus } from "@/components/admin/FieldStatus";
-import { formatARS, formatDateTime } from "@/lib/formatting";
+import { formatARS, formatDateTime, toDateTimeLocal, fromDateTimeLocal } from "@/lib/formatting";
 import { EVENT_TYPE_LABELS } from "@/lib/gamification/eventTypes";
 import { toast } from "sonner";
 import type { ShgGame, EventStatus, EventType, ShgBookingWithEvent } from "@/types/database";
@@ -105,8 +105,8 @@ export function EventsManager() {
     setEditingId(id);
     setForm({
       title: e.title, description: e.description ?? "", venue_id: e.venue_id,
-      starts_at: e.starts_at ? e.starts_at.slice(0, 16) : "",
-      ends_at: e.ends_at ? e.ends_at.slice(0, 16) : "",
+      starts_at: toDateTimeLocal(e.starts_at),
+      ends_at: toDateTimeLocal(e.ends_at),
       capacity: e.capacity, price_per_person: e.price_per_person, status: e.status,
       cover_image_url: e.cover_image_url ?? "", game_ids: e.game_ids ?? [], quest_ids: e.quest_ids ?? [],
       event_type: e.event_type ?? "", reward_rp: e.reward_rp ?? 0,
@@ -197,8 +197,8 @@ export function EventsManager() {
     try {
       const payload = {
         ...form,
-        starts_at: new Date(form.starts_at).toISOString(),
-        ends_at: form.ends_at ? new Date(form.ends_at).toISOString() : null,
+        starts_at: fromDateTimeLocal(form.starts_at),
+        ends_at: fromDateTimeLocal(form.ends_at),
         capacity: Number(form.capacity),
         price_per_person: Number(form.price_per_person),
         event_type: form.event_type || null,

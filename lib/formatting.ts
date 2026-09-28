@@ -42,3 +42,22 @@ export function formatPlaytime(minutes: number): string {
 export function formatPlayers(min: number, max: number): string {
   return min === max ? `${min}` : `${min}–${max}`;
 }
+
+// ─── <input type="datetime-local"> round trip ────────────────────────────────
+// The input speaks local wall clock with no zone; the database stores timestamptz.
+// Both directions have to go through Date, or every edit shifts the saved time
+// by the UTC offset.
+
+export function toDateTimeLocal(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+export function fromDateTimeLocal(value: string): string | null {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}

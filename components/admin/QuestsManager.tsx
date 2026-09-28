@@ -11,6 +11,7 @@ import { Modal } from "@/components/ui/Modal";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { DIFFICULTY_LABELS } from "@/lib/gamification/questDifficulty";
+import { toDateTimeLocal, fromDateTimeLocal } from "@/lib/formatting";
 import type { ShgQuest, ShgBadge, ShgGame, ShgUserPublic, QuestType, QuestStatus, QuestDifficulty, QuestEventStatus, QuestGroupStatus } from "@/types/database";
 
 interface EventLink { id: string; title: string; status: QuestEventStatus; closed_at: string | null }
@@ -288,8 +289,8 @@ export function QuestsManager() {
       max_participants: q.max_participants ? String(q.max_participants) : "",
       required_turn_ins: q.required_turn_ins ? String(q.required_turn_ins) : "",
       goal_count: q.goal_count ? String(q.goal_count) : "",
-      starts_at: q.starts_at ? q.starts_at.slice(0, 16) : "",
-      ends_at: q.ends_at ? q.ends_at.slice(0, 16) : "",
+      starts_at: toDateTimeLocal(q.starts_at),
+      ends_at: toDateTimeLocal(q.ends_at),
     });
     setModalOpen(true);
   }
@@ -306,8 +307,8 @@ export function QuestsManager() {
         max_participants: form.max_participants ? Number(form.max_participants) : null,
         required_turn_ins: form.required_turn_ins ? Number(form.required_turn_ins) : null,
         goal_count: form.goal_count ? Number(form.goal_count) : null,
-        starts_at: form.starts_at ? new Date(form.starts_at).toISOString() : null,
-        ends_at: form.ends_at ? new Date(form.ends_at).toISOString() : null,
+        starts_at: fromDateTimeLocal(form.starts_at),
+        ends_at: fromDateTimeLocal(form.ends_at),
       };
       const res = await fetch(editing ? `/api/admin/quests/${editing.id}` : "/api/admin/quests", {
         method: editing ? "PATCH" : "POST",
