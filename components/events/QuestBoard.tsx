@@ -177,7 +177,7 @@ export function QuestBoard({ eventId, individualMissions, groupMissions, loggedI
     groupAction(`/api/quests/${questId}/group/turn-in`, { groupId }, groupId, "¡Entregada! Esperando confirmación.");
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 justify-items-center gap-6 pt-2 pb-1">
+    <div className="quest-board-scroll grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 justify-items-center gap-6 pt-2 pb-1">
       {individualMissions.map((m, i) => {
         const state = states[m.id];
         const soldOut = m.maxPerEvent > 0 && m.usedCount >= m.maxPerEvent && state === "available";

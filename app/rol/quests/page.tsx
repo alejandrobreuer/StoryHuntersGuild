@@ -212,7 +212,7 @@ export default function RolQuestsPage() {
                 {/* max-w-2xl: a board sized like something mounted on the wall, not stretched to fill it */}
                 <div className="quest-board-frame rounded-md overflow-hidden mx-auto max-w-2xl shadow-[0_25px_50px_-8px_rgba(0,0,0,0.65)]">
                   <div className="quest-board-safe">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 justify-items-center gap-4">
+                    <div className="quest-board-scroll grid grid-cols-2 sm:grid-cols-3 justify-items-center gap-4">
                       {mine.map((q, i) => (
                         <RolQuestPaperCard key={q.id} index={i}>
                           <div className="flex items-start justify-between gap-2 flex-wrap pr-7">
@@ -248,7 +248,7 @@ export default function RolQuestsPage() {
               ) : (
                 <div className="quest-board-frame rounded-md overflow-hidden mx-auto max-w-2xl shadow-[0_25px_50px_-8px_rgba(0,0,0,0.65)]">
                   <div className="quest-board-safe">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 justify-items-center gap-4">
+                    <div className="quest-board-scroll grid grid-cols-2 sm:grid-cols-3 justify-items-center gap-4">
                       {available.map((q, i) => (
                         <AvailableQuestCard key={q.id} quest={q} index={i} myCharacters={myCharacters} onChanged={load} />
                       ))}

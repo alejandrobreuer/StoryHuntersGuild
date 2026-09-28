@@ -75,10 +75,12 @@
    * ratio via `background-size: 100% auto`, so it always scales
    * uniformly with the container's width and never stretches/distorts,
    * regardless of how tall the mission grid inside ends up being.
-   * `aspect-ratio` sets the board's natural preferred height (matches
-   * the image exactly when content fits in 2 rows); if more missions
-   * need more room, the container is free to grow taller — the extra
-   * space below the artwork just falls back to a plain leather tone. */
+   * `aspect-ratio` sets the board's fixed height (matches the artwork
+   * exactly, room for 2 rows of mission cards) — it does NOT grow with
+   * content. A caller wraps this in `overflow-hidden` for the rounded
+   * corners, so anything past that height must scroll internally
+   * (`.quest-board-scroll` below) rather than spill out or get clipped
+   * with no way to reach it. */
   .quest-board-frame {
     position: relative;
     background-image: url("/images/board.png");
@@ -92,8 +94,42 @@
    * border widths (top 124 / right 56 / bottom 71 / left 56, out of a
    * 1208px-wide source). Percentages resolve against the container's
    * WIDTH for every side (a CSS quirk that applies to padding-top/
-   * bottom too), so this stays correct at any render size without JS. */
+   * bottom too), so this stays correct at any render size without JS.
+   * `height: 100%` (a definite size, since aspect-ratio gives the
+   * parent a definite height) plus flex turns the single grid child
+   * into the scrollable region — see `.quest-board-scroll`. The extra
+   * +12px gives content a little slack before that child is forced to
+   * shrink and scroll, so a row landing a few px over the theoretical
+   * safe height (rounding, see `.quest-board-scroll`) doesn't trigger
+   * a scrollbar on its own. `.quest-board-frame`'s own overflow-hidden
+   * clips this slack at the very bottom edge, which is empty
+   * board-texture margin, never the artwork itself. */
   .quest-board-safe {
+    height: calc(100% + 12px);
+    box-sizing: border-box;
     padding: 10.2649% 4.6358% 5.8775% 4.6358%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* The missions grid itself: bounded to whatever vertical space is
+   * left inside the safe area (min-height: 0 is what lets a flex child
+   * shrink below its content size instead of forcing the parent
+   * taller) and scrollable once there's more than ~2 rows. Contained
+   * so scrolling past the last mission never chains into the page
+   * behind it. overflow-x is pinned to hidden — auto would follow
+   * overflow-y's lead and expose a spurious horizontal scrollbar from
+   * sub-pixel rounding alone, which then eats into the vertical space
+   * too. (CSS Grid + aspect-ratio cards can also land a row's own
+   * track height a couple px short of the card's rendered size — an
+   * existing quirk of this pattern, previously masked by
+   * `.quest-board-frame`'s overflow-hidden silently clipping it; now
+   * it can show a hairline of extra scroll room instead, which is a
+   * correct reflection of the actual layout, not a regression.) */
+  .quest-board-scroll {
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
   }
 }
