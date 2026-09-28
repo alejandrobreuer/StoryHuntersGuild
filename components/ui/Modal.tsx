@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -14,6 +15,14 @@ interface ModalProps {
 }
 
 export function Modal({ open, onClose, title, children, className, titleClassName }: ModalProps) {
+  // Portal straight to <body>. Some callers render the trigger inside a
+  // transformed ancestor (e.g. a rotated quest card) — a CSS transform on
+  // an ancestor creates a new containing block for `position: fixed`
+  // descendants, which would otherwise trap this modal inside that
+  // card's rotated, clipped box instead of covering the viewport.
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => { setMounted(true); }, []);
+
   React.useEffect(() => {
     if (!open) return;
     const original = document.body.style.overflow;
@@ -21,9 +30,9 @@ export function Modal({ open, onClose, title, children, className, titleClassNam
     return () => { document.body.style.overflow = original; };
   }, [open]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[200] flex items-center justify-center bg-ink/85 p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -44,6 +53,7 @@ export function Modal({ open, onClose, title, children, className, titleClassNam
         </h2>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
