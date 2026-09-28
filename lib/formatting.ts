@@ -10,6 +10,12 @@ export function formatARS(amount: number): string {
   return ARS_FORMAT.format(amount);
 }
 
+// Every event runs in Buenos Aires, so the display timezone is pinned rather
+// than left to the runtime's local zone. Without this, these render correctly
+// on the client (the visitor's browser is already on Argentina time) but wrong
+// on the server (Next.js server components render in the host's UTC clock).
+export const EVENT_TIME_ZONE = "America/Argentina/Buenos_Aires";
+
 export function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleDateString("es-AR", {
     weekday: "long",
@@ -17,11 +23,12 @@ export function formatDateTime(iso: string): string {
     month:   "long",
     hour:    "2-digit",
     minute:  "2-digit",
+    timeZone: EVENT_TIME_ZONE,
   });
 }
 
 export function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+  return new Date(iso).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", timeZone: EVENT_TIME_ZONE });
 }
 
 export function formatDate(iso: string): string {
@@ -29,6 +36,7 @@ export function formatDate(iso: string): string {
     day:   "numeric",
     month: "long",
     year:  "numeric",
+    timeZone: EVENT_TIME_ZONE,
   });
 }
 

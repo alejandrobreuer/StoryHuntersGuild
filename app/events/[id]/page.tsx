@@ -10,7 +10,7 @@ import { EVENT_TYPE_LABELS } from "@/lib/gamification/eventTypes";
 import { EventMissionBanner, type EventMissionData, type EventMissionViewerState } from "@/components/events/EventMissionBanner";
 import { QuestBoard, type IndividualMissionItem, type GroupMissionItem, type GroupInstance } from "@/components/events/QuestBoard";
 import { Button } from "@/components/ui/Button";
-import { formatARS, formatDateTime, formatTime } from "@/lib/formatting";
+import { formatARS, formatDateTime, formatTime, EVENT_TIME_ZONE } from "@/lib/formatting";
 import type { ShgEvent, ShgVenuePublic, ShgGame, QuestDifficulty, QuestType, QuestEventStatus, QuestGroupStatus } from "@/types/database";
 
 interface EventQuestRow {
@@ -192,7 +192,7 @@ export default async function EventDetailPage({ params }: { params: { id: string
   });
 
   const eyebrowDate = new Date(typedEvent.starts_at).toLocaleDateString("es-AR", {
-    weekday: "long", day: "numeric", month: "long",
+    weekday: "long", day: "numeric", month: "long", timeZone: EVENT_TIME_ZONE,
   });
   const schedule = typedEvent.ends_at
     ? `${formatTime(typedEvent.starts_at)} a ${formatTime(typedEvent.ends_at)} hs`
