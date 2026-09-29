@@ -12,9 +12,16 @@ interface ModalProps {
   children:  React.ReactNode;
   className?: string;
   titleClassName?: string;
+  /** false disables closing by clicking the backdrop — only the X button
+   * (and the caller's own onClose calls) can close it. Defaults to true.
+   * Meant for forms where an accidental outside click would otherwise
+   * silently discard everything typed so far. */
+  closeOnBackdropClick?: boolean;
 }
 
-export function Modal({ open, onClose, title, children, className, titleClassName }: ModalProps) {
+export function Modal({
+  open, onClose, title, children, className, titleClassName, closeOnBackdropClick = true,
+}: ModalProps) {
   // Portal straight to <body>. Some callers render the trigger inside a
   // transformed ancestor (e.g. a rotated quest card) — a CSS transform on
   // an ancestor creates a new containing block for `position: fixed`
@@ -35,7 +42,7 @@ export function Modal({ open, onClose, title, children, className, titleClassNam
   return createPortal(
     <div
       className="fixed inset-0 z-[200] flex items-center justify-center bg-ink/85 p-4"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      onClick={(e) => { if (closeOnBackdropClick && e.target === e.currentTarget) onClose(); }}
     >
       <div className={cn(
         "relative w-full max-w-md surface-parchment p-7 animate-fade-in shadow-parchment-lg",
