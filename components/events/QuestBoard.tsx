@@ -4,9 +4,10 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Dice5, Check, Users, Plus } from "lucide-react";
+import { Dice5, Check, Users, Plus, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Modal } from "@/components/ui/Modal";
 import { DIFFICULTY_LABELS } from "@/lib/gamification/questDifficulty";
 import { MissionInfoButton } from "@/components/ui/MissionInfoButton";
 import type { QuestDifficulty, QuestGroupStatus, QuestType } from "@/types/database";
@@ -67,10 +68,18 @@ const QUEST_PAPER_IMAGES = [
 ];
 const PAPER_ANGLES = [-1.5, 1, -0.75, 1.25, -1, 0.5];
 
+// The board's small pinned-note tile — just a summary now (title, reward,
+// a one-line status) with no action buttons of its own. It's a preview: the
+// full narrative and every button live in the modal opened on click (see
+// MissionDetailModal below), which has as much room as the screen allows
+// instead of the tile's tight, fixed-aspect paper shape. That fixed shape is
+// exactly what made the old all-in-one card too cramped for its content on a
+// 2-per-row phone layout — a real popup sized to the mission's actual
+// content, not the paper art's aspect ratio, doesn't have that ceiling.
 function QuestPaperCard({
-  index, infoType, className, children,
+  index, infoType, className, onClick, children,
 }: {
-  index: number; infoType: QuestType; className?: string; children: React.ReactNode;
+  index: number; infoType: QuestType; className?: string; onClick: () => void; children: React.ReactNode;
 }) {
   const paperSrc = QUEST_PAPER_IMAGES[index % QUEST_PAPER_IMAGES.length];
   const angle = PAPER_ANGLES[index % PAPER_ANGLES.length];
@@ -79,16 +88,23 @@ function QuestPaperCard({
       {/* Locked to the parchment art's own 955:1232 ratio (aspect-ratio,
        * not a fixed height) so the paper never letterboxes or stretches
        * regardless of how wide the grid column ends up being. */}
-      <div className={cn("relative w-full max-w-[260px] mx-auto", className)} style={{ aspectRatio: "955 / 1232" }}>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onClick}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}
+        className={cn("relative w-full max-w-[260px] mx-auto cursor-pointer", className)}
+        style={{ aspectRatio: "955 / 1232" }}
+      >
         {/* The paper's own torn/burnt edges and corner ornaments (including a
          * wax seal that lands in a different corner per variant) are part of
          * the art — padding below matches the art's measured margins so
          * text and controls stay clear of all of them. */}
         <Image src={paperSrc} alt="" fill sizes="260px" className="object-contain pointer-events-none select-none" />
         <MissionInfoButton type={infoType} className="top-[9%] right-[9%]" />
-        {/* overflow-hidden + line-clamp on title/narrative instead of a
-         * scrollbar — a rotated card with a native scrollbar looks broken,
-         * and a graceful truncation reads better in a card grid anyway. */}
+        {/* overflow-hidden + line-clamp instead of a scrollbar — a rotated
+         * card with a native scrollbar looks broken, and this is just a
+         * preview now anyway (the modal has the untruncated version). */}
         <div className="absolute inset-0 flex flex-col gap-1.5 pt-[15.71%] pr-[15.29%] pb-[12.36%] pl-[15.29%] overflow-hidden">
           {children}
         </div>
@@ -112,6 +128,245 @@ function GameChip({ game }: { game: { name: string; image_url: string | null } }
   );
 }
 
+// Small "tap for more" affordance shown on every preview tile instead of a
+// real action button — the actual action lives one tap away, in the modal.
+function TapHint({ text }: { text: string }) {
+  return (
+    <span className="mt-auto flex items-center justify-center gap-1 font-label text-2xs uppercase tracking-wide text-leather-light">
+      {text} <ChevronRight size={12} />
+    </span>
+  );
+}
+
+function individualHint(
+  state: MissionActivationState, isLive: boolean, loggedIn: boolean, soldOut: boolean, inactiveNote: string
+): string {
+  if (state === "completed") return "Ya la completaste";
+  if (!isLive) return state === "turned_in" ? "Pendiente de aprobación" : state === "active" ? "En curso" : inactiveNote;
+  if (!loggedIn) return "Iniciá sesión para activar";
+  if (state === "turned_in") return "Pendiente de aprobación";
+  if (state === "active") return "Tocá para entregar";
+  if (soldOut) return "Cupo agotado";
+  return "Tocá para activar";
+}
+
+function groupHint(m: GroupMissionItem, loggedIn: boolean, isLive: boolean, inactiveNote: string): string {
+  if (m.viewerRewarded) return "Ya la completaste";
+  if (!isLive) return inactiveNote;
+  if (!loggedIn) return "Iniciá sesión para unirte";
+  const viewerGroup = m.groups.find((g) => g.id === m.viewerGroupId);
+  if (viewerGroup) {
+    return viewerGroup.status === "started" ? "Tu grupo está en curso"
+      : viewerGroup.status === "turned_in" ? "Esperando confirmación"
+      : "Tu grupo se está formando";
+  }
+  if (m.groups.some((g) => g.status === "forming")) return "Tocá para unirte a un grupo";
+  return "Tocá para formar un grupo";
+}
+
+// Full narrative + reward details + the actual action controls for an
+// individual mission — the exact same logic the old card's button had,
+// just given a real popup's worth of room instead of a corner of a tiny
+// paper tile.
+function IndividualMissionDetail({
+  m, state, busyId, isLive, loggedIn, eventId, inactiveNote, onActivate, onTurnIn,
+}: {
+  m: IndividualMissionItem; state: MissionActivationState; busyId: string | null;
+  isLive: boolean; loggedIn: boolean; eventId: string; inactiveNote: string;
+  onActivate: (id: string) => void; onTurnIn: (id: string) => void;
+}) {
+  const soldOut = m.maxPerEvent > 0 && m.usedCount >= m.maxPerEvent && state === "available";
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-start justify-between gap-2 flex-wrap">
+        <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-leather/10 text-leather">
+          {DIFFICULTY_LABELS[m.difficulty]}
+        </span>
+        <span className="font-label text-xs font-semibold text-[#8a6420]">
+          +{m.rewardXp} XP · +{m.rewardRp} RP{m.badgeName ? ` · insignia "${m.badgeName}"` : ""}
+        </span>
+      </div>
+      {m.game && <GameChip game={m.game} />}
+      {m.narrative && <p className="font-body text-sm text-ink-light leading-relaxed">{m.narrative}</p>}
+
+      {state === "rejected" && (
+        <p className="font-label text-xs text-crimson">No se confirmó tu última entrega — podés volver a intentarlo.</p>
+      )}
+
+      <div className="mt-1">
+        {state === "completed" ? (
+          <p className="text-center font-label text-xs uppercase tracking-wide px-3 py-2.5 border border-moss bg-moss/10 text-moss-dark flex items-center justify-center gap-1.5">
+            <Check size={13} /> Ya la completaste
+          </p>
+        ) : !isLive ? (
+          <p className="text-center font-label text-xs uppercase tracking-wide px-3 py-2.5 border border-border text-ink-light">
+            {state === "turned_in" ? "Pendiente de aprobación del administrador" : state === "active" ? "En curso" : inactiveNote}
+          </p>
+        ) : !loggedIn ? (
+          <Link
+            href={`/sign-in?next=/events/${eventId}`}
+            className="block text-center font-label text-xs uppercase tracking-wide px-3 py-2.5 border border-border text-ink-light no-underline hover:border-brass transition-colors"
+          >
+            Iniciá sesión para activar
+          </Link>
+        ) : state === "turned_in" ? (
+          <p className="text-center font-label text-xs uppercase tracking-wide px-3 py-2.5 border border-brass/40 bg-brass/5 text-brass">
+            Pendiente de aprobación del administrador
+          </p>
+        ) : state === "active" ? (
+          <button
+            type="button"
+            onClick={() => onTurnIn(m.id)}
+            disabled={busyId === m.id}
+            className="w-full font-label text-xs uppercase tracking-wide px-3 py-2.5 border border-crimson text-crimson hover:bg-crimson/10 transition-colors disabled:opacity-50"
+          >
+            Entregar misión
+          </button>
+        ) : soldOut ? (
+          <p className="text-center font-label text-xs uppercase tracking-wide px-3 py-2.5 border border-border text-ink-light">
+            Cupo agotado
+          </p>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onActivate(m.id)}
+            disabled={busyId === m.id}
+            className="w-full font-label text-xs uppercase tracking-wide px-3 py-2.5 border border-crimson bg-crimson text-crimson-foreground hover:bg-crimson/90 transition-colors disabled:opacity-50"
+          >
+            Activar misión
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Same idea for group missions: the full member list (every group, not just
+// a clipped 104px-tall sliver of one) plus join/leave/start/turn-in.
+function GroupMissionDetail({
+  m, busyKey, isLive, loggedIn, eventId, inactiveNote, onJoin, onLeave, onStart, onTurnIn,
+}: {
+  m: GroupMissionItem; busyKey: string | null; isLive: boolean; loggedIn: boolean; eventId: string; inactiveNote: string;
+  onJoin: (questId: string, groupId: string | null) => void;
+  onLeave: (questId: string, groupId: string) => void;
+  onStart: (questId: string, groupId: string) => void;
+  onTurnIn: (questId: string, groupId: string) => void;
+}) {
+  const viewerGroup = m.groups.find((g) => g.id === m.viewerGroupId) ?? null;
+  const canFormNew = loggedIn && isLive && !m.viewerRewarded && !viewerGroup;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-start justify-between gap-2 flex-wrap">
+        <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-leather/10 text-leather">
+          {DIFFICULTY_LABELS[m.difficulty]}
+        </span>
+        <span className="font-label text-xs font-semibold text-[#8a6420]">
+          +{m.rewardXp} XP · +{m.rewardRp} RP{m.badgeName ? ` · insignia "${m.badgeName}"` : ""}
+        </span>
+      </div>
+      <div className="flex items-center gap-3 flex-wrap">
+        {m.game && <GameChip game={m.game} />}
+        <span className="inline-flex items-center gap-1 font-label text-2xs text-leather-light">
+          <Users size={11} /> hasta {m.maxParticipants} por grupo
+        </span>
+      </div>
+      {m.narrative && <p className="font-body text-sm text-ink-light leading-relaxed">{m.narrative}</p>}
+
+      {m.viewerRewarded ? (
+        <p className="text-center font-label text-xs uppercase tracking-wide px-3 py-2.5 border border-moss bg-moss/10 text-moss-dark flex items-center justify-center gap-1.5">
+          <Check size={13} /> Ya la completaste
+        </p>
+      ) : !isLive ? (
+        <p className="text-center font-label text-xs uppercase tracking-wide px-3 py-2.5 border border-border text-ink-light">
+          {inactiveNote}
+        </p>
+      ) : !loggedIn ? (
+        <Link
+          href={`/sign-in?next=/events/${eventId}`}
+          className="block text-center font-label text-xs uppercase tracking-wide px-3 py-2.5 border border-border text-ink-light no-underline hover:border-brass transition-colors"
+        >
+          Iniciá sesión para unirte
+        </Link>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {m.groups.length === 0 && (
+            <p className="font-body text-xs text-ink-light italic">Todavía no se formó ningún grupo para esta misión.</p>
+          )}
+          <div className="flex flex-col gap-2 max-h-[45vh] overflow-y-auto pr-0.5">
+            {m.groups.map((g) => {
+              const isMine = g.id === m.viewerGroupId;
+              const full = g.members.length >= m.maxParticipants;
+              return (
+                <div key={g.id} className={cn("border rounded-sm px-3 py-2.5", isMine ? "border-crimson bg-crimson/5" : "border-border bg-parchment/40")}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-body text-sm text-ink-light">
+                      {g.members.map((mem) => mem.label).join(", ") || "Sin integrantes"}{" "}
+                      <span className="opacity-60">({g.members.length}/{m.maxParticipants})</span>
+                    </span>
+                    {g.status !== "forming" && (
+                      <span className="font-label text-2xs uppercase tracking-wide text-brass shrink-0">
+                        {g.status === "started" ? "En curso" : "Esperando confirmación"}
+                      </span>
+                    )}
+                  </div>
+                  {isMine && g.status === "forming" && (
+                    <div className="flex gap-1.5 mt-2">
+                      {g.members.length >= 2 && (
+                        <button
+                          type="button" onClick={() => onStart(m.id, g.id)} disabled={busyKey === g.id}
+                          className="flex-1 font-label text-2xs uppercase tracking-wide px-2.5 py-1.5 border border-crimson bg-crimson text-crimson-foreground hover:bg-crimson/90 transition-colors disabled:opacity-50"
+                        >
+                          Iniciar misión
+                        </button>
+                      )}
+                      <button
+                        type="button" onClick={() => onLeave(m.id, g.id)} disabled={busyKey === g.id}
+                        className="font-label text-2xs uppercase tracking-wide px-2.5 py-1.5 border border-border text-ink-light hover:border-crimson transition-colors disabled:opacity-50"
+                      >
+                        Salir
+                      </button>
+                    </div>
+                  )}
+                  {isMine && g.status === "started" && (
+                    <button
+                      type="button" onClick={() => onTurnIn(m.id, g.id)} disabled={busyKey === g.id}
+                      className="w-full mt-2 font-label text-2xs uppercase tracking-wide px-2.5 py-1.5 border border-crimson text-crimson hover:bg-crimson/10 transition-colors disabled:opacity-50"
+                    >
+                      Entregar misión
+                    </button>
+                  )}
+                  {!isMine && !viewerGroup && g.status === "forming" && !full && (
+                    <button
+                      type="button" onClick={() => onJoin(m.id, g.id)} disabled={busyKey === `${m.id}:${g.id}`}
+                      className="w-full mt-2 font-label text-2xs uppercase tracking-wide px-2.5 py-1.5 border border-crimson text-crimson hover:bg-crimson/10 transition-colors disabled:opacity-50"
+                    >
+                      Unirse
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {canFormNew && (
+            <button
+              type="button"
+              onClick={() => onJoin(m.id, null)}
+              disabled={busyKey === `${m.id}:new`}
+              className="flex items-center justify-center gap-1.5 font-label text-2xs uppercase tracking-wide px-2.5 py-2.5 border border-dashed border-brass/50 text-brass hover:bg-brass/5 transition-colors disabled:opacity-50"
+            >
+              <Plus size={12} /> Formar un nuevo grupo
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+type Selected = { kind: "individual"; id: string } | { kind: "group"; id: string } | null;
+
 export function QuestBoard({ eventId, individualMissions, groupMissions, loggedIn, isLive, inactiveNote }: QuestBoardProps) {
   const router = useRouter();
   const [states, setStates] = React.useState<Record<string, MissionActivationState>>(
@@ -119,6 +374,11 @@ export function QuestBoard({ eventId, individualMissions, groupMissions, loggedI
   );
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [busyKey, setBusyKey] = React.useState<string | null>(null);
+  // Only the id + kind, not the mission object — group data changes via
+  // router.refresh() (fresh props), so looking it up live each render below
+  // keeps the modal in sync instead of showing what it looked like at the
+  // moment it was opened.
+  const [selected, setSelected] = React.useState<Selected>(null);
 
   async function activate(id: string) {
     setBusyId(id);
@@ -176,88 +436,48 @@ export function QuestBoard({ eventId, individualMissions, groupMissions, loggedI
   const turnInGroup = (questId: string, groupId: string) =>
     groupAction(`/api/quests/${questId}/group/turn-in`, { groupId }, groupId, "¡Entregada! Esperando confirmación.");
 
+  const selectedIndividual = selected?.kind === "individual" ? individualMissions.find((m) => m.id === selected.id) ?? null : null;
+  const selectedGroup = selected?.kind === "group" ? groupMissions.find((m) => m.id === selected.id) ?? null : null;
+
   return (
-    <div className="quest-board-scroll grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 justify-items-center gap-6 pt-2 pb-1">
-      {individualMissions.map((m, i) => {
-        const state = states[m.id];
-        const soldOut = m.maxPerEvent > 0 && m.usedCount >= m.maxPerEvent && state === "available";
-        return (
-          <QuestPaperCard key={m.id} index={i} infoType="individual" className={state === "completed" ? "opacity-60" : undefined}>
-            <div className="flex items-start justify-between gap-2 flex-wrap pr-7">
-              <p className="font-label text-sm font-semibold text-ink line-clamp-2 min-w-0">{m.title}</p>
-              <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-leather/10 text-leather">
-                {DIFFICULTY_LABELS[m.difficulty]}
-              </span>
-            </div>
-            {m.narrative && <p className="font-body text-xs text-ink-light leading-snug line-clamp-3 shrink-0">{m.narrative}</p>}
-            <div className="flex items-center gap-3 flex-wrap">
-              <span className="font-label text-2xs font-semibold text-[#8a6420]">
-                +{m.rewardXp} XP · +{m.rewardRp} RP{m.badgeName ? ` · insignia "${m.badgeName}"` : ""}
-              </span>
-              {m.game && <GameChip game={m.game} />}
-            </div>
+    <>
+      <div className="quest-board-scroll grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 justify-items-center gap-6 pt-2 pb-1">
+        {individualMissions.map((m, i) => {
+          const state = states[m.id];
+          const soldOut = m.maxPerEvent > 0 && m.usedCount >= m.maxPerEvent && state === "available";
+          return (
+            <QuestPaperCard
+              key={m.id}
+              index={i}
+              infoType="individual"
+              className={state === "completed" ? "opacity-60" : undefined}
+              onClick={() => setSelected({ kind: "individual", id: m.id })}
+            >
+              <div className="flex items-start justify-between gap-2 flex-wrap pr-7">
+                <p className="font-label text-sm font-semibold text-ink line-clamp-2 min-w-0">{m.title}</p>
+                <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-leather/10 text-leather">
+                  {DIFFICULTY_LABELS[m.difficulty]}
+                </span>
+              </div>
+              {m.narrative && <p className="font-body text-xs text-ink-light leading-snug line-clamp-3 shrink-0">{m.narrative}</p>}
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="font-label text-2xs font-semibold text-[#8a6420]">
+                  +{m.rewardXp} XP · +{m.rewardRp} RP
+                </span>
+                {m.game && <GameChip game={m.game} />}
+              </div>
+              <TapHint text={individualHint(state, isLive, loggedIn, soldOut, inactiveNote)} />
+            </QuestPaperCard>
+          );
+        })}
 
-            {state === "rejected" && (
-              <p className="font-label text-2xs text-crimson -mb-1">No se confirmó tu última entrega — podés volver a intentarlo.</p>
-            )}
-
-            <div className="mt-1">
-              {state === "completed" ? (
-                <p className="text-center font-label text-xs uppercase tracking-wide px-3 py-2 border border-moss bg-moss/10 text-moss-dark flex items-center justify-center gap-1.5">
-                  <Check size={13} /> Ya la completaste
-                </p>
-              ) : !isLive ? (
-                <p className="text-center font-label text-xs uppercase tracking-wide px-3 py-2 border border-border text-ink-light">
-                  {state === "turned_in" ? "Pendiente de aprobación del administrador" : state === "active" ? "En curso" : inactiveNote}
-                </p>
-              ) : !loggedIn ? (
-                <Link
-                  href={`/sign-in?next=/events/${eventId}`}
-                  className="block text-center font-label text-xs uppercase tracking-wide px-3 py-2 border border-border text-ink-light no-underline hover:border-brass transition-colors"
-                >
-                  Iniciá sesión para activar
-                </Link>
-              ) : state === "turned_in" ? (
-                <p className="text-center font-label text-xs uppercase tracking-wide px-3 py-2 border border-brass/40 bg-brass/5 text-brass">
-                  Pendiente de aprobación del administrador
-                </p>
-              ) : state === "active" ? (
-                <button
-                  type="button"
-                  onClick={() => turnIn(m.id)}
-                  disabled={busyId === m.id}
-                  className="w-full font-label text-xs uppercase tracking-wide px-3 py-2 border border-crimson text-crimson hover:bg-crimson/10 transition-colors disabled:opacity-50"
-                >
-                  Entregar misión
-                </button>
-              ) : soldOut ? (
-                <p className="text-center font-label text-xs uppercase tracking-wide px-3 py-2 border border-border text-ink-light">
-                  Cupo agotado
-                </p>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => activate(m.id)}
-                  disabled={busyId === m.id}
-                  className="w-full font-label text-xs uppercase tracking-wide px-3 py-2 border border-crimson bg-crimson text-crimson-foreground hover:bg-crimson/90 transition-colors disabled:opacity-50"
-                >
-                  Activar misión
-                </button>
-              )}
-            </div>
-          </QuestPaperCard>
-        );
-      })}
-
-      {groupMissions.map((m, i) => {
-        const viewerGroup = m.groups.find((g) => g.id === m.viewerGroupId) ?? null;
-        const canFormNew = loggedIn && isLive && !m.viewerRewarded && !viewerGroup;
-        return (
+        {groupMissions.map((m, i) => (
           <QuestPaperCard
             key={m.id}
             index={individualMissions.length + i}
             infoType="group"
             className={m.viewerRewarded ? "opacity-60" : undefined}
+            onClick={() => setSelected({ kind: "group", id: m.id })}
           >
             <div className="flex items-start justify-between gap-2 flex-wrap pr-7">
               <p className="font-label text-sm font-semibold text-ink line-clamp-2 min-w-0">{m.title}</p>
@@ -268,106 +488,59 @@ export function QuestBoard({ eventId, individualMissions, groupMissions, loggedI
             {m.narrative && <p className="font-body text-xs text-ink-light leading-snug line-clamp-3 shrink-0">{m.narrative}</p>}
             <div className="flex items-center gap-3 flex-wrap">
               <span className="font-label text-2xs font-semibold text-[#8a6420]">
-                +{m.rewardXp} XP · +{m.rewardRp} RP{m.badgeName ? ` · insignia "${m.badgeName}"` : ""}
+                +{m.rewardXp} XP · +{m.rewardRp} RP
               </span>
-              {m.game && <GameChip game={m.game} />}
               <span className="inline-flex items-center gap-1 font-label text-2xs text-leather-light">
                 <Users size={11} /> hasta {m.maxParticipants}
               </span>
             </div>
-
-            {m.viewerRewarded ? (
-              <p className="text-center font-label text-xs uppercase tracking-wide px-3 py-2 border border-moss bg-moss/10 text-moss-dark flex items-center justify-center gap-1.5 mt-1">
-                <Check size={13} /> Ya la completaste
-              </p>
-            ) : !isLive ? (
-              <p className="text-center font-label text-xs uppercase tracking-wide px-3 py-2 border border-border text-ink-light mt-1">
-                {inactiveNote}
-              </p>
-            ) : !loggedIn ? (
-              <Link
-                href={`/sign-in?next=/events/${eventId}`}
-                className="block text-center font-label text-xs uppercase tracking-wide px-3 py-2 border border-border text-ink-light no-underline hover:border-brass transition-colors mt-1"
-              >
-                Iniciá sesión para unirte
-              </Link>
-            ) : (
-              <div className="flex flex-col gap-1.5 mt-1 min-h-0">
-                {/* Bounded, independently-scrollable — the card itself has a
-                 * fixed height, but a mission can have several concurrent
-                 * parties forming, so this list (not the whole card) is what
-                 * scrolls when there are more than fit. */}
-                <div className="flex flex-col gap-1.5 max-h-[104px] overflow-y-auto pr-0.5">
-                {m.groups.map((g) => {
-                  const isMine = g.id === m.viewerGroupId;
-                  const full = g.members.length >= m.maxParticipants;
-                  return (
-                    <div key={g.id} className={cn("border rounded-sm px-2.5 py-2", isMine ? "border-crimson bg-crimson/5" : "border-border bg-parchment/40")}>
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-body text-xs text-ink-light">
-                          {g.members.map((mem) => mem.label).join(", ") || "Sin integrantes"}{" "}
-                          <span className="opacity-60">({g.members.length}/{m.maxParticipants})</span>
-                        </span>
-                        {g.status !== "forming" && (
-                          <span className="font-label text-2xs uppercase tracking-wide text-brass shrink-0">
-                            {g.status === "started" ? "En curso" : "Esperando confirmación"}
-                          </span>
-                        )}
-                      </div>
-                      {isMine && g.status === "forming" && (
-                        <div className="flex gap-1.5 mt-1.5">
-                          {g.members.length >= 2 && (
-                            <button
-                              type="button" onClick={() => startGroup(m.id, g.id)} disabled={busyKey === g.id}
-                              className="flex-1 font-label text-2xs uppercase tracking-wide px-2.5 py-1.5 border border-crimson bg-crimson text-crimson-foreground hover:bg-crimson/90 transition-colors disabled:opacity-50"
-                            >
-                              Iniciar misión
-                            </button>
-                          )}
-                          <button
-                            type="button" onClick={() => leaveGroup(m.id, g.id)} disabled={busyKey === g.id}
-                            className="font-label text-2xs uppercase tracking-wide px-2.5 py-1.5 border border-border text-ink-light hover:border-crimson transition-colors disabled:opacity-50"
-                          >
-                            Salir
-                          </button>
-                        </div>
-                      )}
-                      {isMine && g.status === "started" && (
-                        <button
-                          type="button" onClick={() => turnInGroup(m.id, g.id)} disabled={busyKey === g.id}
-                          className="w-full mt-1.5 font-label text-2xs uppercase tracking-wide px-2.5 py-1.5 border border-crimson text-crimson hover:bg-crimson/10 transition-colors disabled:opacity-50"
-                        >
-                          Entregar misión
-                        </button>
-                      )}
-                      {!isMine && !viewerGroup && g.status === "forming" && !full && (
-                        <button
-                          type="button" onClick={() => joinGroup(m.id, g.id)} disabled={busyKey === `${m.id}:${g.id}`}
-                          className="w-full mt-1.5 font-label text-2xs uppercase tracking-wide px-2.5 py-1.5 border border-crimson text-crimson hover:bg-crimson/10 transition-colors disabled:opacity-50"
-                        >
-                          Unirse
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-                </div>
-
-                {canFormNew && (
-                  <button
-                    type="button"
-                    onClick={() => joinGroup(m.id, null)}
-                    disabled={busyKey === `${m.id}:new`}
-                    className="flex items-center justify-center gap-1.5 font-label text-2xs uppercase tracking-wide px-2.5 py-2 border border-dashed border-brass/50 text-brass hover:bg-brass/5 transition-colors disabled:opacity-50"
-                  >
-                    <Plus size={12} /> Formar un nuevo grupo
-                  </button>
-                )}
-              </div>
-            )}
+            <TapHint text={groupHint(m, loggedIn, isLive, inactiveNote)} />
           </QuestPaperCard>
-        );
-      })}
-    </div>
+        ))}
+      </div>
+
+      <Modal
+        open={!!selectedIndividual}
+        onClose={() => setSelected(null)}
+        title={selectedIndividual?.title ?? ""}
+        className="max-w-lg max-h-[85vh] overflow-y-auto"
+      >
+        {selectedIndividual && (
+          <IndividualMissionDetail
+            m={selectedIndividual}
+            state={states[selectedIndividual.id]}
+            busyId={busyId}
+            isLive={isLive}
+            loggedIn={loggedIn}
+            eventId={eventId}
+            inactiveNote={inactiveNote}
+            onActivate={activate}
+            onTurnIn={turnIn}
+          />
+        )}
+      </Modal>
+
+      <Modal
+        open={!!selectedGroup}
+        onClose={() => setSelected(null)}
+        title={selectedGroup?.title ?? ""}
+        className="max-w-lg max-h-[85vh] overflow-y-auto"
+      >
+        {selectedGroup && (
+          <GroupMissionDetail
+            m={selectedGroup}
+            busyKey={busyKey}
+            isLive={isLive}
+            loggedIn={loggedIn}
+            eventId={eventId}
+            inactiveNote={inactiveNote}
+            onJoin={joinGroup}
+            onLeave={leaveGroup}
+            onStart={startGroup}
+            onTurnIn={turnInGroup}
+          />
+        )}
+      </Modal>
+    </>
   );
 }
