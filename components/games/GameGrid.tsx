@@ -9,6 +9,8 @@ import { RulesContent } from "@/components/games/RulesContent";
 import { parseRulesMarkup } from "@/lib/rules-markup";
 import { formatPlayers, formatPlaytime } from "@/lib/formatting";
 import { cn } from "@/lib/utils";
+import { GAME_STATUS_LABEL, GAME_STATUS_BADGE_CLASS } from "@/lib/gamification/gameStatusInfo";
+import { GameStatusInfoButton } from "@/components/games/GameStatusInfoButton";
 import type { ShgGame } from "@/types/database";
 
 export function GameGrid({ games }: { games: ShgGame[] }) {
@@ -83,9 +85,13 @@ export function GameGrid({ games }: { games: ShgGame[] }) {
                       Para empezar
                     </span>
                   )}
-                  {!selected.available && (
-                    <span className="font-label text-xs font-bold uppercase tracking-wide px-2.5 py-1 rounded-sm bg-crimson/15 text-crimson">
-                      No disponible
+                  {selected.status !== "available" && (
+                    <span className={cn(
+                      "flex items-center gap-1.5 font-label text-xs font-bold uppercase tracking-wide px-2.5 py-1 rounded-sm",
+                      GAME_STATUS_BADGE_CLASS[selected.status]
+                    )}>
+                      {GAME_STATUS_LABEL[selected.status]}
+                      <GameStatusInfoButton />
                     </span>
                   )}
                 </div>

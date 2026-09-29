@@ -13,12 +13,13 @@ import { RulesContent } from "@/components/games/RulesContent";
 import { parseRulesMarkup } from "@/lib/rules-markup";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import type { ShgGame, ShgTag, GameComplexity } from "@/types/database";
+import { GAME_STATUS_LABEL, GAME_STATUS_BADGE_CLASS } from "@/lib/gamification/gameStatusInfo";
+import type { ShgGame, ShgTag, GameComplexity, GameStatus } from "@/types/database";
 
 const EMPTY = {
   name: "", min_players: 2, max_players: 4, playtime_minutes: 60,
   complexity: "light" as GameComplexity, beginner_friendly: false,
-  tags: [] as string[], image_url: "", description: "", bgg_link: "", available: true, rules: "",
+  tags: [] as string[], image_url: "", description: "", bgg_link: "", status: "available" as GameStatus, rules: "",
 };
 
 const RULES_TOOLBAR: { label: string; kind: "line" | "wrap"; value: string; after?: string; placeholder: string }[] = [
@@ -91,7 +92,7 @@ export function GamesManager() {
       playtime_minutes: g.playtime_minutes, complexity: g.complexity,
       beginner_friendly: g.beginner_friendly, tags: g.tags,
       image_url: g.image_url ?? "", description: g.description ?? "",
-      bgg_link: g.bgg_link ?? "", available: g.available, rules: g.rules ?? "",
+      bgg_link: g.bgg_link ?? "", status: g.status, rules: g.rules ?? "",
     });
     setModalOpen(true);
   }
@@ -225,7 +226,11 @@ export function GamesManager() {
                     <p className="font-body text-xs text-ink-light">{g.min_players}–{g.max_players} jugadores · {g.playtime_minutes} min</p>
                     <div className="flex flex-wrap gap-x-2">
                       {g.beginner_friendly && <span className="text-2xs text-moss-dark font-label uppercase">Para empezar</span>}
-                      {!g.available && <span className="text-2xs text-crimson font-label uppercase">No disponible</span>}
+                      {g.status !== "available" && (
+                        <span className={cn("text-2xs font-label uppercase px-1 rounded-sm", GAME_STATUS_BADGE_CLASS[g.status])}>
+                          {GAME_STATUS_LABEL[g.status]}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -297,10 +302,20 @@ export function GamesManager() {
               Ideal para empezar
             </label>
           </div>
-          <label className="flex items-center gap-2 font-body text-sm text-ink">
-            <input type="checkbox" className="accent-moss size-4" checked={form.available} onChange={(e) => setForm({ ...form, available: e.target.checked })} />
-            Disponible (si está destildado, sigue apareciendo en la Ludoteca marcado como no disponible)
-          </label>
+          <Select
+            label="Estado"
+            value={form.status}
+            onChange={(e) => setForm({ ...form, status: e.target.value as GameStatus })}
+          >
+            <option value="available">Disponible</option>
+            <option value="unavailable">{GAME_STATUS_LABEL.unavailable}</option>
+            <option value="request_ahead">{GAME_STATUS_LABEL.request_ahead}</option>
+          </Select>
+          {form.status !== "available" && (
+            <p className="font-body text-xs text-ink-light -mt-2">
+              El juego sigue apareciendo en la Ludoteca, marcado con esta etiqueta.
+            </p>
+          )}
 
           <div className="flex flex-col gap-1.5">
             <label className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">Tags</label>

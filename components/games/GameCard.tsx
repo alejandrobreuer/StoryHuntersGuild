@@ -2,6 +2,8 @@ import Image from "next/image";
 import { Users, Clock, Dice5 } from "lucide-react";
 import { formatPlayers, formatPlaytime } from "@/lib/formatting";
 import { cn } from "@/lib/utils";
+import { GAME_STATUS_LABEL, GAME_STATUS_BADGE_CLASS } from "@/lib/gamification/gameStatusInfo";
+import { GameStatusInfoButton } from "@/components/games/GameStatusInfoButton";
 import type { ShgGame } from "@/types/database";
 
 export const COMPLEXITY_LABEL: Record<string, string> = { light: "Fácil", medium: "Intermedio", heavy: "Avanzado" };
@@ -12,10 +14,12 @@ export function complexityBadgeClass(complexity: string): string {
 
 export function GameCard({ game, onClick }: { game: ShgGame; onClick?: () => void }) {
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onClick}
-      className="surface-parchment border-t-4 border-t-moss p-5 text-left w-full transition-transform duration-200 hover:-translate-y-1"
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick?.(); } }}
+      className="surface-parchment border-t-4 border-t-moss p-5 text-left w-full cursor-pointer transition-transform duration-200 hover:-translate-y-1"
     >
       <div className="relative w-full aspect-square mb-3 bg-parchment-dark/40 border border-brass/30 flex items-center justify-center overflow-hidden">
         {game.image_url ? (
@@ -41,9 +45,13 @@ export function GameCard({ game, onClick }: { game: ShgGame; onClick?: () => voi
             Para empezar
           </span>
         )}
-        {!game.available && (
-          <span className="font-label text-2xs font-bold uppercase tracking-wide px-2 py-0.5 rounded-sm bg-crimson/15 text-crimson">
-            No disponible
+        {game.status !== "available" && (
+          <span className={cn(
+            "flex items-center gap-1 font-label text-2xs font-bold uppercase tracking-wide px-2 py-0.5 rounded-sm",
+            GAME_STATUS_BADGE_CLASS[game.status]
+          )}>
+            {GAME_STATUS_LABEL[game.status]}
+            <GameStatusInfoButton />
           </span>
         )}
       </div>
@@ -56,6 +64,6 @@ export function GameCard({ game, onClick }: { game: ShgGame; onClick?: () => voi
           ))}
         </div>
       )}
-    </button>
+    </div>
   );
 }

@@ -6,6 +6,7 @@
 export type EventStatus    = "draft" | "published" | "cancelled";
 export type BookingStatus  = "pending" | "approved" | "rejected" | "cancelled";
 export type GameComplexity = "light" | "medium" | "heavy";
+export type GameStatus = "available" | "unavailable" | "request_ahead";
 export type EventType      = "cooperative" | "competitive" | "tournament" | "release" | "guilds_choice";
 export type QuestType      = "individual" | "group" | "event" | "guild";
 export type QuestStatus    = "draft" | "active" | "archived";
@@ -117,7 +118,7 @@ export interface ShgGame {
   description:       string | null;
   bgg_link:          string | null;
   rules:             string | null;
-  available:         boolean;
+  status:            GameStatus;
   created_at:        string;
   updated_at:        string;
 }
