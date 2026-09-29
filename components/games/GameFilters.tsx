@@ -75,11 +75,20 @@ export function GameTagSidebar({ allTags }: { allTags: string[] }) {
   if (allTags.length === 0) return null;
 
   return (
-    <aside className="surface-parchment p-4 lg:sticky lg:top-6 shrink-0">
-      <p className="flex items-center gap-1.5 font-label text-sm font-bold uppercase tracking-widest text-ink mb-3">
+    // lg:top-[72px] clears the sticky nav (Nav.tsx, ~59px tall) with a
+    // small gap; max-h caps the box at that same offset from both viewport
+    // edges so it can NEVER be taller than the visible area. Without that
+    // cap, a sticky element taller than the viewport scrolls along with the
+    // page (its natural, if surprising, sticky behavior) until its bottom
+    // edge comes into view before it "catches" — which reads as the
+    // sidebar randomly refusing to stay put until you scroll past the
+    // whole tag list. Capping the height instead makes the tag list itself
+    // (not the sidebar) the thing that scrolls once it doesn't fit.
+    <aside className="surface-parchment p-4 lg:sticky lg:top-[72px] lg:max-h-[calc(100vh-96px)] shrink-0 flex flex-col">
+      <p className="flex items-center gap-1.5 font-label text-sm font-bold uppercase tracking-widest text-ink mb-3 shrink-0">
         <Tags size={14} /> Categorías
       </p>
-      <div className="flex flex-wrap lg:flex-col gap-2">
+      <div className="flex flex-wrap lg:flex-col gap-2 lg:overflow-y-auto lg:min-h-0 lg:pr-1">
         {allTags.map((tag) => {
           const active = selectedTags.includes(tag);
           return (
