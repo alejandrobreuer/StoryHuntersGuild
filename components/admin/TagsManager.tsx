@@ -80,11 +80,15 @@ export function TagsManager() {
       ) : tags.length === 0 ? (
         <p className="font-body italic text-parchment-dark">Todavía no hay tags cargados.</p>
       ) : (
-        <div className="flex flex-wrap gap-2">
+        // This settings page sits directly on the dark admin background —
+        // unlike the tag chips shown on a game's own (parchment) card, these
+        // need their own light surface behind them, or their light-surface
+        // colors (bg-brass/15 text-brass) read as barely-visible dark-on-dark.
+        <div className="surface-parchment p-4 rounded-sm flex flex-wrap gap-2">
           {tags.map((t) => (
             <div
               key={t.id}
-              className="flex items-center gap-1.5 font-label text-2xs uppercase tracking-wide px-2.5 py-1.5 rounded-sm bg-leather/10 text-leather"
+              className="flex items-center gap-1.5 font-label text-2xs uppercase tracking-wide px-2.5 py-1.5 rounded-sm bg-brass/15 text-brass border border-brass/20"
             >
               <TagIcon size={11} />
               {t.name}

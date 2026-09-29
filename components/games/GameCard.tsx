@@ -2,7 +2,7 @@ import Image from "next/image";
 import { Users, Clock, Dice5 } from "lucide-react";
 import { formatPlayers, formatPlaytime } from "@/lib/formatting";
 import { cn } from "@/lib/utils";
-import { GAME_STATUS_LABEL, GAME_STATUS_BADGE_CLASS } from "@/lib/gamification/gameStatusInfo";
+import { GAME_STATUS_LABEL, GAME_STATUS_BANNER_CLASS } from "@/lib/gamification/gameStatusInfo";
 import { GameStatusInfoButton } from "@/components/games/GameStatusInfoButton";
 import type { ShgGame } from "@/types/database";
 
@@ -27,6 +27,15 @@ export function GameCard({ game, onClick }: { game: ShgGame; onClick?: () => voi
         ) : (
           <Dice5 size={40} className="text-leather-light" />
         )}
+        {game.status !== "available" && (
+          <div className={cn(
+            "absolute bottom-0 inset-x-0 flex items-center justify-center gap-1.5 font-label text-2xs font-bold uppercase tracking-wide px-2 py-1",
+            GAME_STATUS_BANNER_CLASS[game.status]
+          )}>
+            {GAME_STATUS_LABEL[game.status]}
+            <GameStatusInfoButton />
+          </div>
+        )}
       </div>
       <h3 className="font-label text-sm font-bold text-ink mb-1">{game.name}</h3>
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-2xs text-leather-light mb-2">
@@ -43,15 +52,6 @@ export function GameCard({ game, onClick }: { game: ShgGame; onClick?: () => voi
         {game.beginner_friendly && (
           <span className="font-label text-2xs font-bold uppercase tracking-wide px-2 py-0.5 rounded-sm bg-moss/15 text-moss-dark">
             Para empezar
-          </span>
-        )}
-        {game.status !== "available" && (
-          <span className={cn(
-            "flex items-center gap-1 font-label text-2xs font-bold uppercase tracking-wide px-2 py-0.5 rounded-sm",
-            GAME_STATUS_BADGE_CLASS[game.status]
-          )}>
-            {GAME_STATUS_LABEL[game.status]}
-            <GameStatusInfoButton />
           </span>
         )}
       </div>

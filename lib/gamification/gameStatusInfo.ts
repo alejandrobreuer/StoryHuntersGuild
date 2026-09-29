@@ -7,9 +7,19 @@ export const GAME_STATUS_LABEL: Record<SpecialGameStatus, string> = {
   request_ahead: "Solicitar con tiempo",
 };
 
+// Translucent chip — used where the badge sits on its own light
+// (surface-parchment) card, e.g. the game detail popup.
 export const GAME_STATUS_BADGE_CLASS: Record<SpecialGameStatus, string> = {
   unavailable:   "bg-crimson/15 text-crimson",
   request_ahead: "bg-brass/15 text-brass",
+};
+
+// Solid/opaque banner — used where the badge overlays a game's own cover
+// image instead of a light card, so it needs to stay legible regardless of
+// what colors are underneath it.
+export const GAME_STATUS_BANNER_CLASS: Record<SpecialGameStatus, string> = {
+  unavailable:   "bg-crimson text-crimson-foreground",
+  request_ahead: "bg-brass text-ink",
 };
 
 // Shared copy for the "qué significan estos estados" (!) popover — one
