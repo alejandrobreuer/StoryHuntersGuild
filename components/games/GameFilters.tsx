@@ -6,8 +6,9 @@ import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/utils";
 
 // Shared URL-param plumbing for both filter pieces below — they're rendered
-// in different parts of the page layout (sidebar vs. toolbar) but both read/
-// write the same query string, via Next's shared (reactive) useSearchParams.
+// as separate blocks on the page (category filter vs. search toolbar) but
+// both read/write the same query string, via Next's shared (reactive)
+// useSearchParams.
 function useGameFilterParams() {
   const router = useRouter();
   const pathname = usePathname();
@@ -67,28 +68,21 @@ export function GameSearchToolbar() {
   );
 }
 
-// Tag list, laid out as a single left-hand column (a filter sidebar) rather
-// than a row of wrapping pills.
-export function GameTagSidebar({ allTags }: { allTags: string[] }) {
+// Tag list — a single static column sitting above the search toolbar, full
+// width of the page. Deliberately NOT sticky/sidebar-positioned: it sits at
+// the top once and scrolls away with the rest of the page like any other
+// content, instead of following the games grid as you scroll past it.
+export function GameCategoryFilter({ allTags }: { allTags: string[] }) {
   const { selectedTags, toggleTag } = useGameFilterParams();
 
   if (allTags.length === 0) return null;
 
   return (
-    // lg:top-[72px] clears the sticky nav (Nav.tsx, ~59px tall) with a
-    // small gap; max-h caps the box at that same offset from both viewport
-    // edges so it can NEVER be taller than the visible area. Without that
-    // cap, a sticky element taller than the viewport scrolls along with the
-    // page (its natural, if surprising, sticky behavior) until its bottom
-    // edge comes into view before it "catches" — which reads as the
-    // sidebar randomly refusing to stay put until you scroll past the
-    // whole tag list. Capping the height instead makes the tag list itself
-    // (not the sidebar) the thing that scrolls once it doesn't fit.
-    <aside className="surface-parchment p-4 lg:sticky lg:top-[72px] lg:max-h-[calc(100vh-96px)] shrink-0 flex flex-col">
-      <p className="flex items-center gap-1.5 font-label text-sm font-bold uppercase tracking-widest text-ink mb-3 shrink-0">
+    <div className="surface-parchment p-4 mb-8 max-w-xs">
+      <p className="flex items-center gap-1.5 font-label text-sm font-bold uppercase tracking-widest text-ink mb-3">
         <Tags size={14} /> Categorías
       </p>
-      <div className="flex flex-wrap lg:flex-col gap-2 lg:overflow-y-auto lg:min-h-0 lg:pr-1">
+      <div className="flex flex-col gap-2">
         {allTags.map((tag) => {
           const active = selectedTags.includes(tag);
           return (
@@ -97,7 +91,7 @@ export function GameTagSidebar({ allTags }: { allTags: string[] }) {
               type="button"
               onClick={() => toggleTag(tag)}
               className={cn(
-                "font-label text-2xs font-semibold uppercase tracking-wide px-2.5 py-1.5 rounded-sm border transition-colors lg:text-left",
+                "font-label text-2xs font-semibold uppercase tracking-wide px-2.5 py-1.5 rounded-sm border text-left transition-colors",
                 active
                   ? "bg-brass text-ink border-brass"
                   : "bg-transparent text-ink-light border-border hover:border-brass hover:text-brass-bright"
@@ -108,6 +102,6 @@ export function GameTagSidebar({ allTags }: { allTags: string[] }) {
           );
         })}
       </div>
-    </aside>
+    </div>
   );
 }

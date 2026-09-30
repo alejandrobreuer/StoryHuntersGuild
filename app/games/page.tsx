@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { GameGrid } from "@/components/games/GameGrid";
-import { GameSearchToolbar, GameTagSidebar } from "@/components/games/GameFilters";
+import { GameSearchToolbar, GameCategoryFilter } from "@/components/games/GameFilters";
 import type { ShgGame, GameComplexity } from "@/types/database";
 
 export const metadata: Metadata = { title: "Ludoteca — Story Hunters Guild" };
@@ -35,21 +35,17 @@ export default async function GamesPage({
         Nuestra colección de {games.length} juegos, para todos los niveles.
       </p>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-8 items-start">
-        <GameTagSidebar allTags={allTags} />
+      <GameCategoryFilter allTags={allTags} />
 
-        <div className="min-w-0">
-          <GameSearchToolbar />
+      <GameSearchToolbar />
 
-          {games.length === 0 ? (
-            <p className="font-body italic text-center text-parchment-dark py-16">
-              No encontramos juegos con esos filtros.
-            </p>
-          ) : (
-            <GameGrid games={games} />
-          )}
-        </div>
-      </div>
+      {games.length === 0 ? (
+        <p className="font-body italic text-center text-parchment-dark py-16">
+          No encontramos juegos con esos filtros.
+        </p>
+      ) : (
+        <GameGrid games={games} />
+      )}
     </main>
   );
 }
