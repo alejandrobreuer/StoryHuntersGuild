@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
     email:       form.get("email"),
     phone:       form.get("phone") || undefined,
     guest_count: form.get("guest_count"),
+    coupon_code: form.get("coupon_code") || undefined,
   });
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Datos inválidos." }, { status: 422 });
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
   }
 
   const admin = createAdminClient();
-  const { event_id, name, email, phone, guest_count } = parsed.data;
+  const { event_id, name, email, phone, guest_count, coupon_code } = parsed.data;
 
   const { data: event, error: eventErr } = await admin
     .from("shg_events")
@@ -65,7 +66,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No hay suficientes lugares disponibles." }, { status: 422 });
   }
 
-  const cost = Number(event.price_per_person) * guest_count;
+  const subtotal = Number(event.price_per_person) * guest_count;
+
+  // Checked (but not yet consumed — that's an atomic update right before the
+  // booking insert below, to keep the race window as small as possible) here
+  // so an invalid/used code fails fast, before making the user upload a
+  // receipt for a booking that's about to be rejected anyway.
+  let coupon: { id: string; discount_percent: number } | null = null;
+  if (coupon_code) {
+    const { data: found } = await admin
+      .from("shg_coupons")
+      .select("id, discount_percent, used")
+      .ilike("code", coupon_code)
+      .maybeSingle();
+    if (!found) return NextResponse.json({ error: "Ese cupón no existe." }, { status: 422 });
+    if (found.used) return NextResponse.json({ error: "Ese cupón ya fue utilizado." }, { status: 422 });
+    coupon = { id: found.id, discount_percent: found.discount_percent };
+  }
+
+  const cost = coupon ? Math.round(subtotal * (1 - coupon.discount_percent / 100)) : subtotal;
 
   const ext = receipt.name.split(".").pop() || "jpg";
   const path = `${event_id}/${crypto.randomUUID()}.${ext}`;
@@ -77,6 +96,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No se pudo subir el comprobante." }, { status: 500 });
   }
 
+  // Atomic claim: the WHERE used = false makes this a no-op for anyone who
+  // loses a race on the same code between the check above and here (e.g. two
+  // people submitting the same shared code within the same second) — one
+  // update affects the row and returns it, the other affects zero rows and
+  // gets null back.
+  if (coupon) {
+    const { data: claimed } = await admin
+      .from("shg_coupons")
+      .update({ used: true, used_at: new Date().toISOString() })
+      .eq("id", coupon.id)
+      .eq("used", false)
+      .select("id")
+      .maybeSingle();
+    if (!claimed) {
+      return NextResponse.json({ error: "Ese cupón ya fue utilizado." }, { status: 422 });
+    }
+  }
+
   const sessionUser = await getSessionUser();
 
   const { data: booking, error: insertError } = await admin
@@ -85,12 +122,20 @@ export async function POST(req: NextRequest) {
       event_id, name, email, phone: phone ?? null, guest_count, cost,
       receipt_path: path,
       user_id: sessionUser?.id ?? null,
+      coupon_code: coupon ? coupon_code!.toUpperCase() : null,
+      discount_percent: coupon?.discount_percent ?? null,
     })
     .select("id")
     .single();
 
   if (insertError) {
     return NextResponse.json({ error: "No se pudo crear la reserva." }, { status: 500 });
+  }
+
+  // Best-effort back-link for the admin view — the coupon is already
+  // correctly consumed above regardless of whether this succeeds.
+  if (coupon) {
+    await admin.from("shg_coupons").update({ used_by_booking_id: booking.id }).eq("id", coupon.id);
   }
 
   await sendBookingConfirmationEmail({

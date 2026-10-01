@@ -104,6 +104,17 @@ export interface ShgTag {
   updated_at: string;
 }
 
+export interface ShgCoupon {
+  id:                 string;
+  code:               string;
+  discount_percent:   number;
+  used:               boolean;
+  used_by_booking_id: string | null;
+  used_at:            string | null;
+  created_at:         string;
+  updated_at:         string;
+}
+
 export interface ShgGame {
   id:                string;
   name:              string;
@@ -159,23 +170,25 @@ export interface ShgEventListItem extends ShgEvent {
 // ─── Bookings ───────────────────────────────────────────────────────────────
 
 export interface ShgBooking {
-  id:            string;
-  event_id:      string;
-  user_id:       string | null;
-  name:          string;
-  email:         string;
-  phone:         string | null;
-  guest_count:   number;
-  cost:          number;
-  status:        BookingStatus;
-  attended:      boolean;
-  rp_awarded:    number;
-  receipt_path:  string | null;
-  admin_note:    string | null;
-  reviewed_by:   string | null;
-  reviewed_at:   string | null;
-  created_at:    string;
-  updated_at:    string;
+  id:               string;
+  event_id:         string;
+  user_id:          string | null;
+  name:             string;
+  email:            string;
+  phone:            string | null;
+  guest_count:      number;
+  cost:             number;
+  coupon_code:      string | null;
+  discount_percent: number | null;
+  status:           BookingStatus;
+  attended:         boolean;
+  rp_awarded:       number;
+  receipt_path:     string | null;
+  admin_note:       string | null;
+  reviewed_by:      string | null;
+  reviewed_at:      string | null;
+  created_at:       string;
+  updated_at:       string;
 }
 
 export interface ShgBookingWithEvent extends ShgBooking {

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, X, Ban, Receipt } from "lucide-react";
+import { Check, X, Ban, Receipt, Ticket } from "lucide-react";
 import { Select } from "@/components/ui/Select";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { formatARS, formatDateTime } from "@/lib/formatting";
@@ -76,6 +76,11 @@ export function BookingsTable() {
                 </p>
                 <p className="font-body text-xs text-leather-light">
                   {b.email}{b.phone ? ` · ${b.phone}` : ""} · {b.guest_count} persona{b.guest_count !== 1 ? "s" : ""} · {formatARS(b.cost)}
+                  {b.coupon_code && (
+                    <span className="inline-flex items-center gap-1 ml-1.5 text-moss-dark">
+                      <Ticket size={11} /> {b.coupon_code} (-{b.discount_percent}%)
+                    </span>
+                  )}
                 </p>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">

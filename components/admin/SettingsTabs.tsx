@@ -6,6 +6,7 @@ import { SettingsForm } from "@/components/admin/SettingsForm";
 import { RanksManager } from "@/components/admin/RanksManager";
 import { BadgesManager } from "@/components/admin/BadgesManager";
 import { TagsManager } from "@/components/admin/TagsManager";
+import { CouponsManager } from "@/components/admin/CouponsManager";
 import { FeatureFlagsManager } from "@/components/admin/FeatureFlagsManager";
 import { RolesManager } from "@/components/admin/RolesManager";
 import type { PermissionKey } from "@/types/database";
@@ -15,6 +16,10 @@ const TABS = [
   { key: "ranks",         label: "Rangos",      perm: "ranks" as PermissionKey,          Component: RanksManager },
   { key: "badges",        label: "Insignias",   perm: "badges" as PermissionKey,         Component: BadgesManager },
   { key: "tags",          label: "Tags",        perm: "tags" as PermissionKey,           Component: TagsManager },
+  // Reuses the "bookings" permission (rather than introducing a new
+  // PermissionKey + shg_security_roles column just for this) since coupons
+  // only ever matter in the context of booking discounts.
+  { key: "coupons",       label: "Cupones",     perm: "bookings" as PermissionKey,       Component: CouponsManager },
   { key: "roles",         label: "Roles",       perm: "roles" as PermissionKey,          Component: RolesManager },
   { key: "feature_flags", label: "Funciones",   perm: "feature_flags" as PermissionKey,  Component: FeatureFlagsManager },
 ];

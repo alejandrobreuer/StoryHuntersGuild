@@ -6,6 +6,7 @@ export const createBookingSchema = z.object({
   email:       z.string().email(),
   phone:       z.string().max(40).optional(),
   guest_count: z.coerce.number().int().min(1).max(50),
+  coupon_code: z.string().trim().max(40).optional(),
 });
 
 export const rejectBookingSchema = z.object({
