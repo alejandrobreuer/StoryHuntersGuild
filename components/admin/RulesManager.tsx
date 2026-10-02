@@ -94,7 +94,8 @@ export function RulesManager() {
         open={!!viewing}
         onClose={() => setViewing(null)}
         title={viewing ? `Reglas — ${viewing.name}` : ""}
-        className="max-w-5xl w-[92vw] h-[90vh] flex flex-col"
+        className="max-w-none w-[99vw] h-[98vh] flex flex-col p-3"
+        titleClassName="text-sm mb-2 pb-2"
       >
         {viewing && (
           <iframe
