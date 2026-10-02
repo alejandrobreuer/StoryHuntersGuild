@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { Plus, Edit2, Trash2, Upload, Dice5, ExternalLink } from "lucide-react";
+import { Plus, Edit2, Trash2, Upload, Dice5, ExternalLink, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
@@ -14,12 +14,13 @@ import { parseRulesMarkup } from "@/lib/rules-markup";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { GAME_STATUS_LABEL, GAME_STATUS_BADGE_CLASS } from "@/lib/gamification/gameStatusInfo";
-import type { ShgGame, ShgTag, GameComplexity, GameStatus } from "@/types/database";
+import type { ShgGame, ShgTag, ShgGameOwner, GameComplexity, GameStatus } from "@/types/database";
 
 const EMPTY = {
   name: "", min_players: 2, max_players: 4, playtime_minutes: 60,
   complexity: "light" as GameComplexity, beginner_friendly: false,
   tags: [] as string[], image_url: "", description: "", bgg_link: "", status: "available" as GameStatus, rules: "",
+  owner_id: null as string | null,
 };
 
 const RULES_TOOLBAR: { label: string; kind: "line" | "wrap"; value: string; after?: string; placeholder: string }[] = [
@@ -35,12 +36,15 @@ const RULES_TOOLBAR: { label: string; kind: "line" | "wrap"; value: string; afte
 export function GamesManager() {
   const [games, setGames] = React.useState<ShgGame[]>([]);
   const [tags, setTags] = React.useState<ShgTag[]>([]);
+  const [owners, setOwners] = React.useState<ShgGameOwner[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [editing, setEditing] = React.useState<ShgGame | null>(null);
   const [modalOpen, setModalOpen] = React.useState(false);
   const [form, setForm] = React.useState(EMPTY);
   const [saving, setSaving] = React.useState(false);
   const [uploading, setUploading] = React.useState(false);
+  const [newOwnerName, setNewOwnerName] = React.useState("");
+  const [addingOwner, setAddingOwner] = React.useState(false);
   const rulesRef = React.useRef<HTMLTextAreaElement>(null);
 
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -49,9 +53,12 @@ export function GamesManager() {
 
   const load = React.useCallback(async () => {
     setLoading(true);
-    const [gamesRes, tagsRes] = await Promise.all([fetch("/api/admin/games"), fetch("/api/admin/tags")]);
+    const [gamesRes, tagsRes, ownersRes] = await Promise.all([
+      fetch("/api/admin/games"), fetch("/api/admin/tags"), fetch("/api/admin/owners"),
+    ]);
     setGames((await gamesRes.json()).data ?? []);
     setTags((await tagsRes.json()).data ?? []);
+    setOwners((await ownersRes.json()).data ?? []);
     setLoading(false);
   }, []);
 
@@ -93,8 +100,38 @@ export function GamesManager() {
       beginner_friendly: g.beginner_friendly, tags: g.tags,
       image_url: g.image_url ?? "", description: g.description ?? "",
       bgg_link: g.bgg_link ?? "", status: g.status, rules: g.rules ?? "",
+      owner_id: g.owner_id,
     });
     setModalOpen(true);
+  }
+
+  async function handleAddOwner() {
+    const name = newOwnerName.trim();
+    if (!name) return;
+    setAddingOwner(true);
+    try {
+      const res = await fetch("/api/admin/owners", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const json = await res.json();
+      if (!res.ok) { toast.error(json.error ?? "No se pudo agregar el dueño."); return; }
+      setOwners((prev) => [...prev, json.data].sort((a, b) => a.name.localeCompare(b.name)));
+      setForm((f) => ({ ...f, owner_id: json.data.id }));
+      setNewOwnerName("");
+    } finally {
+      setAddingOwner(false);
+    }
+  }
+
+  async function handleDeleteOwner(owner: ShgGameOwner) {
+    if (!confirm(`¿Eliminar el dueño "${owner.name}"? Los juegos asignados quedarán sin dueño.`)) return;
+    const res = await fetch(`/api/admin/owners/${owner.id}`, { method: "DELETE" });
+    if (!res.ok) { toast.error("No se pudo eliminar."); return; }
+    setForm((f) => (f.owner_id === owner.id ? { ...f, owner_id: null } : f));
+    toast.success("Dueño eliminado.");
+    load();
   }
 
   async function handleImageUpload(file: File) {
@@ -317,6 +354,49 @@ export function GamesManager() {
               El juego sigue apareciendo en la Ludoteca, marcado con esta etiqueta.
             </p>
           )}
+
+          <div className="flex flex-col gap-1.5">
+            <label className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">
+              Dueño <span className="normal-case font-body text-ink-light/70">(interno — no se muestra a los jugadores)</span>
+            </label>
+            <div className="flex gap-2">
+              <Select
+                wrapperClassName="flex-1"
+                value={form.owner_id ?? ""}
+                onChange={(e) => setForm({ ...form, owner_id: e.target.value || null })}
+              >
+                <option value="">Sin asignar</option>
+                {owners.map((o) => (
+                  <option key={o.id} value={o.id}>{o.name}</option>
+                ))}
+              </Select>
+              {form.owner_id && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const owner = owners.find((o) => o.id === form.owner_id);
+                    if (owner) handleDeleteOwner(owner);
+                  }}
+                  title="Eliminar este dueño de la lista"
+                  className="px-3 border border-border text-leather-light hover:text-crimson hover:border-crimson transition-colors"
+                >
+                  <Trash2 size={15} />
+                </button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Input
+                wrapperClassName="flex-1"
+                placeholder="Agregar nuevo dueño…"
+                value={newOwnerName}
+                onChange={(e) => setNewOwnerName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddOwner(); } }}
+              />
+              <Button type="button" size="sm" loading={addingOwner} disabled={!newOwnerName.trim()} onClick={handleAddOwner}>
+                <Plus size={14} className="mr-1" />Agregar
+              </Button>
+            </div>
+          </div>
 
           <div className="flex flex-col gap-1.5">
             <label className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">Tags</label>

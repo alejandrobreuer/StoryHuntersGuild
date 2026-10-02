@@ -4,7 +4,7 @@ import { formatPlayers, formatPlaytime } from "@/lib/formatting";
 import { cn } from "@/lib/utils";
 import { GAME_STATUS_LABEL, GAME_STATUS_BANNER_CLASS } from "@/lib/gamification/gameStatusInfo";
 import { GameStatusInfoButton } from "@/components/games/GameStatusInfoButton";
-import type { ShgGame } from "@/types/database";
+import type { ShgGamePublic } from "@/types/database";
 
 export const COMPLEXITY_LABEL: Record<string, string> = { light: "Fácil", medium: "Intermedio", heavy: "Avanzado" };
 
@@ -12,7 +12,7 @@ export function complexityBadgeClass(complexity: string): string {
   return complexity === "light" ? "bg-moss/15 text-moss-dark" : complexity === "heavy" ? "bg-crimson/15 text-crimson" : "bg-brass/15 text-brass";
 }
 
-export function GameCard({ game, onClick }: { game: ShgGame; onClick?: () => void }) {
+export function GameCard({ game, onClick }: { game: ShgGamePublic; onClick?: () => void }) {
   return (
     <div
       role="button"

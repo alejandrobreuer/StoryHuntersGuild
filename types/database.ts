@@ -104,6 +104,14 @@ export interface ShgTag {
   updated_at: string;
 }
 
+/** Internal only — who owns the physical copy of a game. Never selected by
+ * any public-facing query/page. */
+export interface ShgGameOwner {
+  id:         string;
+  name:       string;
+  created_at: string;
+}
+
 export interface ShgCoupon {
   id:                 string;
   code:               string;
@@ -130,9 +138,16 @@ export interface ShgGame {
   bgg_link:          string | null;
   rules:             string | null;
   status:            GameStatus;
+  /** Internal only — never present in public-facing query results. */
+  owner_id:          string | null;
   created_at:        string;
   updated_at:        string;
 }
+
+/** Shape returned by public-facing game queries — `owner_id` is never
+ * selected for those, since GameCard/GameGrid cross into a client component
+ * and whatever's in the query result gets serialized into the page. */
+export type ShgGamePublic = Omit<ShgGame, "owner_id">;
 
 export interface ShgEvent {
   id:                string;

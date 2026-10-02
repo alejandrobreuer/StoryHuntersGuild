@@ -2,10 +2,16 @@ import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { GameGrid } from "@/components/games/GameGrid";
 import { GameSearchToolbar, GameTagSidebar } from "@/components/games/GameFilters";
-import type { ShgGame, GameComplexity } from "@/types/database";
+import type { ShgGamePublic, GameComplexity } from "@/types/database";
 
 export const metadata: Metadata = { title: "Ludoteca — Story Hunters Guild" };
 export const dynamic = "force-dynamic";
+
+// Explicit column list (not `select("*")`): this query's result is passed
+// straight into GameGrid, a client component, so whatever's selected here
+// gets serialized into the page for every visitor. `owner_id` is admin-only
+// and must never end up in that payload.
+const PUBLIC_GAME_COLUMNS = "id, name, slug, min_players, max_players, playtime_minutes, complexity, beginner_friendly, tags, image_url, description, bgg_link, rules, status, created_at, updated_at";
 
 export default async function GamesPage({
   searchParams,
@@ -15,7 +21,7 @@ export default async function GamesPage({
   const admin = createAdminClient();
   const selectedTags = searchParams.tags ? searchParams.tags.split(",").filter(Boolean) : [];
 
-  let query = admin.from("shg_games").select("*").order("name");
+  let query = admin.from("shg_games").select(PUBLIC_GAME_COLUMNS).order("name");
   if (searchParams.q) query = query.ilike("name", `%${searchParams.q}%`);
   if (searchParams.complexity) query = query.eq("complexity", searchParams.complexity as GameComplexity);
   if (searchParams.beginner === "1") query = query.eq("beginner_friendly", true);
@@ -25,7 +31,7 @@ export default async function GamesPage({
     query,
     admin.from("shg_games").select("tags"),
   ]);
-  const games = (data ?? []) as ShgGame[];
+  const games = (data ?? []) as ShgGamePublic[];
   const allTags = Array.from(new Set((allGamesTags ?? []).flatMap((g) => g.tags as string[]))).sort();
 
   return (

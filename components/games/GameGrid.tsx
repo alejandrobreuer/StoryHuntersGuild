@@ -11,14 +11,14 @@ import { formatPlayers, formatPlaytime } from "@/lib/formatting";
 import { cn } from "@/lib/utils";
 import { GAME_STATUS_LABEL, GAME_STATUS_BADGE_CLASS } from "@/lib/gamification/gameStatusInfo";
 import { GameStatusInfoButton } from "@/components/games/GameStatusInfoButton";
-import type { ShgGame } from "@/types/database";
+import type { ShgGamePublic } from "@/types/database";
 
-export function GameGrid({ games }: { games: ShgGame[] }) {
-  const [selected, setSelected] = React.useState<ShgGame | null>(null);
+export function GameGrid({ games }: { games: ShgGamePublic[] }) {
+  const [selected, setSelected] = React.useState<ShgGamePublic | null>(null);
   const [showRules, setShowRules] = React.useState(false);
   const hasRules = !!selected?.rules && selected.rules.trim().length > 0;
 
-  function openGame(g: ShgGame) {
+  function openGame(g: ShgGamePublic) {
     setSelected(g);
     setShowRules(false);
   }
