@@ -6,9 +6,8 @@ import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/utils";
 
 // Shared URL-param plumbing for both filter pieces below — they're rendered
-// as separate blocks on the page (category filter vs. search toolbar) but
-// both read/write the same query string, via Next's shared (reactive)
-// useSearchParams.
+// in different parts of the page layout (sidebar vs. toolbar) but both read/
+// write the same query string, via Next's shared (reactive) useSearchParams.
 function useGameFilterParams() {
   const router = useRouter();
   const pathname = usePathname();
@@ -68,26 +67,27 @@ export function GameSearchToolbar() {
   );
 }
 
-// Tag list — a single static column sitting above the search toolbar, full
-// width of the page. Deliberately NOT sticky/sidebar-positioned: it sits at
-// the top once and scrolls away with the rest of the page like any other
-// content, instead of following the games grid as you scroll past it.
-// The column itself is height-capped with its own internal scroll — one row
-// per tag adds up fast (23 tags ≈ 900px), and without a cap it pushed the
-// search bar and the entire grid below it off the first screen, which read
-// as "the page is broken / the games disappeared" even though everything
-// below was still there, just scrolled out of view.
-export function GameCategoryFilter({ allTags }: { allTags: string[] }) {
+// Tag list, laid out as a left-hand column next to the games grid.
+// lg:top-[72px] clears the sticky nav (Nav.tsx, ~59px tall) with a small
+// gap; max-h caps the box at that same offset from both viewport edges so
+// it can never be taller than the visible area. Without that cap, a sticky
+// element taller than the viewport scrolls along with the page (its
+// correct, if surprising, default behavior) until its bottom edge comes
+// into view before it actually "catches" — which reads as the sidebar
+// randomly refusing to stay put until you scroll past the whole tag list.
+// Capping the height instead makes the tag list itself (not the sidebar)
+// the thing that scrolls once it doesn't fit.
+export function GameTagSidebar({ allTags }: { allTags: string[] }) {
   const { selectedTags, toggleTag } = useGameFilterParams();
 
   if (allTags.length === 0) return null;
 
   return (
-    <div className="surface-parchment p-4 mb-8 max-w-xs">
-      <p className="flex items-center gap-1.5 font-label text-sm font-bold uppercase tracking-widest text-ink mb-3">
+    <aside className="surface-parchment p-4 lg:sticky lg:top-[72px] lg:max-h-[calc(100vh-96px)] shrink-0 flex flex-col">
+      <p className="flex items-center gap-1.5 font-label text-sm font-bold uppercase tracking-widest text-ink mb-3 shrink-0">
         <Tags size={14} /> Categorías
       </p>
-      <div className="flex flex-col gap-2 max-h-72 overflow-y-auto pr-1">
+      <div className="flex flex-wrap lg:flex-col gap-2 lg:overflow-y-auto lg:min-h-0 lg:pr-1">
         {allTags.map((tag) => {
           const active = selectedTags.includes(tag);
           return (
@@ -96,7 +96,7 @@ export function GameCategoryFilter({ allTags }: { allTags: string[] }) {
               type="button"
               onClick={() => toggleTag(tag)}
               className={cn(
-                "font-label text-2xs font-semibold uppercase tracking-wide px-2.5 py-1.5 rounded-sm border text-left transition-colors",
+                "font-label text-2xs font-semibold uppercase tracking-wide px-2.5 py-1.5 rounded-sm border transition-colors lg:text-left",
                 active
                   ? "bg-brass text-ink border-brass"
                   : "bg-transparent text-ink-light border-border hover:border-brass hover:text-brass-bright"
@@ -107,6 +107,6 @@ export function GameCategoryFilter({ allTags }: { allTags: string[] }) {
           );
         })}
       </div>
-    </div>
+    </aside>
   );
 }
