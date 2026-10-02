@@ -72,6 +72,11 @@ export function GameSearchToolbar() {
 // width of the page. Deliberately NOT sticky/sidebar-positioned: it sits at
 // the top once and scrolls away with the rest of the page like any other
 // content, instead of following the games grid as you scroll past it.
+// The column itself is height-capped with its own internal scroll — one row
+// per tag adds up fast (23 tags ≈ 900px), and without a cap it pushed the
+// search bar and the entire grid below it off the first screen, which read
+// as "the page is broken / the games disappeared" even though everything
+// below was still there, just scrolled out of view.
 export function GameCategoryFilter({ allTags }: { allTags: string[] }) {
   const { selectedTags, toggleTag } = useGameFilterParams();
 
@@ -82,7 +87,7 @@ export function GameCategoryFilter({ allTags }: { allTags: string[] }) {
       <p className="flex items-center gap-1.5 font-label text-sm font-bold uppercase tracking-widest text-ink mb-3">
         <Tags size={14} /> Categorías
       </p>
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2 max-h-72 overflow-y-auto pr-1">
         {allTags.map((tag) => {
           const active = selectedTags.includes(tag);
           return (
