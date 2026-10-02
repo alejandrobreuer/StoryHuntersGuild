@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, CalendarDays, MapPin, Dice5, ClipboardCheck, BadgeCheck, BarChart3, Settings, LogOut,
-  Users, ScrollText, UserCog,
+  Users, ScrollText, UserCog, FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PermissionKey } from "@/types/database";
@@ -13,6 +13,7 @@ const LINKS: { href: string; label: string; icon: typeof LayoutDashboard; perm?:
   { href: "/admin",           label: "Dashboard",              icon: LayoutDashboard },
   { href: "/admin/events",    label: "Eventos",                icon: CalendarDays,   perm: "events" },
   { href: "/admin/games",     label: "Juegos",                 icon: Dice5,          perm: "games" },
+  { href: "/admin/rules",     label: "Reglas",                 icon: FileText,       perm: "games" },
   { href: "/admin/venues",    label: "Lugares",                icon: MapPin,         perm: "venues" },
   { href: "/admin/users",     label: "Usuarios",               icon: Users,          perm: "users" },
   { href: "/admin/quests",    label: "Misiones",               icon: ScrollText,     perm: "quests" },
