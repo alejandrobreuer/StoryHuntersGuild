@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { Plus, Edit2, Trash2, Upload, Dice5, ExternalLink, X } from "lucide-react";
+import { Plus, Edit2, Trash2, Upload, Dice5, ExternalLink, X, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
@@ -196,11 +196,30 @@ export function GamesManager() {
     else toast.error("No se pudo eliminar.");
   }
 
+  async function handleExportByOwner() {
+    const ownerName = new Map(owners.map((o) => [o.id, o.name]));
+    const rows = [...games]
+      .map((g) => ({ Juego: g.name, Dueño: (g.owner_id && ownerName.get(g.owner_id)) || "Sin asignar" }))
+      .sort((a, b) => a.Dueño.localeCompare(b.Dueño) || a.Juego.localeCompare(b.Juego));
+
+    const XLSX = await import("xlsx");
+    const sheet = XLSX.utils.json_to_sheet(rows);
+    sheet["!cols"] = [{ wch: 36 }, { wch: 24 }];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, sheet, "Juegos por dueño");
+    XLSX.writeFile(workbook, "juegos-por-dueno.xlsx");
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="font-display text-2xl text-parchment">Juegos</h1>
-        <Button size="sm" onClick={openNew}><Plus size={14} className="mr-1" />Nuevo juego</Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="secondary" onClick={handleExportByOwner}>
+            <FileSpreadsheet size={14} className="mr-1" />Exportar por dueño
+          </Button>
+          <Button size="sm" onClick={openNew}><Plus size={14} className="mr-1" />Nuevo juego</Button>
+        </div>
       </div>
 
       <div className="mb-3 flex flex-wrap gap-3 items-end">
