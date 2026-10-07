@@ -315,7 +315,7 @@ export function EpicDetailView({ epicId, canManage, currentUserId }: { epicId: s
         </button>
       </div>
 
-      <form onSubmit={handleQuickAdd} className="flex items-center gap-2.5 px-3.5 min-h-12 border border-dashed border-leather-light/60 rounded-sm">
+      <form onSubmit={handleQuickAdd} className="flex items-center gap-2.5 px-3.5 min-h-12 bg-parchment/90 border border-dashed border-leather-light/60 rounded-sm">
         <span className="text-leather-light font-label text-lg leading-none">+</span>
         <input
           ref={quickAddRef}
