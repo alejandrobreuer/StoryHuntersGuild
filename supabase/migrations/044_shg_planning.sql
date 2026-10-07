@@ -154,10 +154,17 @@ alter table shg_security_roles
   add column if not exists perm_planning       boolean not null default false,
   add column if not exists perm_planning_admin boolean not null default false;
 
--- Give both existing full-access roles immediate access, same as how every
+-- Give every existing full-access role immediate access, same as how every
 -- permission originally introduced in 013_shg_security_roles.sql was
 -- onboarded — Planning should work for current admins right away, not
--- require a manual opt-in per role.
+-- require a manual opt-in per role. Matched by "already has every other
+-- permission", not by name — this project's seeded role names (e.g. "Guild
+-- Master"/"Guild Staff" vs. the original migration 013 names "Dueño"/
+-- "Administrador") have since diverged per-deployment, so a hardcoded name
+-- match would silently match nothing on a renamed install.
 update shg_security_roles
 set perm_planning = true, perm_planning_admin = true
-where name in ('Dueño', 'Administrador');
+where perm_events and perm_venues and perm_games and perm_tags and perm_users
+  and perm_quests and perm_ranks and perm_badges and perm_feature_flags
+  and perm_bookings and perm_reports and perm_settings and perm_roles
+  and perm_turn_ins and perm_rol;
