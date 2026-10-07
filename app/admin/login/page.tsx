@@ -31,7 +31,7 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gradient-to-b from-[#1c1810] to-[#261f13] px-4">
+    <main className="min-h-[70vh] flex items-center justify-center px-4 py-16">
       <div className="w-full max-w-sm surface-parchment p-8 text-center">
         <ShieldCheck size={32} className="mx-auto mb-4 text-crimson" />
         <h1 className="font-display text-xl text-ink mb-2">Panel de administración</h1>
