@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Plus, UserCog, KeyRound } from "lucide-react";
+import { Plus, UserCog, KeyRound, Link2, Search } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -17,14 +17,21 @@ interface AdminRow {
   is_active: boolean;
   created_at: string;
   last_login_at: string | null;
+  user_id: string | null;
   role: { id: string; name: string } | { id: string; name: string }[] | null;
+}
+
+interface LinkableUser {
+  id: string;
+  email: string;
+  name: string | null;
 }
 
 function one<T>(v: T | T[] | null): T | null {
   return Array.isArray(v) ? (v[0] ?? null) : v;
 }
 
-const EMPTY = { email: "", name: "", role_id: "", password: "", confirmPassword: "" };
+const EMPTY = { role_id: "" };
 
 export function AdminsManager() {
   const [admins, setAdmins] = React.useState<AdminRow[]>([]);
@@ -33,6 +40,10 @@ export function AdminsManager() {
   const [modalOpen, setModalOpen] = React.useState(false);
   const [form, setForm] = React.useState(EMPTY);
   const [saving, setSaving] = React.useState(false);
+  const [userQuery, setUserQuery] = React.useState("");
+  const [userResults, setUserResults] = React.useState<LinkableUser[]>([]);
+  const [selectedUser, setSelectedUser] = React.useState<LinkableUser | null>(null);
+  const [searching, setSearching] = React.useState(false);
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const [resetTarget, setResetTarget] = React.useState<AdminRow | null>(null);
   const [resetValue, setResetValue] = React.useState("");
@@ -50,27 +61,41 @@ export function AdminsManager() {
 
   React.useEffect(() => { load(); }, [load]);
 
+  React.useEffect(() => {
+    if (userQuery.trim().length < 2) { setUserResults([]); return; }
+    const handle = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const res = await fetch(`/api/admin/admins/linkable-users?q=${encodeURIComponent(userQuery.trim())}`);
+        setUserResults((await res.json()).data ?? []);
+      } finally {
+        setSearching(false);
+      }
+    }, 250);
+    return () => clearTimeout(handle);
+  }, [userQuery]);
+
   function openNew() {
-    setForm({ ...EMPTY, role_id: roles[0]?.id ?? "" });
+    setForm({ role_id: roles[0]?.id ?? "" });
+    setSelectedUser(null);
+    setUserQuery("");
+    setUserResults([]);
     setModalOpen(true);
   }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    if (form.password !== form.confirmPassword) {
-      toast.error("Las contraseñas no coinciden.");
-      return;
-    }
+    if (!selectedUser) { toast.error("Elegí un usuario."); return; }
     setSaving(true);
     try {
       const res = await fetch("/api/admin/admins", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: form.email, name: form.name, role_id: form.role_id, password: form.password }),
+        body: JSON.stringify({ user_id: selectedUser.id, role_id: form.role_id }),
       });
       const json = await res.json();
       if (!res.ok) { toast.error(json.error ?? "Error al crear."); return; }
-      toast.success("Administrador creado. Comunicále el email y la contraseña por otro medio.");
+      toast.success("Administrador creado — entra con su contraseña de usuario habitual.");
       setModalOpen(false);
       load();
     } finally {
@@ -141,9 +166,9 @@ export function AdminsManager() {
         <Button size="sm" onClick={openNew} disabled={roles.length === 0}><Plus size={14} className="mr-1" />Nuevo administrador</Button>
       </div>
       <p className="font-body text-sm text-parchment-dark mb-6">
-        Cada cuenta entra con su email y contraseña desde /admin/login — no hay recuperación por email,
-        así que restablecé la contraseña vos mismo si alguien la olvida. Asignale un rol para definir a
-        qué puede acceder — administrá los roles desde <a href="/admin/settings" className="underline">Configuración → Roles</a>.
+        Un nuevo administrador se otorga a una cuenta de usuario ya existente — entra a /admin/login con
+        esa misma contraseña, sin necesidad de una nueva. Asignale un rol para definir a qué puede
+        acceder — administrá los roles desde <a href="/admin/settings" className="underline">Configuración → Roles</a>.
       </p>
 
       {loading ? (
@@ -166,6 +191,11 @@ export function AdminsManager() {
                       {!a.is_active && (
                         <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-crimson/15 text-crimson">Inactivo</span>
                       )}
+                      {a.user_id && (
+                        <span title="Usa la contraseña de su cuenta de usuario" className="flex items-center gap-1 font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-moss/15 text-moss-dark">
+                          <Link2 size={10} /> Vinculada
+                        </span>
+                      )}
                     </div>
                     <p className="font-body text-xs text-ink-light">{a.email}</p>
                     <p className="font-body text-2xs text-ink-light mt-0.5">
@@ -182,14 +212,16 @@ export function AdminsManager() {
                   >
                     {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
                   </Select>
-                  <button
-                    type="button"
-                    onClick={() => { setResetTarget(a); setResetValue(""); }}
-                    className="p-1.5 text-leather-light hover:text-brass transition-colors"
-                    aria-label="Restablecer contraseña"
-                  >
-                    <KeyRound size={15} />
-                  </button>
+                  {!a.user_id && (
+                    <button
+                      type="button"
+                      onClick={() => { setResetTarget(a); setResetValue(""); }}
+                      className="p-1.5 text-leather-light hover:text-brass transition-colors"
+                      aria-label="Restablecer contraseña"
+                    >
+                      <KeyRound size={15} />
+                    </button>
+                  )}
                   <Button size="sm" variant={a.is_active ? "danger" : "secondary"} disabled={busyId === a.id} onClick={() => toggleActive(a)}>
                     {a.is_active ? "Desactivar" : "Reactivar"}
                   </Button>
@@ -200,32 +232,63 @@ export function AdminsManager() {
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nuevo administrador">
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nuevo administrador" closeOnBackdropClick={false}>
         <form onSubmit={handleCreate} className="flex flex-col gap-3">
-          <Input label="Nombre" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <Input label="Email" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          <div className="flex flex-col gap-1.5">
+            <label className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">Usuario</label>
+            {selectedUser ? (
+              <div className="flex items-center justify-between gap-2 px-3.5 py-2.5 border border-brass bg-brass/10 rounded-sm">
+                <div className="min-w-0">
+                  <p className="font-body text-sm text-ink truncate">{selectedUser.name ?? selectedUser.email}</p>
+                  <p className="font-body text-xs text-ink-light truncate">{selectedUser.email}</p>
+                </div>
+                <button type="button" onClick={() => setSelectedUser(null)} className="shrink-0 font-label text-2xs uppercase text-brass hover:text-brass-bright">
+                  Cambiar
+                </button>
+              </div>
+            ) : (
+              <>
+                <Input
+                  placeholder="Buscar por email o nombre…"
+                  value={userQuery}
+                  onChange={(e) => setUserQuery(e.target.value)}
+                  autoFocus
+                />
+                {userQuery.trim().length >= 2 && (
+                  <div className="border border-border rounded-sm max-h-48 overflow-y-auto">
+                    {searching ? (
+                      <p className="p-3 font-body text-sm italic text-ink-light">Buscando…</p>
+                    ) : userResults.length === 0 ? (
+                      <p className="p-3 font-body text-sm italic text-ink-light">Sin resultados.</p>
+                    ) : (
+                      userResults.map((u) => (
+                        <button
+                          key={u.id}
+                          type="button"
+                          onClick={() => { setSelectedUser(u); setUserQuery(""); setUserResults([]); }}
+                          className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-brass/10 border-t border-border/60 first:border-t-0"
+                        >
+                          <Search size={13} className="shrink-0 text-leather-light" />
+                          <div className="min-w-0">
+                            <p className="font-body text-sm text-ink truncate">{u.name ?? u.email}</p>
+                            <p className="font-body text-xs text-ink-light truncate">{u.email}</p>
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+            <p className="font-body text-2xs text-ink-light/70">
+              Solo aparecen usuarios que todavía no son administradores.
+            </p>
+          </div>
           <Select label="Rol" required value={form.role_id} onChange={(e) => setForm({ ...form, role_id: e.target.value })}>
             <option value="">Elegí un rol…</option>
             {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
           </Select>
-          <Input
-            label="Contraseña"
-            type="text"
-            required
-            minLength={8}
-            placeholder="Mínimo 8 caracteres"
-            value={form.password}
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
-          />
-          <Input
-            label="Confirmar contraseña"
-            type="text"
-            required
-            minLength={8}
-            value={form.confirmPassword}
-            onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
-          />
-          <Button type="submit" loading={saving} className="mt-2">Crear</Button>
+          <Button type="submit" loading={saving} disabled={!selectedUser} className="mt-2">Crear</Button>
         </form>
       </Modal>
 

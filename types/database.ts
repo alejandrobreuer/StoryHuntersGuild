@@ -40,6 +40,11 @@ export interface ShgAdminUser {
   email:                 string;
   name:                  string;
   role_id:               string;
+  /** Null for admin-only accounts (predate linking, or legacy) — those keep
+   * authenticating against this row's own password_hash. Set for accounts
+   * granted to an existing shg_users account, which authenticate against
+   * that user's password_hash instead (see admin-sign-in route). */
+  user_id:               string | null;
   password_hash:         string | null;
   failed_login_attempts: number;
   locked_until:          string | null;

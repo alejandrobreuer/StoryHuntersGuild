@@ -21,20 +21,28 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     return NextResponse.json({ error: "No podés desactivar tu propia cuenta." }, { status: 422 });
   }
 
+  const admin = createAdminClient();
+
   const { resetPassword, ...fields } = parsed.data;
   const patch: Record<string, unknown> = { ...fields };
   if (resetPassword) {
+    const { data: target } = await admin.from("shg_admin_users").select("user_id").eq("id", params.id).maybeSingle();
+    if (target?.user_id) {
+      return NextResponse.json(
+        { error: "Esta cuenta usa la contraseña de su cuenta de usuario — no se puede restablecer acá." },
+        { status: 422 },
+      );
+    }
     patch.password_hash = await hashPassword(resetPassword);
     patch.failed_login_attempts = 0;
     patch.locked_until = null;
   }
 
-  const admin = createAdminClient();
   const { data, error: updateError } = await admin
     .from("shg_admin_users")
     .update(patch)
     .eq("id", params.id)
-    .select("id, email, name, is_active, created_at, last_login_at, role:shg_security_roles(id, name)")
+    .select("id, email, name, is_active, created_at, last_login_at, user_id, role:shg_security_roles(id, name)")
     .single();
 
   if (updateError) return NextResponse.json({ error: "No se pudo actualizar el administrador." }, { status: 500 });
