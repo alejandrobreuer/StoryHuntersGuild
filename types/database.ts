@@ -53,7 +53,7 @@ export interface ShgAdminUser {
 export type PermissionKey =
   | "events" | "venues" | "games" | "tags" | "users" | "quests"
   | "ranks" | "badges" | "feature_flags" | "bookings" | "reports"
-  | "settings" | "roles" | "turn_ins" | "rol";
+  | "settings" | "roles" | "turn_ins" | "rol" | "planning" | "planning_admin";
 
 export interface ShgSecurityRole {
   id:                 string;
@@ -75,6 +75,8 @@ export interface ShgSecurityRole {
   perm_roles:         boolean;
   perm_turn_ins:      boolean;
   perm_rol:           boolean;
+  perm_planning:       boolean;
+  perm_planning_admin: boolean;
   created_at:         string;
   updated_at:         string;
 }
@@ -568,6 +570,80 @@ export interface ShgRolNpcFaction {
   faction_id: string;
   /** True when the NPC used to belong to this faction but no longer does — shown as "Ex-<faction>". */
   is_former:  boolean;
+}
+
+// ─── Planning (epics, tasks, comments, templates) ────────────────────────────
+// owner_id/assignee_id/created_by/author_id all reference shg_admin_users —
+// this app has no "profiles" table, and no public-facing user is ever
+// involved in Planning.
+
+export type PlanningEpicStatus = "planning" | "in_progress" | "done" | "cancelled";
+export type PlanningTaskStatus = "todo" | "in_progress" | "blocked" | "done";
+
+export interface ShgEpic {
+  id:          string;
+  title:       string;
+  description: string | null;
+  status:      PlanningEpicStatus;
+  event_id:    string | null;
+  owner_id:    string | null;
+  due_date:    string | null;
+  created_by:  string | null;
+  created_at:  string;
+  updated_at:  string;
+}
+
+export interface ShgTask {
+  id:           string;
+  epic_id:      string;
+  title:        string;
+  description:  string | null;
+  status:       PlanningTaskStatus;
+  assignee_id:  string | null;
+  due_date:     string | null;
+  /** Ordering within (epic_id, status) — not shared across the whole epic. */
+  position:     number;
+  completed_at: string | null;
+  created_by:   string | null;
+  created_at:   string;
+  updated_at:   string;
+}
+
+export interface ShgTaskComment {
+  id:         string;
+  task_id:    string;
+  author_id:  string | null;
+  body:       string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ShgEpicTemplate {
+  id:          string;
+  name:        string;
+  description: string | null;
+  created_at:  string;
+  updated_at:  string;
+}
+
+export interface ShgTemplateTask {
+  id:              string;
+  template_id:     string;
+  title:           string;
+  description:     string | null;
+  /** Days before the epic's due date; null = no due date for this task. */
+  due_offset_days: number | null;
+  position:        number;
+  created_at:      string;
+  updated_at:      string;
+}
+
+/** A person selectable as an epic owner / task assignee — any shg_admin_user
+ * whose role currently has perm_planning. */
+export interface ShgPlanningAssignee {
+  id:    string;
+  name:  string;
+  email: string;
 }
 
 // ─── Session payloads (signed into the shg_session / shg_admin_session cookies) ──

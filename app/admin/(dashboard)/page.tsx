@@ -1,5 +1,8 @@
+import { redirect } from "next/navigation";
 import { ClipboardList, CalendarCheck, Users, Dice5 } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAdminUser } from "@/lib/auth/guard";
+import { isPlanningOnlyRole } from "@/lib/auth/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +26,9 @@ async function getStats() {
 }
 
 export default async function AdminDashboardPage() {
+  const admin = await getAdminUser();
+  if (admin && isPlanningOnlyRole(admin.permissions)) redirect("/admin/planning/my-tasks");
+
   const stats = await getStats();
 
   const tiles = [

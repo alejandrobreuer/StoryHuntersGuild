@@ -21,6 +21,8 @@ export const PERMISSIONS = [
   { key: "settings",      column: "perm_settings",      label: "Configuración" },
   { key: "roles",         column: "perm_roles",         label: "Roles y Administradores" },
   { key: "rol",           column: "perm_rol",           label: "Gremio (Rol)" },
+  { key: "planning",       column: "perm_planning",       label: "Planificación" },
+  { key: "planning_admin", column: "perm_planning_admin", label: "Planificación (admin)" },
 ] as const satisfies { key: PermissionKey; column: keyof ShgSecurityRole; label: string }[];
 
 export type PermissionMap = Record<PermissionKey, boolean>;
@@ -29,4 +31,12 @@ export function permissionMapFromRole(role: Pick<ShgSecurityRole, (typeof PERMIS
   const map = {} as PermissionMap;
   for (const { key, column } of PERMISSIONS) map[key] = Boolean(role[column]);
   return map;
+}
+
+/** True for a role that can only reach Planning (has `planning`, lacks every
+ * other section) — this app's equivalent of the spec's "staff" tier. Used to
+ * send that admin straight to My tasks instead of the main dashboard. */
+export function isPlanningOnlyRole(permissions: PermissionMap): boolean {
+  if (!permissions.planning) return false;
+  return PERMISSIONS.every(({ key }) => key === "planning" || !permissions[key]);
 }

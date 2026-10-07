@@ -16,6 +16,21 @@ export function formatARS(amount: number): string {
 // on the server (Next.js server components render in the host's UTC clock).
 export const EVENT_TIME_ZONE = "America/Argentina/Buenos_Aires";
 
+// en-CA formats as yyyy-mm-dd, which is exactly a `date` column's wire
+// format — unlike formatDateTime/formatDate below, these pin a plain
+// *date* (no time-of-day) to Buenos Aires, for comparisons like "is this
+// task's due_date before today" that must not depend on the server's UTC
+// clock rolling the date over at a different moment than Buenos Aires does.
+const DATE_ONLY_FORMAT = new Intl.DateTimeFormat("en-CA", { timeZone: EVENT_TIME_ZONE });
+
+export function toISODateInEventTimeZone(d: Date | string): string {
+  return DATE_ONLY_FORMAT.format(typeof d === "string" ? new Date(d) : d);
+}
+
+export function todayISOInEventTimeZone(): string {
+  return DATE_ONLY_FORMAT.format(new Date());
+}
+
 export function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleDateString("es-AR", {
     weekday: "long",

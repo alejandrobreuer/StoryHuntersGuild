@@ -19,4 +19,6 @@ export const roleSchema = z.object({
   perm_settings:      z.boolean(),
   perm_roles:         z.boolean(),
   perm_rol:           z.boolean(),
+  perm_planning:       z.boolean(),
+  perm_planning_admin: z.boolean(),
 });
