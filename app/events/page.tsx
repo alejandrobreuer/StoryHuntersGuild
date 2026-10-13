@@ -44,15 +44,26 @@ export default async function EventsPage({
 
   const events = rawEvents ?? [];
   const eventIds = events.map((e) => e.id);
+  const finishedEventIds = events.filter((e) => e.ended_at).map((e) => e.id);
+
   const remainingMap = new Map<string, number>();
-  if (eventIds.length > 0) {
-    const { data: remainingRows } = await admin
-      .from("shg_event_remaining")
-      .select("event_id, remaining")
-      .in("event_id", eventIds);
-    for (const r of remainingRows ?? []) remainingMap.set(r.event_id, r.remaining);
-  }
-  const enrichedEvents = events.map((e) => ({ ...e, remaining: remainingMap.get(e.id) ?? e.capacity })) as unknown as ShgEventListItem[];
+  const attendedMap = new Map<string, number>();
+  const [{ data: remainingRows }, { data: attendedRows }] = await Promise.all([
+    eventIds.length > 0
+      ? admin.from("shg_event_remaining").select("event_id, remaining").in("event_id", eventIds)
+      : Promise.resolve({ data: [] }),
+    finishedEventIds.length > 0
+      ? admin.from("shg_bookings").select("event_id, guest_count").eq("status", "approved").eq("attended", true).in("event_id", finishedEventIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+  for (const r of remainingRows ?? []) remainingMap.set(r.event_id, r.remaining);
+  for (const b of attendedRows ?? []) attendedMap.set(b.event_id, (attendedMap.get(b.event_id) ?? 0) + b.guest_count);
+
+  const enrichedEvents = events.map((e) => ({
+    ...e,
+    remaining: remainingMap.get(e.id) ?? e.capacity,
+    attended_count: e.ended_at ? (attendedMap.get(e.id) ?? 0) : undefined,
+  })) as unknown as ShgEventListItem[];
 
   return (
     <main className="max-w-6xl mx-auto px-6 py-14">

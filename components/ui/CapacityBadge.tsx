@@ -33,3 +33,18 @@ export function CapacityBadge({ remaining, className }: CapacityBadgeProps) {
     </div>
   );
 }
+
+/** Same crosshair-seal shape as CapacityBadge, for a finished event's actual
+ * turnout instead of remaining availability — moss (not crimson/leather)
+ * since it's no longer about scarcity. */
+export function AttendedBadge({ count, className }: { count: number; className?: string }) {
+  return (
+    <div className={cn("grid place-items-center size-16 shrink-0 rounded-full border-2 border-moss-light bg-moss shadow-seal", className)}>
+      <Crosshair size={64} strokeWidth={0.75} className="col-start-1 row-start-1 size-full text-moss-light/50" />
+      <div className="col-start-1 row-start-1 flex flex-col items-center leading-none">
+        <span className="font-label text-lg font-bold text-parchment">{count}</span>
+        <span className="font-label text-[0.5rem] uppercase tracking-widest text-parchment/80">asistieron</span>
+      </div>
+    </div>
+  );
+}

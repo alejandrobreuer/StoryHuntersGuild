@@ -3,7 +3,7 @@ import Image from "next/image";
 import { MapPin, Radio, ArrowRight } from "lucide-react";
 import { formatARS, formatDateTime } from "@/lib/formatting";
 import { EVENT_TYPE_LABELS } from "@/lib/gamification/eventTypes";
-import { CapacityBadge } from "@/components/ui/CapacityBadge";
+import { CapacityBadge, AttendedBadge } from "@/components/ui/CapacityBadge";
 import { cn } from "@/lib/utils";
 import type { ShgEventListItem } from "@/types/database";
 
@@ -17,6 +17,7 @@ interface EventCardProps {
  * edges + a pinned-notice feel, capacity shown as a crosshair-seal badge. */
 export function EventCard({ event, showRewards }: EventCardProps) {
   const isLive = Boolean(event.started_at) && !event.ended_at;
+  const isFinished = Boolean(event.ended_at);
 
   return (
     // The badge lives in this outer, unclipped wrapper — torn-edge's
@@ -31,7 +32,8 @@ export function EventCard({ event, showRewards }: EventCardProps) {
       <Link
         href={`/events/${event.id}`}
         className={cn(
-          "group relative block no-underline torn-edge pin-dot surface-parchment p-5 transition-transform duration-200 hover:-rotate-1 hover:shadow-parchment-lg",
+          "group relative block no-underline torn-edge pin-dot surface-parchment p-5 transition-transform duration-200",
+          isFinished ? "opacity-60 grayscale hover:opacity-80" : "hover:-rotate-1 hover:shadow-parchment-lg",
           isLive && "ring-2 ring-crimson shadow-glow"
         )}
       >
@@ -68,7 +70,11 @@ export function EventCard({ event, showRewards }: EventCardProps) {
             </div>
           )}
         </div>
-        {!isLive && <CapacityBadge remaining={event.remaining} />}
+        {isFinished ? (
+          <AttendedBadge count={event.attended_count ?? 0} />
+        ) : (
+          !isLive && <CapacityBadge remaining={event.remaining} />
+        )}
       </div>
 
       {isLive ? (
@@ -76,6 +82,10 @@ export function EventCard({ event, showRewards }: EventCardProps) {
           <span className="inline-flex items-center gap-1.5 font-label text-xs uppercase tracking-widest px-4 py-2 rounded-sm bg-crimson text-crimson-foreground group-hover:bg-crimson/90 transition-colors">
             Ver evento <ArrowRight size={13} />
           </span>
+        </div>
+      ) : isFinished ? (
+        <div className="mt-4 pt-3 border-t border-border flex items-center justify-center">
+          <span className="font-label text-sm uppercase tracking-widest text-leather-light">Finalizado</span>
         </div>
       ) : (
         <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">

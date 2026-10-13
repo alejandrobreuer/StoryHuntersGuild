@@ -187,6 +187,10 @@ export interface ShgEventWithVenue extends ShgEvent {
 export interface ShgEventListItem extends ShgEvent {
   venue:     Pick<ShgVenuePublic, "id" | "name" | "city">;
   remaining: number;
+  /** Sum of guest_count across approved+attended bookings — only populated
+   * for finished events (ended_at set), where EventCard shows it instead
+   * of the remaining-spots badge. */
+  attended_count?: number;
 }
 
 // ─── Bookings ───────────────────────────────────────────────────────────────
