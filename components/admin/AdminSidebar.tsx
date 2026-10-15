@@ -7,6 +7,7 @@ import {
   Users, ScrollText, UserCog, FileText, ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { NotificationBell } from "@/components/admin/NotificationBell";
 import type { PermissionKey } from "@/types/database";
 
 const LINKS: { href: string; label: string; icon: typeof LayoutDashboard; perm?: PermissionKey | PermissionKey[] }[] = [
@@ -45,9 +46,12 @@ export function AdminSidebar({ permissions }: AdminSidebarProps) {
 
   return (
     <aside className="w-56 shrink-0 bg-[#1c1810] border-r border-brass/20 min-h-screen flex flex-col p-3">
-      <div className="px-2 py-3 mb-2">
-        <span className="font-display text-sm text-brass-light">Story Hunters</span>
-        <span className="block font-label text-2xs uppercase tracking-widest text-parchment-dark">Admin</span>
+      <div className="flex items-start justify-between px-2 py-3 mb-2">
+        <div>
+          <span className="font-display text-sm text-brass-light">Story Hunters</span>
+          <span className="block font-label text-2xs uppercase tracking-widest text-parchment-dark">Admin</span>
+        </div>
+        <NotificationBell />
       </div>
       <nav className="flex flex-col gap-1 flex-1">
         {links.map(({ href, label, icon: Icon }) => {

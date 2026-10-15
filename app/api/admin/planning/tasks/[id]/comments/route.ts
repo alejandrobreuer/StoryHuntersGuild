@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requirePermissionAny } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { commentSchema } from "@/lib/validation/planning";
+import { notifyAdmins, taskLink } from "@/lib/notifications";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const { error } = await requirePermissionAny(["planning", "planning_admin"]);
@@ -39,5 +40,24 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     .single();
 
   if (insertError) return NextResponse.json({ error: "No se pudo publicar el comentario." }, { status: 500 });
+
+  // The task's assignee and creator hear about it (never the comment's own author).
+  const { data: task } = await admin
+    .from("shg_tasks")
+    .select("id, epic_id, title, assignee_id, created_by")
+    .eq("id", params.id)
+    .maybeSingle();
+  if (task) {
+    await notifyAdmins({
+      recipientIds: [task.assignee_id, task.created_by],
+      actorId:      user.id,
+      type:         "task_comment",
+      title:        (actor) => `${actor} comentó en "${task.title}"`,
+      body:         parsed.data.body,
+      link:         taskLink(task.epic_id, task.id),
+      taskId:       task.id,
+    });
+  }
+
   return NextResponse.json({ data }, { status: 201 });
 }

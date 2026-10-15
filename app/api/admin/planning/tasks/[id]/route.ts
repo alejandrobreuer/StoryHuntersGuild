@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requirePermissionAny } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { taskUpdateSchema } from "@/lib/validation/planning";
+import { notifyAdmins, taskLink } from "@/lib/notifications";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const { error } = await requirePermissionAny(["planning", "planning_admin"]);
@@ -20,7 +21,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const { error } = await requirePermissionAny(["planning", "planning_admin"]);
+  const { user, error } = await requirePermissionAny(["planning", "planning_admin"]);
   if (error) return error;
 
   let body: unknown;
@@ -34,6 +35,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const admin = createAdminClient();
   const fields: Record<string, unknown> = { ...parsed.data };
+
+  // Read the previous assignee so only an actual change of assignee notifies.
+  const { data: before } = parsed.data.assignee_id !== undefined
+    ? await admin.from("shg_tasks").select("assignee_id").eq("id", params.id).maybeSingle()
+    : { data: null };
+
   // Mirrors shg_planning_reorder_tasks' completed_at logic for the
   // non-drag edit path (status dropdown in the side panel).
   if (parsed.data.status === "done") {
@@ -51,6 +58,18 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     .single();
 
   if (updateError) return NextResponse.json({ error: "No se pudo actualizar la tarea." }, { status: 500 });
+
+  if (data.assignee_id && before && before.assignee_id !== data.assignee_id) {
+    await notifyAdmins({
+      recipientIds: [data.assignee_id],
+      actorId:      user.id,
+      type:         "task_assigned",
+      title:        (actor) => `${actor} te asignó la tarea "${data.title}"`,
+      link:         taskLink(data.epic_id, data.id),
+      taskId:       data.id,
+    });
+  }
+
   return NextResponse.json({ data });
 }
 

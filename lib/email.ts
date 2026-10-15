@@ -8,7 +8,7 @@ function wrapHtml(title: string, bodyHtml: string): string {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${title}</title>
+  <title>${escapeHtml(title)}</title>
 </head>
 <body style="margin:0;padding:0;background:#3d3830;font-family:Georgia,serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#3d3830;padding:32px 16px;">
@@ -65,6 +65,33 @@ export async function sendBookingConfirmationEmail(params: {
     <p style="margin:0;font-size:14px;color:#4a3520;">
       Personas: ${params.guestCount}<br/>
       Total: ${params.cost}
+    </p>
+  `);
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/** Planner notifications (see lib/notifications.ts). title/body carry
+ * free-text task titles and comments typed by staff, so they're escaped. */
+export async function sendAdminNotificationEmail(params: {
+  email: string; name: string; title: string; body: string | null; url: string;
+}): Promise<void> {
+  await send(params.email, params.title, `
+    <p style="margin:0 0 8px;font-size:18px;font-weight:600;color:#2b1d0e;">${escapeHtml(params.title)}</p>
+    ${params.body ? `
+    <p style="margin:0 0 16px;font-size:14px;color:#4a3520;line-height:1.6;white-space:pre-wrap;border-left:3px solid #c9b07a;padding-left:12px;">${escapeHtml(params.body)}</p>
+    ` : ""}
+    <p style="margin:0;">
+      <a href="${params.url}" style="display:inline-block;background:#2b1d0e;color:#d4a843;padding:10px 20px;text-decoration:none;font-size:14px;font-weight:600;">
+        Ver en el panel
+      </a>
     </p>
   `);
 }

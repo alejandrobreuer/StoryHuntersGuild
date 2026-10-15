@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requirePermissionAny } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { taskCreateSchema } from "@/lib/validation/planning";
+import { notifyAdmins, taskLink } from "@/lib/notifications";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const { error } = await requirePermissionAny(["planning", "planning_admin"]);
@@ -67,5 +68,17 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     .single();
 
   if (insertError) return NextResponse.json({ error: "No se pudo crear la tarea." }, { status: 500 });
+
+  if (data.assignee_id) {
+    await notifyAdmins({
+      recipientIds: [data.assignee_id],
+      actorId:      user.id,
+      type:         "task_assigned",
+      title:        (actor) => `${actor} te asignó la tarea "${data.title}"`,
+      link:         taskLink(params.id, data.id),
+      taskId:       data.id,
+    });
+  }
+
   return NextResponse.json({ data: { ...data, comment_count: 0 } }, { status: 201 });
 }
