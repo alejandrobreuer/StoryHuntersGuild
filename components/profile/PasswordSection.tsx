@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { PasswordForm } from "@/components/profile/PasswordForm";
 
-export function PasswordSection({ hasPassword }: { hasPassword: boolean }) {
+export function PasswordSection({ hasPassword, email }: { hasPassword: boolean; email: string }) {
   const [open, setOpen] = React.useState(false);
 
   return (
@@ -22,7 +22,7 @@ export function PasswordSection({ hasPassword }: { hasPassword: boolean }) {
             Todavía no tenés una contraseña configurada. Creá una para poder iniciar sesión.
           </p>
         )}
-        <PasswordForm hasPassword={hasPassword} />
+        <PasswordForm hasPassword={hasPassword} email={email} />
       </Modal>
     </>
   );

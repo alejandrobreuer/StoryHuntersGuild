@@ -330,7 +330,7 @@ export default async function ProfilePage() {
           <p className="font-body text-sm text-ink mb-4">
             <span className="text-ink-light">Email:</span> {user?.email ?? sessionUser.email}
           </p>
-          <PasswordSection hasPassword={Boolean(user?.password_hash)} />
+          <PasswordSection hasPassword={Boolean(user?.password_hash)} email={user?.email ?? sessionUser.email} />
         </section>
       </div>
       </div>

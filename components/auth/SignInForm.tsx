@@ -68,7 +68,7 @@ export function SignInForm() {
       </p>
 
       <p className="mt-2 text-center font-body text-xs text-ink-light">
-        ¿Olvidaste tu contraseña? Escribinos y un Asistente del Gremio te ayuda a restablecerla.
+        <Link href="/forgot-password" className="text-brass underline">¿Olvidaste tu contraseña?</Link>
       </p>
 
       <p className="mt-6 text-2xs text-leather-light font-body text-center">
