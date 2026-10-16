@@ -116,8 +116,8 @@ function FactionsPanel({ factions, onChanged }: { factions: ShgRolFaction[]; onC
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar facción" : "Nueva facción"}>
-        <form onSubmit={handleSave} className="flex flex-col gap-3">
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar facción" : "Nueva facción"} footer={<Button type="submit" form="npcs-manager-form" loading={saving} className="w-full">Guardar</Button>}>
+        <form id="npcs-manager-form" onSubmit={handleSave} className="flex flex-col gap-3">
           <Input label="Nombre" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <Textarea label="Descripción (opcional)" rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           <Input
@@ -126,7 +126,6 @@ function FactionsPanel({ factions, onChanged }: { factions: ShgRolFaction[]; onC
             value={form.sort_order}
             onChange={(e) => setForm({ ...form, sort_order: e.target.value })}
           />
-          <Button type="submit" loading={saving} className="mt-2">Guardar</Button>
         </form>
       </Modal>
     </div>
@@ -263,10 +262,9 @@ function TagsPanel({ tags, onChanged }: { tags: ShgRolNpcTag[]; onChanged: () =>
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar tag" : "Nuevo tag"}>
-        <form onSubmit={handleSave} className="flex flex-col gap-3">
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar tag" : "Nuevo tag"} footer={<Button type="submit" form="npcs-manager-form-2" loading={saving} className="w-full">Guardar</Button>}>
+        <form id="npcs-manager-form-2" onSubmit={handleSave} className="flex flex-col gap-3">
           <Input label="Nombre" required value={form.name} onChange={(e) => setForm({ name: e.target.value })} />
-          <Button type="submit" loading={saving} className="mt-2">Guardar</Button>
         </form>
       </Modal>
     </div>
@@ -571,8 +569,8 @@ export function NpcsManager() {
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar NPC" : "Nuevo NPC"} className="max-w-lg">
-        <form onSubmit={handleSave} className="flex flex-col gap-3">
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar NPC" : "Nuevo NPC"} className="max-w-lg" footer={<Button type="submit" form="npcs-manager-form-3" loading={saving} className="w-full">Guardar</Button>}>
+        <form id="npcs-manager-form-3" onSubmit={handleSave} className="flex flex-col gap-3">
           <Input label="Nombre" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <Textarea label="Descripción" required rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
 
@@ -610,8 +608,6 @@ export function NpcsManager() {
               {form.hidden ? "Oculto para jugadores" : "Visible para jugadores"}
             </span>
           </label>
-
-          <Button type="submit" loading={saving} className="mt-2">Guardar</Button>
         </form>
       </Modal>
     </div>

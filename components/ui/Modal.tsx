@@ -12,16 +12,20 @@ interface ModalProps {
   children:  React.ReactNode;
   className?: string;
   titleClassName?: string;
+  /** Classes for the scrolling body (padding defaults to p-7). */
+  bodyClassName?: string;
+  /** Pinned below the scrolling body — typically the form's submit button.
+   * It renders outside the <form>, so pass the button form="<form id>". */
+  footer?: React.ReactNode;
   /** false disables closing by clicking the backdrop — only the X button
    * (and the caller's own onClose calls) can close it. Defaults to true.
    * Meant for forms where an accidental outside click would otherwise
    * silently discard everything typed so far. */
   closeOnBackdropClick?: boolean;
-  stickyHeader?: boolean;
 }
 
 export function Modal({
-  open, onClose, title, children, className, titleClassName, closeOnBackdropClick = true, stickyHeader = false,
+  open, onClose, title, children, className, titleClassName, bodyClassName, footer, closeOnBackdropClick = true,
 }: ModalProps) {
   // Portal straight to <body>. Some callers render the trigger inside a
   // transformed ancestor (e.g. a rotated quest card) — a CSS transform on
@@ -45,41 +49,32 @@ export function Modal({
       className="fixed inset-0 z-[200] flex items-center justify-center bg-ink/85 p-4"
       onClick={(e) => { if (closeOnBackdropClick && e.target === e.currentTarget) onClose(); }}
     >
+      {/* Header and footer stay put; only the body between them scrolls, so
+          the title, close X and submit button are always reachable. */}
       <div className={cn(
-        "relative w-full max-w-md surface-parchment p-7 animate-fade-in shadow-parchment-lg",
+        "relative w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden surface-parchment animate-fade-in shadow-parchment-lg",
         className
       )}>
-        {stickyHeader ? (
-          // Sticky offsets are measured inside the p-7 padding, so -top-7 /
-          // -mx-7 / -mt-7 pull the bar flush to the modal's top edge; the
-          // solid background keeps scrolled content from showing through.
-          <div className="sticky -top-7 z-20 -mx-7 -mt-7 mb-5 px-7 pt-6 pb-3 flex items-start justify-between gap-4 bg-parchment border-b-2 border-border">
-            <h2 className={cn("font-label font-semibold text-ink", titleClassName ?? "text-lg")}>
-              {title}
-            </h2>
-            <button
-              onClick={onClose}
-              className="shrink-0 mt-0.5 text-leather-light hover:text-ink transition-colors"
-              aria-label="Cerrar"
-            >
-              <X size={20} />
-            </button>
+        <div className="shrink-0 flex items-center justify-between gap-4 px-7 py-3 bg-parchment border-b-2 border-border">
+          <h2 className={cn("font-label font-semibold text-ink", titleClassName ?? "text-lg")}>
+            {title}
+          </h2>
+          <button
+            onClick={onClose}
+            className="shrink-0 ml-auto text-leather-light hover:text-ink transition-colors"
+            aria-label="Cerrar"
+          >
+            <X size={20} />
+          </button>
+        </div>
+        <div className={cn("flex-1 min-h-0 overflow-y-auto p-7", bodyClassName)}>
+          {children}
+        </div>
+        {footer && (
+          <div className="shrink-0 px-7 py-4 bg-parchment-dark border-t-2 border-border">
+            {footer}
           </div>
-        ) : (
-          <>
-            <button
-              onClick={onClose}
-              className="absolute top-3 right-3 text-leather-light hover:text-ink transition-colors"
-              aria-label="Cerrar"
-            >
-              <X size={20} />
-            </button>
-            <h2 className={cn("font-label font-semibold text-ink mb-5 pb-3 border-b-2 border-border", titleClassName ?? "text-lg")}>
-              {title}
-            </h2>
-          </>
         )}
-        {children}
       </div>
     </div>,
     document.body

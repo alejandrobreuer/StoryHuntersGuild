@@ -53,8 +53,8 @@ export function DisplayNameEditor({ currentName, fallback }: { currentName: stri
         </button>
       </div>
 
-      <Modal open={open} onClose={() => setOpen(false)} title="Cambiar nombre para mostrar">
-        <form onSubmit={handleSave} className="flex flex-col gap-3">
+      <Modal open={open} onClose={() => setOpen(false)} title="Cambiar nombre para mostrar" footer={<Button type="submit" form="display-name-editor-form" loading={saving} className="w-full">Guardar</Button>}>
+        <form id="display-name-editor-form" onSubmit={handleSave} className="flex flex-col gap-3">
           <Input
             label="Nombre para mostrar"
             required
@@ -64,7 +64,6 @@ export function DisplayNameEditor({ currentName, fallback }: { currentName: stri
             placeholder="Solo letras y espacios"
             helperText="Se muestra en tu perfil y en el gremio. Solo letras, sin números ni símbolos, y debe ser único."
           />
-          <Button type="submit" loading={saving} className="mt-1">Guardar</Button>
         </form>
       </Modal>
     </>

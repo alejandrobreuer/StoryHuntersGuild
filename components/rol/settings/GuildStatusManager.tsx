@@ -96,11 +96,10 @@ export function GuildStatusManager({ onChanged }: { onChanged?: () => void }) {
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar estado" : "Nuevo estado"}>
-        <form onSubmit={handleSave} className="flex flex-col gap-3">
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar estado" : "Nuevo estado"} footer={<Button type="submit" form="guild-status-manager-form" loading={saving} className="w-full">Guardar</Button>}>
+        <form id="guild-status-manager-form" onSubmit={handleSave} className="flex flex-col gap-3">
           <Input label="Nombre" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <Input label="Orden (menor = primero)" type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} />
-          <Button type="submit" loading={saving} className="mt-2">Guardar</Button>
         </form>
       </Modal>
     </div>

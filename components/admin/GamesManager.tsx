@@ -349,11 +349,11 @@ export function GamesManager() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         title={editing ? "Editar juego" : "Nuevo juego"}
-        className="max-w-2xl max-h-[85vh] overflow-y-auto"
+        className="max-w-2xl max-h-[85vh]"
         closeOnBackdropClick={false}
-        stickyHeader
+        footer={<Button type="submit" form="games-manager-form" loading={saving} className="w-full">Guardar</Button>}
       >
-        <form onSubmit={handleSave} className="flex flex-col gap-3">
+        <form id="games-manager-form" onSubmit={handleSave} className="flex flex-col gap-3">
           <Input label="Nombre" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <div className="grid grid-cols-3 gap-3">
             <Input label="Min. jugadores" type="number" min={1} required value={form.min_players} onChange={(e) => setForm({ ...form, min_players: Number(e.target.value) })} />
@@ -509,9 +509,6 @@ export function GamesManager() {
                 <RulesContent blocks={parseRulesMarkup(form.rules)} />
               </div>
             )}
-          </div>
-          <div className="sticky -bottom-7 z-10 -mx-7 -mb-7 mt-2 px-7 py-4 bg-parchment-dark border-t-2 border-border">
-            <Button type="submit" loading={saving} className="w-full">Guardar</Button>
           </div>
         </form>
       </Modal>

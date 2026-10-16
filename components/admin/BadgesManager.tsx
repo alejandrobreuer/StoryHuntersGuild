@@ -119,8 +119,8 @@ export function BadgesManager() {
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar insignia" : "Nueva insignia"}>
-        <form onSubmit={handleSave} className="flex flex-col gap-3">
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar insignia" : "Nueva insignia"} footer={<Button type="submit" form="badges-manager-form" loading={saving} className="w-full">Guardar</Button>}>
+        <form id="badges-manager-form" onSubmit={handleSave} className="flex flex-col gap-3">
           <Input label="Nombre" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <Input
             label="Ícono (un emoji corto)"
@@ -153,7 +153,6 @@ export function BadgesManager() {
               </label>
             </div>
           </div>
-          <Button type="submit" loading={saving} className="mt-2">Guardar</Button>
         </form>
       </Modal>
     </div>

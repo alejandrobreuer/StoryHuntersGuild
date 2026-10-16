@@ -123,8 +123,8 @@ export function VenuesManager() {
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar lugar" : "Nuevo lugar"}>
-        <form onSubmit={handleSave} className="flex flex-col gap-3">
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar lugar" : "Nuevo lugar"} footer={<Button type="submit" form="venues-manager-form" loading={saving} className="w-full">Guardar</Button>}>
+        <form id="venues-manager-form" onSubmit={handleSave} className="flex flex-col gap-3">
           <Input label="Nombre" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <Input label="Dirección" required value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
           <Input label="Ciudad" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
@@ -159,7 +159,6 @@ export function VenuesManager() {
             </div>
           </div>
           <Textarea label="Notas internas (no públicas)" rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-          <Button type="submit" loading={saving} className="mt-2">Guardar</Button>
         </form>
       </Modal>
     </div>

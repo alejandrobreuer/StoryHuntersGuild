@@ -86,10 +86,9 @@ export function TemplatesManager() {
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nueva plantilla">
-        <form onSubmit={handleCreate} className="flex flex-col gap-3">
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nueva plantilla" footer={<Button type="submit" form="templates-manager-form" loading={creating} className="w-full">Crear y editar tareas</Button>}>
+        <form id="templates-manager-form" onSubmit={handleCreate} className="flex flex-col gap-3">
           <Input label="Nombre" required value={name} onChange={(e) => setName(e.target.value)} autoFocus />
-          <Button type="submit" loading={creating} className="mt-2">Crear y editar tareas</Button>
         </form>
       </Modal>
     </div>

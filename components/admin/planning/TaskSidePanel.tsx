@@ -98,11 +98,11 @@ export function TaskSidePanel({ taskId, owners, currentUserId, canDeleteAnyComme
   }
 
   return (
-    <Modal open onClose={onClose} title="Tarea" className="max-w-lg w-[92vw] h-[92vh] flex flex-col p-0" titleClassName="hidden">
+    <Modal open onClose={onClose} title="Tarea" className="max-w-lg w-[92vw] h-[92vh] max-h-[92vh]" bodyClassName="p-0 flex flex-col">
       {!task ? (
         <p className="p-6 font-body italic text-ink-light">Cargando…</p>
       ) : (
-        <div className="flex-1 min-h-0 overflow-y-auto p-6 pt-10 flex flex-col gap-5">
+        <div className="flex-1 min-h-0 overflow-y-auto p-6 flex flex-col gap-5">
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}

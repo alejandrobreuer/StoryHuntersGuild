@@ -376,10 +376,9 @@ function SaveAsTemplateModal({ epicId, onClose }: { epicId: string; onClose: () 
   }
 
   return (
-    <Modal open onClose={onClose} title="Guardar como plantilla">
-      <form onSubmit={handleSave} className="flex flex-col gap-3">
+    <Modal open onClose={onClose} title="Guardar como plantilla" footer={<Button type="submit" form="epic-detail-view-form" loading={saving} className="w-full">Guardar</Button>}>
+      <form id="epic-detail-view-form" onSubmit={handleSave} className="flex flex-col gap-3">
         <Input label="Nombre de la plantilla" required value={name} onChange={(e) => setName(e.target.value)} autoFocus />
-        <Button type="submit" loading={saving} className="mt-2">Guardar</Button>
       </form>
     </Modal>
   );

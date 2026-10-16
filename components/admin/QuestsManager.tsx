@@ -433,8 +433,8 @@ export function QuestsManager() {
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar misión" : "Nueva misión"} className="max-w-xl max-h-[85vh] overflow-y-auto">
-        <form onSubmit={handleSave} className="flex flex-col gap-3">
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar misión" : "Nueva misión"} className="max-w-xl max-h-[85vh]" footer={<Button type="submit" form="quests-manager-form" loading={saving} className="w-full">Guardar</Button>}>
+        <form id="quests-manager-form" onSubmit={handleSave} className="flex flex-col gap-3">
           <Input label="Título" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
           <Textarea label="Narrativa (opcional)" rows={2} value={form.narrative} onChange={(e) => setForm({ ...form, narrative: e.target.value })} />
 
@@ -550,8 +550,6 @@ export function QuestsManager() {
               La misión de gremio solo aparece en la página de inicio dentro de esta ventana de fechas.
             </p>
           )}
-
-          <Button type="submit" loading={saving} className="mt-2">Guardar</Button>
         </form>
       </Modal>
     </div>

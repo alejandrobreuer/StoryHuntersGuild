@@ -117,8 +117,8 @@ export function CouponsManager() {
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nuevo cupón" closeOnBackdropClick={false}>
-        <form onSubmit={handleSave} className="flex flex-col gap-3">
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nuevo cupón" closeOnBackdropClick={false} footer={<Button type="submit" form="coupons-manager-form" loading={saving} className="w-full">Guardar</Button>}>
+        <form id="coupons-manager-form" onSubmit={handleSave} className="flex flex-col gap-3">
           <div className="flex items-end gap-2">
             <Input
               label="Código" required value={code}
@@ -135,7 +135,6 @@ export function CouponsManager() {
             onChange={(e) => setDiscountPercent(Math.max(1, Math.min(100, Number(e.target.value) || 1)))}
             wrapperClassName="w-32"
           />
-          <Button type="submit" loading={saving} className="mt-2">Guardar</Button>
         </form>
       </Modal>
     </div>

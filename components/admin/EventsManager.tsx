@@ -358,8 +358,8 @@ export function EventsManager() {
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? "Editar evento" : "Nuevo evento"} className="max-w-xl max-h-[85vh] overflow-y-auto">
-        <form onSubmit={handleSave} className="flex flex-col gap-3">
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? "Editar evento" : "Nuevo evento"} className="max-w-xl max-h-[85vh]" footer={<Button type="submit" form="events-manager-form" loading={saving} className="w-full">Guardar</Button>}>
+        <form id="events-manager-form" onSubmit={handleSave} className="flex flex-col gap-3">
           <Input label="Título" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
           <Textarea label="Descripción" rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
 
@@ -462,8 +462,6 @@ export function EventsManager() {
               </div>
             )}
           </div>
-
-          <Button type="submit" loading={saving} className="mt-2">Guardar</Button>
         </form>
       </Modal>
 
@@ -471,7 +469,7 @@ export function EventsManager() {
         open={viewOpen}
         onClose={() => setViewOpen(false)}
         title={viewingEvent?.title ?? "Evento"}
-        className="max-w-2xl max-h-[85vh] overflow-y-auto"
+        className="max-w-2xl max-h-[85vh]"
       >
         {loadingView ? (
           <p className="font-body italic text-ink-light">Cargando…</p>

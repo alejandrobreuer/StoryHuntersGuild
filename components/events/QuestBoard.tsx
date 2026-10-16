@@ -503,7 +503,7 @@ export function QuestBoard({ eventId, individualMissions, groupMissions, loggedI
         open={!!selectedIndividual}
         onClose={() => setSelected(null)}
         title={selectedIndividual?.title ?? ""}
-        className="max-w-lg max-h-[85vh] overflow-y-auto"
+        className="max-w-lg max-h-[85vh]"
       >
         {selectedIndividual && (
           <IndividualMissionDetail
@@ -524,7 +524,7 @@ export function QuestBoard({ eventId, individualMissions, groupMissions, loggedI
         open={!!selectedGroup}
         onClose={() => setSelected(null)}
         title={selectedGroup?.title ?? ""}
-        className="max-w-lg max-h-[85vh] overflow-y-auto"
+        className="max-w-lg max-h-[85vh]"
       >
         {selectedGroup && (
           <GroupMissionDetail

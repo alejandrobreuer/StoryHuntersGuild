@@ -131,8 +131,8 @@ export function GuildFeaturesManager({ refreshKey }: { refreshKey?: number } = {
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar función" : "Nueva función"}>
-        <form onSubmit={handleSave} className="flex flex-col gap-3">
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar función" : "Nueva función"} footer={<Button type="submit" form="guild-features-manager-form" loading={saving} className="w-full">Guardar</Button>}>
+        <form id="guild-features-manager-form" onSubmit={handleSave} className="flex flex-col gap-3">
           <Input label="Título" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
           <Textarea label="Descripción" required rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           <Input label="Beneficio destacado (opcional)" value={form.benefit} onChange={(e) => setForm({ ...form, benefit: e.target.value })} />
@@ -150,7 +150,6 @@ export function GuildFeaturesManager({ refreshKey }: { refreshKey?: number } = {
               {form.unlocked ? "Desbloqueada" : "Bloqueada"}
             </span>
           </label>
-          <Button type="submit" loading={saving} className="mt-2">Guardar</Button>
         </form>
       </Modal>
     </div>
