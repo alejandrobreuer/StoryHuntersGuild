@@ -351,6 +351,7 @@ export function GamesManager() {
         title={editing ? "Editar juego" : "Nuevo juego"}
         className="max-w-2xl max-h-[85vh] overflow-y-auto"
         closeOnBackdropClick={false}
+        stickyHeader
       >
         <form onSubmit={handleSave} className="flex flex-col gap-3">
           <Input label="Nombre" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />

@@ -17,10 +17,11 @@ interface ModalProps {
    * Meant for forms where an accidental outside click would otherwise
    * silently discard everything typed so far. */
   closeOnBackdropClick?: boolean;
+  stickyHeader?: boolean;
 }
 
 export function Modal({
-  open, onClose, title, children, className, titleClassName, closeOnBackdropClick = true,
+  open, onClose, title, children, className, titleClassName, closeOnBackdropClick = true, stickyHeader = false,
 }: ModalProps) {
   // Portal straight to <body>. Some callers render the trigger inside a
   // transformed ancestor (e.g. a rotated quest card) — a CSS transform on
@@ -48,16 +49,36 @@ export function Modal({
         "relative w-full max-w-md surface-parchment p-7 animate-fade-in shadow-parchment-lg",
         className
       )}>
-        <button
-          onClick={onClose}
-          className="absolute top-3 right-3 text-leather-light hover:text-ink transition-colors"
-          aria-label="Cerrar"
-        >
-          <X size={20} />
-        </button>
-        <h2 className={cn("font-label font-semibold text-ink mb-5 pb-3 border-b-2 border-border", titleClassName ?? "text-lg")}>
-          {title}
-        </h2>
+        {stickyHeader ? (
+          // Sticky offsets are measured inside the p-7 padding, so -top-7 /
+          // -mx-7 / -mt-7 pull the bar flush to the modal's top edge; the
+          // solid background keeps scrolled content from showing through.
+          <div className="sticky -top-7 z-20 -mx-7 -mt-7 mb-5 px-7 pt-6 pb-3 flex items-start justify-between gap-4 bg-parchment border-b-2 border-border">
+            <h2 className={cn("font-label font-semibold text-ink", titleClassName ?? "text-lg")}>
+              {title}
+            </h2>
+            <button
+              onClick={onClose}
+              className="shrink-0 mt-0.5 text-leather-light hover:text-ink transition-colors"
+              aria-label="Cerrar"
+            >
+              <X size={20} />
+            </button>
+          </div>
+        ) : (
+          <>
+            <button
+              onClick={onClose}
+              className="absolute top-3 right-3 text-leather-light hover:text-ink transition-colors"
+              aria-label="Cerrar"
+            >
+              <X size={20} />
+            </button>
+            <h2 className={cn("font-label font-semibold text-ink mb-5 pb-3 border-b-2 border-border", titleClassName ?? "text-lg")}>
+              {title}
+            </h2>
+          </>
+        )}
         {children}
       </div>
     </div>,
