@@ -509,8 +509,9 @@ export function GamesManager() {
               </div>
             )}
           </div>
-
-          <Button type="submit" loading={saving} className="mt-2">Guardar</Button>
+          <div className="sticky -bottom-7 z-10 -mx-7 -mb-7 mt-2 px-7 py-4 bg-parchment-dark border-t-2 border-border">
+            <Button type="submit" loading={saving} className="w-full">Guardar</Button>
+          </div>
         </form>
       </Modal>
     </div>
