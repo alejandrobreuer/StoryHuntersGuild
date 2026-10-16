@@ -7,8 +7,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
   if (error) return error;
 
   const admin = createAdminClient();
-  // shg_games.owner_id has ON DELETE SET NULL, so games owned by this
-  // entry are simply unassigned rather than blocking the delete.
+  // A trigger (048_shg_game_multiple_owners.sql) strips this id from every
+  // shg_games.owner_ids, so those games just lose this owner.
   const { error: deleteError } = await admin.from("shg_game_owners").delete().eq("id", params.id);
   if (deleteError) return NextResponse.json({ error: "No se pudo eliminar el dueño." }, { status: 500 });
   return NextResponse.json({ ok: true });

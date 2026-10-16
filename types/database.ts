@@ -146,15 +146,15 @@ export interface ShgGame {
   rules:             string | null;
   status:            GameStatus;
   /** Internal only — never present in public-facing query results. */
-  owner_id:          string | null;
+  owner_ids:         string[];
   created_at:        string;
   updated_at:        string;
 }
 
-/** Shape returned by public-facing game queries — `owner_id` is never
+/** Shape returned by public-facing game queries — `owner_ids` is never
  * selected for those, since GameCard/GameGrid cross into a client component
  * and whatever's in the query result gets serialized into the page. */
-export type ShgGamePublic = Omit<ShgGame, "owner_id">;
+export type ShgGamePublic = Omit<ShgGame, "owner_ids">;
 
 export interface ShgEvent {
   id:                string;
