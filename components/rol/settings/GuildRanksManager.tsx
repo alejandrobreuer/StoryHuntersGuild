@@ -98,12 +98,11 @@ export function GuildRanksManager() {
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar rango" : "Nuevo rango"}>
-        <form onSubmit={handleSave} className="flex flex-col gap-3">
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar rango" : "Nuevo rango"} footer={<Button type="submit" form="guild-ranks-manager-form" loading={saving} className="w-full">Guardar</Button>}>
+        <form id="guild-ranks-manager-form" onSubmit={handleSave} className="flex flex-col gap-3">
           <Input label="Nombre" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <Input label="Puntos necesarios" type="number" min={0} required value={form.points_threshold} onChange={(e) => setForm({ ...form, points_threshold: e.target.value })} />
           <Input label="Orden" type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} />
-          <Button type="submit" loading={saving} className="mt-2">Guardar</Button>
         </form>
       </Modal>
     </div>

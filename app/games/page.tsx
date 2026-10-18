@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 // Explicit column list (not `select("*")`): this query's result is passed
 // straight into GameGrid, a client component, so whatever's selected here
-// gets serialized into the page for every visitor. `owner_id` is admin-only
+// gets serialized into the page for every visitor. `owner_ids` is admin-only
 // and must never end up in that payload.
 const PUBLIC_GAME_COLUMNS = "id, name, slug, min_players, max_players, playtime_minutes, complexity, beginner_friendly, tags, image_url, description, bgg_link, rules, status, created_at, updated_at";
 

@@ -12,6 +12,8 @@ interface ModalProps {
   children:  React.ReactNode;
   className?: string;
   titleClassName?: string;
+  bodyClassName?: string;
+  footer?: React.ReactNode;
   /** false disables closing by clicking the backdrop — only the X button
    * (and the caller's own onClose calls) can close it. Defaults to true.
    * Meant for forms where an accidental outside click would otherwise
@@ -20,7 +22,7 @@ interface ModalProps {
 }
 
 export function Modal({
-  open, onClose, title, children, className, titleClassName, closeOnBackdropClick = true,
+  open, onClose, title, children, className, titleClassName, bodyClassName, footer, closeOnBackdropClick = true,
 }: ModalProps) {
   // Portal straight to <body>. Some callers render the trigger inside a
   // transformed ancestor (e.g. a rotated quest card) — a CSS transform on
@@ -45,20 +47,29 @@ export function Modal({
       onClick={(e) => { if (closeOnBackdropClick && e.target === e.currentTarget) onClose(); }}
     >
       <div className={cn(
-        "relative w-full max-w-md surface-parchment p-7 animate-fade-in shadow-parchment-lg",
+        "relative w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden surface-parchment animate-fade-in shadow-parchment-lg",
         className
       )}>
-        <button
-          onClick={onClose}
-          className="absolute top-3 right-3 text-leather-light hover:text-ink transition-colors"
-          aria-label="Cerrar"
-        >
-          <X size={20} />
-        </button>
-        <h2 className={cn("font-label font-semibold text-ink mb-5 pb-3 border-b-2 border-border", titleClassName ?? "text-lg")}>
-          {title}
-        </h2>
-        {children}
+        <div className="shrink-0 flex items-center justify-between gap-4 px-7 py-3 bg-parchment border-b-2 border-border">
+          <h2 className={cn("font-label font-semibold text-ink", titleClassName ?? "text-lg")}>
+            {title}
+          </h2>
+          <button
+            onClick={onClose}
+            className="shrink-0 ml-auto text-leather-light hover:text-ink transition-colors"
+            aria-label="Cerrar"
+          >
+            <X size={20} />
+          </button>
+        </div>
+        <div className={cn("flex-1 min-h-0 overflow-y-auto p-7", bodyClassName)}>
+          {children}
+        </div>
+        {footer && (
+          <div className="shrink-0 px-7 py-4 bg-parchment-dark border-t-2 border-border">
+            {footer}
+          </div>
+        )}
       </div>
     </div>,
     document.body

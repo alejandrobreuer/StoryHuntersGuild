@@ -232,8 +232,8 @@ export function AdminsManager() {
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nuevo administrador" closeOnBackdropClick={false}>
-        <form onSubmit={handleCreate} className="flex flex-col gap-3">
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Nuevo administrador" closeOnBackdropClick={false} footer={<Button type="submit" form="admins-manager-form" loading={saving} disabled={!selectedUser} className="w-full">Crear</Button>}>
+        <form id="admins-manager-form" onSubmit={handleCreate} className="flex flex-col gap-3">
           <div className="flex flex-col gap-1.5">
             <label className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">Usuario</label>
             {selectedUser ? (
@@ -288,12 +288,11 @@ export function AdminsManager() {
             <option value="">Elegí un rol…</option>
             {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
           </Select>
-          <Button type="submit" loading={saving} disabled={!selectedUser} className="mt-2">Crear</Button>
         </form>
       </Modal>
 
-      <Modal open={Boolean(resetTarget)} onClose={() => setResetTarget(null)} title={`Restablecer contraseña — ${resetTarget?.name ?? ""}`}>
-        <form onSubmit={handleResetPassword} className="flex flex-col gap-3">
+      <Modal open={Boolean(resetTarget)} onClose={() => setResetTarget(null)} title={`Restablecer contraseña — ${resetTarget?.name ?? ""}`} footer={<Button type="submit" form="admins-manager-form-2" loading={resetting} className="w-full">Restablecer</Button>}>
+        <form id="admins-manager-form-2" onSubmit={handleResetPassword} className="flex flex-col gap-3">
           <Input
             label="Nueva contraseña"
             type="text"
@@ -303,7 +302,6 @@ export function AdminsManager() {
             value={resetValue}
             onChange={(e) => setResetValue(e.target.value)}
           />
-          <Button type="submit" loading={resetting} className="mt-1">Restablecer</Button>
         </form>
       </Modal>
     </div>

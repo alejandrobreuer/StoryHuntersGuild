@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
 import { FieldStatus } from "@/components/admin/FieldStatus";
+import { OwnerMultiSelect } from "@/components/admin/OwnerMultiSelect";
 import { RulesContent } from "@/components/games/RulesContent";
 import { parseRulesMarkup } from "@/lib/rules-markup";
 import { cn } from "@/lib/utils";
@@ -20,7 +21,7 @@ const EMPTY = {
   name: "", min_players: 2, max_players: 4, playtime_minutes: 60,
   complexity: "light" as GameComplexity, beginner_friendly: false,
   tags: [] as string[], image_url: "", description: "", bgg_link: "", status: "available" as GameStatus, rules: "",
-  owner_id: null as string | null,
+  owner_ids: [] as string[],
 };
 
 const RULES_TOOLBAR: { label: string; kind: "line" | "wrap"; value: string; after?: string; placeholder: string }[] = [
@@ -86,6 +87,13 @@ export function GamesManager() {
     }));
   }
 
+  function toggleFormOwner(id: string) {
+    setForm((f) => ({
+      ...f,
+      owner_ids: f.owner_ids.includes(id) ? f.owner_ids.filter((o) => o !== id) : [...f.owner_ids, id],
+    }));
+  }
+
   function openNew() {
     setEditing(null);
     setForm(EMPTY);
@@ -100,7 +108,7 @@ export function GamesManager() {
       beginner_friendly: g.beginner_friendly, tags: g.tags,
       image_url: g.image_url ?? "", description: g.description ?? "",
       bgg_link: g.bgg_link ?? "", status: g.status, rules: g.rules ?? "",
-      owner_id: g.owner_id,
+      owner_ids: g.owner_ids ?? [],
     });
     setModalOpen(true);
   }
@@ -118,7 +126,7 @@ export function GamesManager() {
       const json = await res.json();
       if (!res.ok) { toast.error(json.error ?? "No se pudo agregar el dueño."); return; }
       setOwners((prev) => [...prev, json.data].sort((a, b) => a.name.localeCompare(b.name)));
-      setForm((f) => ({ ...f, owner_id: json.data.id }));
+      setForm((f) => ({ ...f, owner_ids: [...f.owner_ids, json.data.id] }));
       setNewOwnerName("");
     } finally {
       setAddingOwner(false);
@@ -126,10 +134,10 @@ export function GamesManager() {
   }
 
   async function handleDeleteOwner(owner: ShgGameOwner) {
-    if (!confirm(`¿Eliminar el dueño "${owner.name}"? Los juegos asignados quedarán sin dueño.`)) return;
+    if (!confirm(`¿Eliminar el dueño "${owner.name}"? Se quitará de todos los juegos donde esté asignado.`)) return;
     const res = await fetch(`/api/admin/owners/${owner.id}`, { method: "DELETE" });
     if (!res.ok) { toast.error("No se pudo eliminar."); return; }
-    setForm((f) => (f.owner_id === owner.id ? { ...f, owner_id: null } : f));
+    setForm((f) => ({ ...f, owner_ids: f.owner_ids.filter((id) => id !== owner.id) }));
     toast.success("Dueño eliminado.");
     load();
   }
@@ -199,7 +207,10 @@ export function GamesManager() {
   async function handleExportByOwner() {
     const ownerName = new Map(owners.map((o) => [o.id, o.name]));
     const rows = [...games]
-      .map((g) => ({ Juego: g.name, Dueño: (g.owner_id && ownerName.get(g.owner_id)) || "Sin asignar" }))
+      .map((g) => ({
+        Juego: g.name,
+        Dueño: (g.owner_ids ?? []).map((id) => ownerName.get(id)).filter(Boolean).join(", ") || "Sin asignar",
+      }))
       .sort((a, b) => a.Dueño.localeCompare(b.Dueño) || a.Juego.localeCompare(b.Juego));
 
     const XLSX = await import("xlsx");
@@ -338,10 +349,11 @@ export function GamesManager() {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         title={editing ? "Editar juego" : "Nuevo juego"}
-        className="max-w-2xl max-h-[85vh] overflow-y-auto"
+        className="max-w-2xl max-h-[85vh]"
         closeOnBackdropClick={false}
+        footer={<Button type="submit" form="games-manager-form" loading={saving} className="w-full">Guardar</Button>}
       >
-        <form onSubmit={handleSave} className="flex flex-col gap-3">
+        <form id="games-manager-form" onSubmit={handleSave} className="flex flex-col gap-3">
           <Input label="Nombre" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <div className="grid grid-cols-3 gap-3">
             <Input label="Min. jugadores" type="number" min={1} required value={form.min_players} onChange={(e) => setForm({ ...form, min_players: Number(e.target.value) })} />
@@ -376,33 +388,34 @@ export function GamesManager() {
 
           <div className="flex flex-col gap-1.5">
             <label className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">
-              Dueño <span className="normal-case font-body text-ink-light/70">(interno — no se muestra a los jugadores)</span>
+              Dueños <span className="normal-case font-body text-ink-light/70">(interno — no se muestra a los jugadores)</span>
             </label>
-            <div className="flex gap-2">
-              <Select
-                wrapperClassName="flex-1"
-                value={form.owner_id ?? ""}
-                onChange={(e) => setForm({ ...form, owner_id: e.target.value || null })}
-              >
-                <option value="">Sin asignar</option>
-                {owners.map((o) => (
-                  <option key={o.id} value={o.id}>{o.name}</option>
+            <OwnerMultiSelect
+              owners={owners}
+              value={form.owner_ids}
+              onToggle={toggleFormOwner}
+              onDeleteOwner={handleDeleteOwner}
+            />
+            {form.owner_ids.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {owners.filter((o) => form.owner_ids.includes(o.id)).map((o) => (
+                  <span
+                    key={o.id}
+                    className="inline-flex items-center gap-1 font-label text-2xs pl-2.5 pr-1 py-1 border rounded-sm bg-moss text-parchment border-moss"
+                  >
+                    {o.name}
+                    <button
+                      type="button"
+                      onClick={() => toggleFormOwner(o.id)}
+                      title="Quitar de este juego"
+                      className="p-0.5 opacity-70 hover:opacity-100 transition-opacity"
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
                 ))}
-              </Select>
-              {form.owner_id && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const owner = owners.find((o) => o.id === form.owner_id);
-                    if (owner) handleDeleteOwner(owner);
-                  }}
-                  title="Eliminar este dueño de la lista"
-                  className="px-3 border border-border text-leather-light hover:text-crimson hover:border-crimson transition-colors"
-                >
-                  <Trash2 size={15} />
-                </button>
-              )}
-            </div>
+              </div>
+            )}
             <div className="flex gap-2">
               <Input
                 wrapperClassName="flex-1"
@@ -497,8 +510,6 @@ export function GamesManager() {
               </div>
             )}
           </div>
-
-          <Button type="submit" loading={saving} className="mt-2">Guardar</Button>
         </form>
       </Modal>
     </div>

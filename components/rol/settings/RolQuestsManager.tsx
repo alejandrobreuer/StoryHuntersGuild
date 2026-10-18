@@ -483,8 +483,8 @@ export function RolQuestsManager() {
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar misión" : "Nueva misión"}>
-        <form onSubmit={handleSave} className="flex flex-col gap-3">
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar misión" : "Nueva misión"} footer={<Button type="submit" form="rol-quests-manager-form" loading={saving} className="w-full">Guardar</Button>}>
+        <form id="rol-quests-manager-form" onSubmit={handleSave} className="flex flex-col gap-3">
           <Input label="Título" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
           <Textarea label="Descripción" required rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           <Select label="Ubicación (opcional)" value={form.location_id} onChange={(e) => setForm({ ...form, location_id: e.target.value })}>
@@ -501,7 +501,6 @@ export function RolQuestsManager() {
             <Input label="Fecha (opcional)" type="date" value={form.scheduled_date} onChange={(e) => setForm({ ...form, scheduled_date: e.target.value })} />
             <Input label="Sesiones" type="number" min={1} required value={form.session_count} onChange={(e) => setForm({ ...form, session_count: e.target.value })} />
           </div>
-          <Button type="submit" loading={saving} className="mt-2">Guardar</Button>
         </form>
       </Modal>
     </div>

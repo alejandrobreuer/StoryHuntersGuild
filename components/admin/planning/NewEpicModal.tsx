@@ -98,8 +98,10 @@ export function NewEpicModal({ open, onClose }: { open: boolean; onClose: () => 
   const selectedTemplate = templates.find((t) => t.id === templateId);
 
   return (
-    <Modal open={open} onClose={onClose} title="Nueva épica" className="max-w-2xl max-h-[88vh] overflow-y-auto" closeOnBackdropClick={false}>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+    <Modal open={open} onClose={onClose} title="Nueva épica" className="max-w-2xl max-h-[88vh]" closeOnBackdropClick={false}
+      footer={<Button type="submit" form="new-epic-form" loading={saving} disabled={mode === "template" && !templateId} className="w-full">Crear épica</Button>}
+    >
+      <form id="new-epic-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div className="grid grid-cols-2 gap-3">
           <button
             type="button"
@@ -187,11 +189,6 @@ export function NewEpicModal({ open, onClose }: { open: boolean; onClose: () => 
             </div>
           </div>
         )}
-
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" loading={saving} disabled={mode === "template" && !templateId}>Crear épica</Button>
-        </div>
       </form>
     </Modal>
   );

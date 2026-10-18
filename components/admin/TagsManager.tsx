@@ -103,10 +103,9 @@ export function TagsManager() {
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Renombrar tag" : "Nuevo tag"}>
-        <form onSubmit={handleSave} className="flex flex-col gap-3">
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Renombrar tag" : "Nuevo tag"} footer={<Button type="submit" form="tags-manager-form" loading={saving} className="w-full">Guardar</Button>}>
+        <form id="tags-manager-form" onSubmit={handleSave} className="flex flex-col gap-3">
           <Input label="Nombre" required value={name} onChange={(e) => setName(e.target.value)} autoFocus />
-          <Button type="submit" loading={saving} className="mt-2">Guardar</Button>
         </form>
       </Modal>
     </div>

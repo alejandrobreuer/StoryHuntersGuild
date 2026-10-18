@@ -470,8 +470,8 @@ export function LocationsManager() {
         </div>
       )}
 
-      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar ubicación" : "Nueva ubicación"}>
-        <form onSubmit={handleSave} className="flex flex-col gap-3">
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing ? "Editar ubicación" : "Nueva ubicación"} footer={<Button type="submit" form="locations-manager-form" loading={saving} className="w-full">Guardar</Button>}>
+        <form id="locations-manager-form" onSubmit={handleSave} className="flex flex-col gap-3">
           <Input label="Nombre" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <Select label="Tipo" required value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
             <option value="" disabled>Elegí un tipo…</option>
@@ -546,7 +546,6 @@ export function LocationsManager() {
               {form.discovered ? "Descubierta" : "No descubierta"}
             </span>
           </label>
-          <Button type="submit" loading={saving} className="mt-2">Guardar</Button>
         </form>
       </Modal>
 
