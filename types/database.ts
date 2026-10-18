@@ -175,6 +175,9 @@ export interface ShgEvent {
   cover_image_url:   string | null;
   event_type:        EventType | null;
   reward_rp:         number;
+  /** Entrance check-in QR token (/checkin/{token}) — generated lazily, see lib/qr/codes.ts. */
+  checkin_token:     string | null;
+  checkin_active:    boolean;
   created_at:        string;
   updated_at:        string;
 }
@@ -291,6 +294,9 @@ export interface ShgQuestEvent {
   closed_at: string | null;
 }
 
+/** How a turn-in / party reached the approval queue — the web button, or a scanned mission QR. */
+export type SubmissionSource = "manual" | "qr";
+
 export type QuestActivationStatus = "active" | "turned_in" | "rejected" | "confirmed";
 
 export interface ShgQuestActivation {
@@ -302,6 +308,7 @@ export interface ShgQuestActivation {
   status:       QuestActivationStatus;
   activated_at: string;
   turned_in_at: string | null;
+  source:       SubmissionSource;
 }
 
 export interface ShgQuestCompletion {
@@ -338,7 +345,29 @@ export interface ShgQuestGroup {
   turned_in_by: string | null;
   closed_at:    string | null;
   closed_by:    string | null;
+  source:       SubmissionSource;
   created_at:   string;
+}
+
+export interface ShgEventMissionCode {
+  id:         string;
+  event_id:   string;
+  quest_id:   string;
+  token:      string;
+  active:     boolean;
+  created_at: string;
+  rotated_at: string | null;
+}
+
+export type AttendanceSource = "qr_checkin" | "mission_claim" | "admin";
+
+export interface ShgEventAttendance {
+  id:            string;
+  event_id:      string;
+  user_id:       string;
+  booking_id:    string | null;
+  checked_in_at: string;
+  source:        AttendanceSource;
 }
 
 export interface ShgQuestGroupMember {

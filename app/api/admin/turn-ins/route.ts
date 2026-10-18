@@ -17,12 +17,12 @@ export async function GET() {
   const [{ data: activations, error: activationsErr }, { data: groups, error: groupsErr }] = await Promise.all([
     admin
       .from("shg_quest_activations")
-      .select("id, quest_id, event_id, user_id, turned_in_at, quest:shg_quests(id, title, type, reward_xp, reward_rp), user:shg_users(id, email, name), event:shg_events(id, title)")
+      .select("id, quest_id, event_id, user_id, turned_in_at, source, quest:shg_quests(id, title, type, reward_xp, reward_rp), user:shg_users(id, email, name), event:shg_events(id, title)")
       .eq("status", "turned_in")
       .order("turned_in_at", { ascending: true }),
     admin
       .from("shg_quest_groups")
-      .select("id, quest_id, event_id, turned_in_at, quest:shg_quests(id, title, reward_xp, reward_rp), event:shg_events(id, title), members:shg_quest_group_members(user_id, user:shg_users(id, email, name))")
+      .select("id, quest_id, event_id, turned_in_at, source, quest:shg_quests(id, title, reward_xp, reward_rp), event:shg_events(id, title), members:shg_quest_group_members(user_id, user:shg_users(id, email, name))")
       .eq("status", "turned_in")
       .order("turned_in_at", { ascending: true }),
   ]);

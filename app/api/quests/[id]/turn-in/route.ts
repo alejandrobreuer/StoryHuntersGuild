@@ -66,7 +66,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const { error: upsertError } = await admin
     .from("shg_quest_activations")
     .upsert(
-      { quest_id: params.id, event_id: eventId, user_id: user.id, status: "turned_in", turned_in_at: new Date().toISOString() },
+      { quest_id: params.id, event_id: eventId, user_id: user.id, status: "turned_in", turned_in_at: new Date().toISOString(), source: "manual" },
       { onConflict: "quest_id,event_id,user_id" }
     );
 

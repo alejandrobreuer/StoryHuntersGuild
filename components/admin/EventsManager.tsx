@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { Plus, Edit2, Trash2, Upload, Eye, Receipt, ImageOff, PlayCircle, StopCircle, Radio } from "lucide-react";
+import Link from "next/link";
+import { Plus, Edit2, Trash2, Upload, Eye, Receipt, ImageOff, PlayCircle, StopCircle, Radio, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
@@ -306,6 +307,7 @@ export function EventsManager() {
                     <button onClick={() => endEvent(e.id)} disabled={lifecycleBusyId === e.id} className="p-1.5 text-leather-light hover:text-crimson transition-colors disabled:opacity-50" title="Finalizar evento"><StopCircle size={15} /></button>
                   )}
                   <button onClick={() => openView(e.id)} className="p-1.5 text-leather-light hover:text-moss-dark transition-colors" title="Ver detalle"><Eye size={15} /></button>
+                  <Link href={`/admin/events/${e.id}/qr`} className="p-1.5 text-leather-light hover:text-brass transition-colors" title="Códigos QR"><QrCode size={15} /></Link>
                   <button onClick={() => openEdit(e.id)} className="p-1.5 text-leather-light hover:text-brass transition-colors" title="Editar"><Edit2 size={15} /></button>
                   <button onClick={() => handleDelete(e.id)} className="p-1.5 text-leather-light hover:text-crimson transition-colors" title="Eliminar"><Trash2 size={15} /></button>
                 </div>

@@ -3,6 +3,7 @@ import { requirePermission } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { eventSchema } from "@/lib/validation/events";
 import { validateEventQuestLinks } from "@/lib/quests/validateEventQuestLinks";
+import { syncEventMissionCodes } from "@/lib/qr/codes";
 
 // ─── GET /api/admin/events/[id] ─────────────────────────────────────────────
 
@@ -65,10 +66,17 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     await admin.from("shg_event_games").insert(game_ids.map((game_id) => ({ event_id: params.id, game_id })));
   }
 
+  const { data: previousLinks } = await admin.from("shg_quest_events").select("quest_id").eq("event_id", params.id);
   await admin.from("shg_quest_events").delete().eq("event_id", params.id);
   if (quest_ids.length > 0) {
     await admin.from("shg_quest_events").insert(quest_ids.map((quest_id) => ({ event_id: params.id, quest_id })));
   }
+
+  // Every attached mission gets its QR code automatically; detached ones
+  // are deactivated so their printed cards stop working.
+  // Best effort: the admin QR tab re-runs this on load, so a hiccup here
+  // never blocks saving the event itself.
+  await syncEventMissionCodes(admin, params.id, quest_ids, (previousLinks ?? []).map((l) => l.quest_id)).catch(() => undefined);
 
   return NextResponse.json({ data: event });
 }
