@@ -12,10 +12,7 @@ interface ModalProps {
   children:  React.ReactNode;
   className?: string;
   titleClassName?: string;
-  /** Classes for the scrolling body (padding defaults to p-7). */
   bodyClassName?: string;
-  /** Pinned below the scrolling body — typically the form's submit button.
-   * It renders outside the <form>, so pass the button form="<form id>". */
   footer?: React.ReactNode;
   /** false disables closing by clicking the backdrop — only the X button
    * (and the caller's own onClose calls) can close it. Defaults to true.
@@ -49,8 +46,6 @@ export function Modal({
       className="fixed inset-0 z-[200] flex items-center justify-center bg-ink/85 p-4"
       onClick={(e) => { if (closeOnBackdropClick && e.target === e.currentTarget) onClose(); }}
     >
-      {/* Header and footer stay put; only the body between them scrolls, so
-          the title, close X and submit button are always reachable. */}
       <div className={cn(
         "relative w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden surface-parchment animate-fade-in shadow-parchment-lg",
         className
