@@ -49,6 +49,32 @@ const config: Config = {
           light:   "#7a5c3e",
         },
 
+        // Finanzas (admin) — a lighter palette tuned for reading numbers.
+        // Values from Reference/Docs/finanzas/SPEC.md §5.
+        fin: {
+          ground:        "#F6F1E7",
+          surface:       "#FFFDF9",
+          alt:           "#FBF7EF",
+          ink:           "#2A2017",
+          muted:         "#6A5B4C",
+          line:          "#E4DACA",
+          rowline:       "#EFE7DA",
+          input:         "#CDBFA8",
+          crimson:       "#8E2A23",
+          income:        "#1F5F8B",
+          "income-bg":   "#E6EFF6",
+          expense:       "#A6501C",
+          "expense-bar": "#D9894F",
+          "expense-bg":  "#F8EADF",
+          "expense-pill": "#8A4216",
+          edit:          "#FFF4D6",
+          "edit-border": "#EAD9AE",
+          "pending-bg":  "#FDF0D5",
+          pending:       "#7A5410",
+          "ok-bg":       "#E7F0EA",
+          ok:            "#2E5E3E",
+        },
+
         // Semantic
         background: "#3d3830",
         surface:    "#f2e8d5",
@@ -59,6 +85,8 @@ const config: Config = {
         display: ["var(--font-cinzel)", "Georgia", "serif"],
         body:    ["var(--font-crimson)", "Georgia", "serif"],
         label:   ["var(--font-oswald)", "system-ui", "sans-serif"],
+        // Finanzas tables and dashboard only (loaded in its layout).
+        data:    ["var(--font-plex)", "system-ui", "sans-serif"],
       },
 
       fontSize: {

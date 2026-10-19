@@ -15,7 +15,7 @@ type RoleForm = Pick<
   "name" | "description" | "can_access_admin" | "perm_events" | "perm_venues" | "perm_games" |
   "perm_tags" | "perm_users" | "perm_quests" | "perm_turn_ins" | "perm_ranks" | "perm_badges" |
   "perm_feature_flags" | "perm_bookings" | "perm_reports" | "perm_settings" | "perm_roles" | "perm_rol" |
-  "perm_planning" | "perm_planning_admin"
+  "perm_planning" | "perm_planning_admin" | "perm_finances"
 >;
 
 const EMPTY: RoleForm = {
@@ -23,7 +23,7 @@ const EMPTY: RoleForm = {
   perm_events: false, perm_venues: false, perm_games: false, perm_tags: false, perm_users: false,
   perm_quests: false, perm_turn_ins: false, perm_ranks: false, perm_badges: false, perm_feature_flags: false,
   perm_bookings: false, perm_reports: false, perm_settings: false, perm_roles: false, perm_rol: false,
-  perm_planning: false, perm_planning_admin: false,
+  perm_planning: false, perm_planning_admin: false, perm_finances: false,
 };
 
 function Toggle({ on, onToggle, label }: { on: boolean; onToggle: () => void; label: string }) {
@@ -75,6 +75,7 @@ export function RolesManager() {
       perm_bookings: r.perm_bookings, perm_reports: r.perm_reports, perm_settings: r.perm_settings,
       perm_roles: r.perm_roles, perm_rol: r.perm_rol,
       perm_planning: r.perm_planning, perm_planning_admin: r.perm_planning_admin,
+      perm_finances: r.perm_finances,
     });
     setModalOpen(true);
   }
