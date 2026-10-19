@@ -3,19 +3,31 @@
 import * as React from "react";
 import { ChevronDown, Check, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { ShgGameOwner } from "@/types/database";
 
-interface OwnerMultiSelectProps {
-  owners: ShgGameOwner[];
-  value: string[];
-  onToggle: (id: string) => void;
-  onDeleteOwner: (owner: ShgGameOwner) => void;
+export interface MultiSelectOption {
+  id: string;
+  label: string;
 }
 
-/** Dropdown styled like <Select>, but each option is a checkbox so a game can
- * have several owners. Each option also has a trash button to remove that
- * owner from the list entirely. */
-export function OwnerMultiSelect({ owners, value, onToggle, onDeleteOwner }: OwnerMultiSelectProps) {
+interface MultiSelectProps<T extends MultiSelectOption> {
+  options: T[];
+  value: string[];
+  onToggle: (id: string) => void;
+  /** When provided, each option gets a trash button to remove it from the list entirely. */
+  onDeleteOption?: (option: T) => void;
+  deleteTitle?: string;
+  placeholder?: string;
+  /** Summary shown when several options are selected, e.g. (n) => `${n} tags seleccionados`. */
+  pluralSummary: (count: number) => string;
+  emptyMessage: string;
+}
+
+/** Dropdown styled like <Select>, but each option is a checkbox so several can
+ * be selected at once. */
+export function MultiSelect<T extends MultiSelectOption>({
+  options, value, onToggle, onDeleteOption, deleteTitle = "Eliminar de la lista",
+  placeholder = "Sin asignar", pluralSummary, emptyMessage,
+}: MultiSelectProps<T>) {
   const [open, setOpen] = React.useState(false);
   const rootRef = React.useRef<HTMLDivElement>(null);
 
@@ -36,9 +48,9 @@ export function OwnerMultiSelect({ owners, value, onToggle, onDeleteOwner }: Own
   }, [open]);
 
   const summary =
-    value.length === 0 ? "Sin asignar"
-    : value.length === 1 ? (owners.find((o) => o.id === value[0])?.name ?? "1 dueño")
-    : `${value.length} dueños seleccionados`;
+    value.length === 0 ? placeholder
+    : value.length === 1 ? (options.find((o) => o.id === value[0])?.label ?? pluralSummary(1))
+    : pluralSummary(value.length);
 
   return (
     <div ref={rootRef} className="relative">
@@ -58,10 +70,10 @@ export function OwnerMultiSelect({ owners, value, onToggle, onDeleteOwner }: Own
 
       {open && (
         <div className="absolute z-20 mt-1 w-full max-h-60 overflow-y-auto border border-border bg-parchment shadow-lg">
-          {owners.length === 0 ? (
-            <p className="font-body text-xs text-ink-light px-3.5 py-2.5">Todavía no hay dueños — agregá uno abajo.</p>
+          {options.length === 0 ? (
+            <p className="font-body text-xs text-ink-light px-3.5 py-2.5">{emptyMessage}</p>
           ) : (
-            owners.map((o) => {
+            options.map((o) => {
               const selected = value.includes(o.id);
               return (
                 <div key={o.id} className="flex items-center hover:bg-parchment-dark/40">
@@ -78,16 +90,18 @@ export function OwnerMultiSelect({ owners, value, onToggle, onDeleteOwner }: Own
                     >
                       {selected && <Check size={12} />}
                     </span>
-                    {o.name}
+                    {o.label}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => onDeleteOwner(o)}
-                    title="Eliminar este dueño de la lista"
-                    className="px-3 py-2 text-leather-light hover:text-crimson transition-colors"
-                  >
-                    <Trash2 size={13} />
-                  </button>
+                  {onDeleteOption && (
+                    <button
+                      type="button"
+                      onClick={() => onDeleteOption(o)}
+                      title={deleteTitle}
+                      className="px-3 py-2 text-leather-light hover:text-crimson transition-colors"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  )}
                 </div>
               );
             })
