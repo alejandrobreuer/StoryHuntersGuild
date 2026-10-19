@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
 import { FieldStatus } from "@/components/admin/FieldStatus";
-import { OwnerMultiSelect } from "@/components/admin/OwnerMultiSelect";
+import { MultiSelect } from "@/components/ui/MultiSelect";
 import { RulesContent } from "@/components/games/RulesContent";
 import { parseRulesMarkup } from "@/lib/rules-markup";
 import { cn } from "@/lib/utils";
@@ -390,11 +390,14 @@ export function GamesManager() {
             <label className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">
               Dueños <span className="normal-case font-body text-ink-light/70">(interno — no se muestra a los jugadores)</span>
             </label>
-            <OwnerMultiSelect
-              owners={owners}
+            <MultiSelect
+              options={owners.map((o) => ({ ...o, label: o.name }))}
               value={form.owner_ids}
               onToggle={toggleFormOwner}
-              onDeleteOwner={handleDeleteOwner}
+              onDeleteOption={handleDeleteOwner}
+              deleteTitle="Eliminar este dueño de la lista"
+              pluralSummary={(n) => (n === 1 ? "1 dueño" : `${n} dueños seleccionados`)}
+              emptyMessage="Todavía no hay dueños — agregá uno abajo."
             />
             {form.owner_ids.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
@@ -432,22 +435,31 @@ export function GamesManager() {
 
           <div className="flex flex-col gap-1.5">
             <label className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">Tags</label>
-            {tags.length === 0 ? (
-              <p className="font-body text-xs text-ink-light">
-                Todavía no hay tags predefinidos — cargalos primero en la sección Tags del panel.
-              </p>
-            ) : (
-              <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto border border-border p-2 bg-parchment/40">
-                {tags.map((t) => (
-                  <button
-                    key={t.id} type="button" onClick={() => toggleFormTag(t.name)}
-                    className={cn(
-                      "font-label text-2xs px-2.5 py-1 border rounded-sm transition-colors",
-                      form.tags.includes(t.name) ? "bg-moss text-parchment border-moss" : "border-border text-ink-light hover:border-brass"
-                    )}
+            <MultiSelect
+              options={tags.map((t) => ({ id: t.name, label: t.name }))}
+              value={form.tags}
+              onToggle={toggleFormTag}
+              placeholder="Sin tags"
+              pluralSummary={(n) => (n === 1 ? "1 tag" : `${n} tags seleccionados`)}
+              emptyMessage="Todavía no hay tags predefinidos — cargalos primero en la sección Tags del panel."
+            />
+            {form.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {form.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center gap-1 font-label text-2xs pl-2.5 pr-1 py-1 border rounded-sm bg-moss text-parchment border-moss"
                   >
-                    {t.name}
-                  </button>
+                    {tag}
+                    <button
+                      type="button"
+                      onClick={() => toggleFormTag(tag)}
+                      title="Quitar de este juego"
+                      className="p-0.5 opacity-70 hover:opacity-100 transition-opacity"
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
                 ))}
               </div>
             )}
