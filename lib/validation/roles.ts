@@ -21,4 +21,5 @@ export const roleSchema = z.object({
   perm_rol:           z.boolean(),
   perm_planning:       z.boolean(),
   perm_planning_admin: z.boolean(),
+  perm_finances:       z.boolean(),
 });

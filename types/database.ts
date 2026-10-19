@@ -58,7 +58,7 @@ export interface ShgAdminUser {
 export type PermissionKey =
   | "events" | "venues" | "games" | "tags" | "users" | "quests"
   | "ranks" | "badges" | "feature_flags" | "bookings" | "reports"
-  | "settings" | "roles" | "turn_ins" | "rol" | "planning" | "planning_admin";
+  | "settings" | "roles" | "turn_ins" | "rol" | "planning" | "planning_admin" | "finances";
 
 export interface ShgSecurityRole {
   id:                 string;
@@ -82,6 +82,7 @@ export interface ShgSecurityRole {
   perm_rol:           boolean;
   perm_planning:       boolean;
   perm_planning_admin: boolean;
+  perm_finances:       boolean;
   created_at:         string;
   updated_at:         string;
 }
@@ -203,6 +204,7 @@ export interface ShgBooking {
   email:            string;
   phone:            string | null;
   guest_count:      number;
+  booking_number:   number;
   cost:             number;
   coupon_code:      string | null;
   discount_percent: number | null;
@@ -667,4 +669,48 @@ export interface ShgAdminSessionPayload {
   sub:   string;   // shg_admin_users.id
   email: string;
   kind:  "admin";
+}
+
+// ─── Finanzas ───────────────────────────────────────────────────────────────
+
+export type FinanceTxType = "income" | "expense";
+export type FinanceTxStatus = "confirmed" | "pending" | "cancelled";
+/** "subscription" is reserved for the future memberships fee. */
+export type FinanceTxSource = "manual" | "booking" | "subscription";
+export type FinancePayMethod = "transfer" | "mercado_pago" | "cash" | "card" | "other";
+
+export interface ShgFinanceCategory {
+  id:         string;
+  name:       string;
+  type:       FinanceTxType;
+  is_active:  boolean;
+  sort_order: number;
+  is_system:  boolean;
+  /** How code finds a system category after a rename: "bookings" | "memberships". */
+  system_key: string | null;
+  created_at: string;
+}
+
+export interface ShgFinanceTransaction {
+  id:              string;
+  occurred_on:     string;   // YYYY-MM-DD
+  type:            FinanceTxType;
+  description:     string;
+  category_id:     string;
+  event_id:        string | null;   // null = "General"
+  payment_method:  FinancePayMethod;
+  amount:          number;
+  currency:        string;
+  status:          FinanceTxStatus;
+  source:          FinanceTxSource;
+  booking_id:      string | null;
+  subscription_id: string | null;
+  receipt_path:    string | null;
+  notes:           string | null;
+  is_locked:       boolean;
+  created_by:      string | null;
+  updated_by:      string | null;
+  created_at:      string;
+  updated_at:      string;
+  deleted_at:      string | null;
 }

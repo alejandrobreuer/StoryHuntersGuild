@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, CalendarDays, MapPin, Dice5, ClipboardCheck, BadgeCheck, BarChart3, Settings, LogOut,
-  Users, ScrollText, UserCog, FileText, ClipboardList,
+  Users, ScrollText, UserCog, FileText, ClipboardList, Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NotificationBell } from "@/components/admin/NotificationBell";
@@ -20,6 +20,7 @@ const LINKS: { href: string; label: string; icon: typeof LayoutDashboard; perm?:
   { href: "/admin/users",     label: "Usuarios",               icon: Users,          perm: "users" },
   { href: "/admin/quests",    label: "Misiones",               icon: ScrollText,     perm: "quests" },
   { href: "/admin/bookings",  label: "Reservas",               icon: ClipboardCheck, perm: "bookings" },
+  { href: "/admin/finanzas",  label: "Finanzas",               icon: Wallet,         perm: "finances" },
   { href: "/admin/turn-ins",  label: "Aprobaciones de entregas", icon: BadgeCheck,   perm: ["quests", "turn_ins"] },
   { href: "/admin/reports",   label: "Reportes",               icon: BarChart3,      perm: "reports" },
   { href: "/admin/settings",  label: "Configuración",          icon: Settings,       perm: ["settings", "ranks", "badges", "tags", "feature_flags", "roles"] },

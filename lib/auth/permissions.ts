@@ -23,6 +23,7 @@ export const PERMISSIONS = [
   { key: "rol",           column: "perm_rol",           label: "Gremio (Rol)" },
   { key: "planning",       column: "perm_planning",       label: "Planificación" },
   { key: "planning_admin", column: "perm_planning_admin", label: "Planificación (admin)" },
+  { key: "finances",       column: "perm_finances",       label: "Finanzas" },
 ] as const satisfies { key: PermissionKey; column: keyof ShgSecurityRole; label: string }[];
 
 export type PermissionMap = Record<PermissionKey, boolean>;
