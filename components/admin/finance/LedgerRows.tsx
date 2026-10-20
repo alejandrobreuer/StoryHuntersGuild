@@ -12,9 +12,10 @@ import type { FinancePayMethod, FinanceTxStatus, FinanceTxType, ShgFinanceCatego
 import { StatusPill, TypePill, focusRing, inputClass, invalidClass } from "@/components/admin/finance/ui";
 
 export interface EventOption { id: string; title: string; starts_at: string }
+export interface TeamMember { id: string; name: string; is_active: boolean }
 
 /** Column count, for the notes row and empty states. */
-export const LEDGER_COLUMNS = 11;
+export const LEDGER_COLUMNS = 12;
 
 const cell = "px-2.5 py-2 align-middle";
 const iconButton = cn(
@@ -78,6 +79,9 @@ export function LockedRow({
       <td className={cn(cell, "truncate")}>{row.category_name}</td>
       <td className={cn(cell, "truncate")}>{row.event_title ?? "General"}</td>
       <td className={cn(cell, "text-fin-muted truncate")}>{PAY_METHOD_LABELS[row.payment_method]}</td>
+      <td className={cn(cell, "truncate")} title={row.responsible_name ?? undefined}>
+        {row.responsible_name ?? <span className="text-fin-muted" aria-label="Sin responsable">—</span>}
+      </td>
       <td className={cn(cell, "text-right")}><Amount row={row} /></td>
       <td className={cn(cell, "text-center")}>
         {row.has_receipt ? (
@@ -103,6 +107,7 @@ export interface EditingRowProps {
   uploading: boolean;
   categories: ShgFinanceCategory[];
   events: EventOption[];
+  team: TeamMember[];
   descriptionRef: (el: HTMLInputElement | null) => void;
   onChange: (patch: Partial<Draft>) => void;
   onTypeChange: (type: FinanceTxType) => void;
@@ -114,7 +119,7 @@ export interface EditingRowProps {
 }
 
 export function EditingRow(props: EditingRowProps) {
-  const { draft, errors, busy, uploading, categories, events, onChange } = props;
+  const { draft, errors, busy, uploading, categories, events, team, onChange } = props;
   const fileInput = React.useRef<HTMLInputElement>(null);
   const [menuOpen, setMenuOpen] = React.useState(false);
   const menuRef = React.useRef<HTMLDivElement>(null);
@@ -144,6 +149,9 @@ export function EditingRow(props: EditingRowProps) {
   const rowCategories = categories.filter(
     (c) => c.type === draft.type && (c.is_active || c.id === draft.category_id),
   );
+  // Someone who left the team stays selectable on the rows that already name them.
+  const rowTeam = team.filter((m) => m.is_active || m.id === draft.responsible_id);
+  const responsibleHint = draft.type === "expense" ? "¿Quién pagó?" : "¿Quién cobró?";
   const label = (field: string) => `${field} (fila en edición)`;
   const err = (field: keyof DraftErrors) => (errors[field] ? invalidClass : "");
 
@@ -217,6 +225,16 @@ export function EditingRow(props: EditingRowProps) {
             {(Object.keys(PAY_METHOD_LABELS) as FinancePayMethod[]).map((m) => (
               <option key={m} value={m}>{PAY_METHOD_LABELS[m]}</option>
             ))}
+          </select>
+        </td>
+        <td className={cell}>
+          <select
+            aria-label={label(`Responsable: ${responsibleHint}`)} title={responsibleHint} value={draft.responsible_id}
+            onChange={(e) => onChange({ responsible_id: e.target.value })}
+            className={cn(inputClass, !draft.responsible_id && "text-fin-muted")}
+          >
+            <option value="">{responsibleHint}</option>
+            {rowTeam.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
         </td>
         <td className={cell}>

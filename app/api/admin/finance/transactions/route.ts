@@ -3,7 +3,7 @@ import { requirePermission } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { filtersFromParams } from "@/lib/finance/periods";
 import {
-  LEDGER_SELECT, applyLedgerFilters, financeDbError, ledgerTotals, searchCategoryIds, toLedgerRow,
+  LEDGER_SELECT, applyLedgerFilters, financeDbError, ledgerTotals, searchMatches, toLedgerRow,
 } from "@/lib/finance/ledger";
 import { createTransactionSchema } from "@/lib/validation/finance";
 
@@ -26,15 +26,15 @@ export async function GET(req: NextRequest) {
   const offset = Math.max(0, Number(params.get("offset")) || 0);
   const admin = createAdminClient();
 
-  const categoryIds = await searchCategoryIds(admin, filters);
+  const matches = await searchMatches(admin, filters);
 
-  const pageQuery = applyLedgerFilters(admin.from("shg_finance_transactions").select(LEDGER_SELECT), filters, categoryIds)
+  const pageQuery = applyLedgerFilters(admin.from("shg_finance_transactions").select(LEDGER_SELECT), filters, matches)
     .order("occurred_on", { ascending: false })
     .order("created_at", { ascending: false })
     .range(all ? 0 : offset, all ? EXPORT_LIMIT - 1 : offset + PAGE_SIZE - 1);
 
   const totalsQuery = applyLedgerFilters(
-    admin.from("shg_finance_transactions").select("type, status, amount", { count: "exact" }), filters, categoryIds,
+    admin.from("shg_finance_transactions").select("type, status, amount", { count: "exact" }), filters, matches,
   ).range(0, EXPORT_LIMIT - 1);
 
   // ?totals=1: just the footer (refreshed after each save), not the rows.

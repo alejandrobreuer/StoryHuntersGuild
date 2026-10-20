@@ -96,6 +96,8 @@ test("new rows start with the spec's defaults", () => {
   assert.equal(g.status, "confirmed");
   assert.equal(g.occurred_on, "2026-10-19");
   assert.equal(newDraft("new:2", "income", "2026-10-19", CATS).category_id, "r");
+  assert.equal(g.responsible_id, "");
+  assert.equal(newDraft("new:3", "expense", "2026-10-19", CATS, "admin-1").responsible_id, "admin-1");
 });
 
 test("changing type swaps a category of the wrong type", () => {
@@ -112,6 +114,7 @@ test("validation marks each bad cell", () => {
   assert.deepEqual(draftToPayload(ok), {
     occurred_on: "2026-10-19", type: "expense", description: "Fundas", category_id: "i", event_id: null,
     payment_method: "transfer", amount: 4500.5, status: "confirmed", receipt_path: null, notes: null,
+    responsible_id: null,
   });
 });
 

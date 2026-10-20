@@ -20,6 +20,7 @@ export interface Draft {
   status:         FinanceTxStatus;
   receipt_path:   string | null;
   notes:          string;
+  responsible_id: string;     // "" = nobody
   showNotes:      boolean;
 }
 
@@ -37,6 +38,7 @@ export interface SavePayload {
   status:         FinanceTxStatus;
   receipt_path:   string | null;
   notes:          string | null;
+  responsible_id: string | null;
 }
 
 export function draftFromRow(row: LedgerRow): Draft {
@@ -46,6 +48,7 @@ export function draftFromRow(row: LedgerRow): Draft {
     category_id: row.category_id, event_id: row.event_id ?? "",
     payment_method: row.payment_method, amount: amountToInput(row.amount), status: row.status,
     receipt_path: row.receipt_path, notes: row.notes ?? "", showNotes: Boolean(row.notes),
+    responsible_id: row.responsible_id ?? "",
   };
 }
 
@@ -59,12 +62,15 @@ export function defaultCategoryId(type: FinanceTxType, categories: ShgFinanceCat
   return (preferred ?? active[0])?.id ?? "";
 }
 
-export function newDraft(id: string, type: FinanceTxType, today: string, categories: ShgFinanceCategory[]): Draft {
+/** `responsibleId` is the admin creating it: they usually paid. */
+export function newDraft(
+  id: string, type: FinanceTxType, today: string, categories: ShgFinanceCategory[], responsibleId = "",
+): Draft {
   return {
     id, isNew: true, occurred_on: today, type, description: "",
     category_id: defaultCategoryId(type, categories), event_id: "",
     payment_method: "transfer", amount: "", status: "confirmed",
-    receipt_path: null, notes: "", showNotes: false,
+    receipt_path: null, notes: "", showNotes: false, responsible_id: responsibleId,
   };
 }
 
@@ -102,5 +108,6 @@ export function draftToPayload(draft: Draft): SavePayload {
     status: draft.status,
     receipt_path: draft.receipt_path,
     notes: draft.notes.trim() || null,
+    responsible_id: draft.responsible_id || null,
   };
 }
