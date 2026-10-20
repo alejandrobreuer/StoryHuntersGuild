@@ -22,13 +22,16 @@ const fields = {
   status:         z.enum(TX_STATUSES),
   receipt_path:   z.string().max(300).nullable(),
   notes:          z.string().trim().max(1000).nullable(),
+  responsible_id: uuid.nullable(),
 };
 
-/** New row: everything but receipt/notes required; saved locked. */
+/** New row: everything but receipt/notes/responsable required; saved locked.
+ * Without responsible_id the database puts whoever is saving it. */
 export const createTransactionSchema = z.object({
   ...fields,
-  receipt_path: fields.receipt_path.optional(),
-  notes:        fields.notes.optional(),
+  receipt_path:   fields.receipt_path.optional(),
+  notes:          fields.notes.optional(),
+  responsible_id: fields.responsible_id.optional(),
 });
 
 /** Existing row: any subset of fields, plus the lock. Unlock = { is_locked: false };

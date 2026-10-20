@@ -17,7 +17,9 @@ import {
 } from "@/lib/finance/draft";
 import type { FinanceTxType, ShgFinanceCategory } from "@/types/database";
 import { Card, FinButton, focusRing, inputClass } from "@/components/admin/finance/ui";
-import { EditingRow, LEDGER_COLUMNS, LockedRow, type EventOption } from "@/components/admin/finance/LedgerRows";
+import {
+  EditingRow, LEDGER_COLUMNS, LockedRow, type EventOption, type TeamMember,
+} from "@/components/admin/finance/LedgerRows";
 import { exportLedger } from "@/components/admin/finance/exportLedger";
 
 // Movimientos — the ledger. Spec §3 (Reference/Docs/finanzas/SPEC.md).
@@ -53,6 +55,8 @@ export function Ledger() {
 
   const [categories, setCategories] = React.useState<ShgFinanceCategory[]>([]);
   const [events, setEvents] = React.useState<EventOption[]>([]);
+  const [team, setTeam] = React.useState<TeamMember[]>([]);
+  const [me, setMe] = React.useState("");
   const [rows, setRows] = React.useState<LedgerRow[] | null>(null);
   const [count, setCount] = React.useState(0);
   const [totals, setTotals] = React.useState<LedgerTotals>(EMPTY_TOTALS);
@@ -78,8 +82,8 @@ export function Ledger() {
   // ── Loading ──────────────────────────────────────────────────────────────
 
   React.useEffect(() => {
-    api<{ categories: ShgFinanceCategory[]; events: EventOption[] }>("/api/admin/finance/options")
-      .then((d) => { setCategories(d.categories); setEvents(d.events); })
+    api<{ categories: ShgFinanceCategory[]; events: EventOption[]; team: TeamMember[]; me: string }>("/api/admin/finance/options")
+      .then((d) => { setCategories(d.categories); setEvents(d.events); setTeam(d.team); setMe(d.me); })
       .catch((e: Error) => toast.error(e.message));
   }, []);
 
@@ -186,6 +190,7 @@ export function Ledger() {
       ...p,
       category_name: categories.find((c) => c.id === p.category_id)?.name ?? "—",
       event_title: events.find((e) => e.id === p.event_id)?.title ?? null,
+      responsible_name: team.find((m) => m.id === p.responsible_id)?.name ?? null,
       has_receipt: Boolean(p.receipt_path),
       is_locked: true,
     } as LedgerRow;
@@ -211,7 +216,7 @@ export function Ledger() {
     const id = `new:${++newCounter.current}`;
     const draft = from
       ? { ...from, id, isNew: true }
-      : newDraft(id, type, todayIso(), categories);
+      : newDraft(id, type, todayIso(), categories, me);
     setDrafts((prev) => ({ ...prev, [id]: draft }));
     setNewOrder((prev) => [id, ...prev]);
     setFocusId(id);
@@ -375,6 +380,7 @@ export function Ledger() {
       uploading={uploading.has(draft.id)}
       categories={categories}
       events={events}
+      team={team}
       descriptionRef={(el) => { descriptionRefs.current[draft.id] = el; }}
       onChange={(patch) => patchDraft(draft.id, patch)}
       onTypeChange={(type) => setDrafts((prev) => ({ ...prev, [draft.id]: withType(prev[draft.id], type, categories) }))}
@@ -414,11 +420,11 @@ export function Ledger() {
       {/* Filters */}
       <Card className="mb-5 p-3 flex flex-wrap items-center gap-x-3 gap-y-2">
         <label className="relative flex-1 min-w-[220px]">
-          <span className="sr-only">Buscar concepto o categoría</span>
+          <span className="sr-only">Buscar concepto, categoría o responsable</span>
           <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-fin-muted" />
           <input
             type="search" value={search} onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar concepto o categoría"
+            placeholder="Buscar concepto, categoría o responsable"
             className={cn(inputClass, "h-11 pl-9")}
           />
         </label>
@@ -493,10 +499,10 @@ export function Ledger() {
       {/* Table */}
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1240px] table-fixed border-collapse text-sm">
+          <table className="w-full min-w-[1380px] table-fixed border-collapse text-sm">
             <colgroup>
               <col className="w-14" /><col className="w-36" /><col className="w-28" /><col />
-              <col className="w-36" /><col className="w-36" /><col className="w-36" /><col className="w-32" />
+              <col className="w-36" /><col className="w-36" /><col className="w-36" /><col className="w-36" /><col className="w-32" />
               <col className="w-16" /><col className="w-32" /><col className="w-14" />
             </colgroup>
             <thead className="bg-fin-alt text-left text-xs font-semibold uppercase tracking-wide text-fin-muted">
@@ -508,6 +514,7 @@ export function Ledger() {
                 <th scope="col" className="px-2.5 py-3">Categoría</th>
                 <th scope="col" className="px-2.5 py-3">Evento</th>
                 <th scope="col" className="px-2.5 py-3">Medio</th>
+                <th scope="col" className="px-2.5 py-3">Responsable</th>
                 <th scope="col" className="px-2.5 py-3 text-right">Monto</th>
                 <th scope="col" className="px-2.5 py-3 text-center">Comp.</th>
                 <th scope="col" className="px-2.5 py-3">Estado</th>

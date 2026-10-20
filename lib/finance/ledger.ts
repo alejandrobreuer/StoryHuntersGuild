@@ -25,6 +25,8 @@ export interface LedgerRow {
   receipt_path:   string | null;
   has_receipt:    boolean;
   notes:          string | null;
+  responsible_id:   string | null;
+  responsible_name: string | null;
   is_locked:      boolean;
   created_at:     string;
 }
@@ -33,10 +35,11 @@ export interface LedgerTotals { income: number; expense: number; net: number }
 
 export const LEDGER_SELECT = `
   id, occurred_on, type, description, category_id, event_id, payment_method, amount, status, source,
-  booking_id, receipt_path, notes, is_locked, created_at,
+  booking_id, receipt_path, notes, responsible_id, is_locked, created_at,
   category:shg_finance_categories(name),
   event:shg_events(title),
-  booking:shg_bookings(booking_number, receipt_path)
+  booking:shg_bookings(booking_number, receipt_path),
+  responsible:shg_admin_users!responsible_id(name)
 `;
 
 type Embedded<T> = T | T[] | null;
@@ -48,10 +51,11 @@ export interface RawRow {
   id: string; occurred_on: string; type: FinanceTxType; description: string; category_id: string;
   event_id: string | null; payment_method: FinancePayMethod; amount: number | string; status: FinanceTxStatus;
   source: FinanceTxSource; booking_id: string | null; receipt_path: string | null; notes: string | null;
-  is_locked: boolean; created_at: string;
+  responsible_id: string | null; is_locked: boolean; created_at: string;
   category: Embedded<{ name: string }>;
   event: Embedded<{ title: string }>;
   booking: Embedded<{ booking_number: number; receipt_path: string | null }>;
+  responsible: Embedded<{ name: string }>;
 }
 
 export function toLedgerRow(r: RawRow): LedgerRow {
@@ -65,7 +69,9 @@ export function toLedgerRow(r: RawRow): LedgerRow {
     receipt_path: r.receipt_path,
     // A reservation's receipt lives on the booking, not on the ledger row.
     has_receipt: r.source === "booking" ? Boolean(booking?.receipt_path) : Boolean(r.receipt_path),
-    notes: r.notes, is_locked: r.is_locked, created_at: r.created_at,
+    notes: r.notes,
+    responsible_id: r.responsible_id, responsible_name: one(r.responsible)?.name ?? null,
+    is_locked: r.is_locked, created_at: r.created_at,
   };
 }
 
@@ -74,12 +80,21 @@ function searchTerm(q: string): string {
   return q.replace(/[,()*%\\"'.:]/g, " ").trim();
 }
 
-/** The search also matches category names: look those up first. */
-export async function searchCategoryIds(admin: AdminClient, f: FinanceFilters): Promise<string[]> {
+/** Ids whose names match the search: it covers category and responsable
+ * names too, so look those up first. */
+export interface SearchMatches { categoryIds: string[]; responsibleIds: string[] }
+
+export async function searchMatches(admin: AdminClient, f: FinanceFilters): Promise<SearchMatches> {
   const term = searchTerm(f.q);
-  if (!term) return [];
-  const { data } = await admin.from("shg_finance_categories").select("id").ilike("name", `%${term}%`);
-  return (data ?? []).map((c) => c.id as string);
+  if (!term) return { categoryIds: [], responsibleIds: [] };
+  const [{ data: categories }, { data: admins }] = await Promise.all([
+    admin.from("shg_finance_categories").select("id").ilike("name", `%${term}%`),
+    admin.from("shg_admin_users").select("id").ilike("name", `%${term}%`),
+  ]);
+  return {
+    categoryIds: (categories ?? []).map((c) => c.id as string),
+    responsibleIds: (admins ?? []).map((a) => a.id as string),
+  };
 }
 
 /** The filter methods used here, so any select on shg_finance_transactions fits. */
@@ -91,7 +106,7 @@ interface Filterable {
 /** Applies the ledger filters to a query on shg_finance_transactions.
  * Synchronous on purpose — query builders are thenables, so returning one
  * from an async function would run it. */
-export function applyLedgerFilters<Q>(query: Q, f: FinanceFilters, categoryIds: string[]): Q {
+export function applyLedgerFilters<Q>(query: Q, f: FinanceFilters, matches: SearchMatches): Q {
   // Narrowed by hand: letting TypeScript check the real builder against
   // Filterable (or the select string literal) recurses too deep (TS2589).
   let q = (query as unknown as Filterable).is("deleted_at", null);
@@ -109,7 +124,8 @@ export function applyLedgerFilters<Q>(query: Q, f: FinanceFilters, categoryIds: 
   if (term) {
     q = q.or([
       `description.ilike.%${term}%`,
-      ...(categoryIds.length ? [`category_id.in.(${categoryIds.join(",")})`] : []),
+      ...(matches.categoryIds.length ? [`category_id.in.(${matches.categoryIds.join(",")})`] : []),
+      ...(matches.responsibleIds.length ? [`responsible_id.in.(${matches.responsibleIds.join(",")})`] : []),
     ].join(","));
   }
   return q as unknown as Q;
@@ -136,6 +152,8 @@ export function financeDbError(err: { message?: string; code?: string } | null, 
   const msg = err?.message ?? "";
   if (msg.includes("shg_finance_tx_amount_check")) return "El monto tiene que ser mayor a 0.";
   if (msg.includes("description_check")) return "Escribí el concepto.";
+  if (msg.includes("shg_finance_tx_responsible_check")) return "Las reservas no llevan responsable.";
+  if (msg.includes("responsible_id_fkey")) return "Esa persona ya no está en el equipo: elegí otra.";
   if (msg.includes("violates foreign key constraint") && msg.includes("category")) return "Esa categoría ya tiene movimientos: desactivala en lugar de eliminarla.";
   if (msg.includes("shg_finance_categories_name_type_key")) return "Ya existe una categoría con ese nombre y tipo.";
   if (err?.code === "P0001" && msg) return msg;

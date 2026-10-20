@@ -708,6 +708,7 @@ export interface ShgFinanceTransaction {
   receipt_path:    string | null;
   notes:           string | null;
   is_locked:       boolean;
+  responsible_id:  string | null;   // who on the team paid / received it (manual rows only)
   created_by:      string | null;
   updated_by:      string | null;
   created_at:      string;
