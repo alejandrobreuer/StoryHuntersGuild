@@ -29,6 +29,14 @@ export function formatSignedMoney(type: FinanceTxType, amount: number): string {
   return `${type === "income" ? "+" : "−"} ${formatMoney(Math.abs(amount))}`;
 }
 
+const compactFormat = new Intl.NumberFormat("es-AR", { notation: "compact", maximumFractionDigits: 1 });
+
+/** "192k", "1,2M" — chart labels and axis ticks. es-AR puts a space before
+ * the suffix ("192 k"); the mockup doesn't. */
+export function formatCompact(n: number): string {
+  return compactFormat.format(n).replace(/\s/g, "");
+}
+
 /** "YYYY-MM-DD" → "DD/MM/YY". */
 export function formatShortDate(isoDate: string): string {
   const [y, m, d] = isoDate.slice(0, 10).split("-");

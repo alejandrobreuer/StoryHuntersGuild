@@ -1,8 +1,9 @@
 import type { ShgFinanceCategory } from "@/types/database";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { formatMoney, formatSignedMoney, formatShortDate, parseAmount } from "./format";
+import { formatCompact, formatMoney, formatSignedMoney, formatShortDate, parseAmount } from "./format";
 import { draftToPayload, newDraft, validateDraft, withType } from "./draft";
+import { eventSubtitle, eventTotals, margin, monthLabel, perAttendee, rangeLabel, topCategory } from "./summary";
 import { describeRange, filtersFromParams, filtersToParams, periodRange, todayIso } from "./periods";
 
 test("formatMoney: es-AR, decimals only when non-zero", () => {
@@ -112,4 +113,42 @@ test("validation marks each bad cell", () => {
     occurred_on: "2026-10-19", type: "expense", description: "Fundas", category_id: "i", event_id: null,
     payment_method: "transfer", amount: 4500.5, status: "confirmed", receipt_path: null, notes: null,
   });
+});
+
+// ─── Dashboard ───────────────────────────────────────────────────────────────
+
+test("KPI sub-lines", () => {
+  const k = { income: 280000, expense: 231300, result: 48700, seats: 35, seat_events: 2, receivable: 24000, payable: 0, pending_bookings: 2 };
+  assert.equal(margin(k), 17);
+  assert.equal(margin({ ...k, income: 0, result: -5 }), null);
+  assert.deepEqual(topCategory([{ category_id: "j", name: "Juegos", amount: 136300 }, { category_id: "i", name: "Impresión", amount: 95000 }]),
+    { name: "Juegos", share: 59 });
+  assert.equal(topCategory([]), null);
+});
+
+test("per-event table", () => {
+  const ev = { event_id: "e", title: "Encuentro #1", starts_at: "2026-10-11T22:00:00Z", started_at: "x", ended_at: "y", seats: 24, income: 192000, expense: 48300, result: 143700 };
+  const general = { event_id: null, title: null, starts_at: null, started_at: null, ended_at: null, seats: 0, income: 0, expense: 149500, result: -149500 };
+  assert.equal(perAttendee(ev), 5988);
+  assert.equal(perAttendee(general), null);
+  assert.equal(eventSubtitle(ev), "Octubre · cerrado");
+  assert.equal(eventSubtitle({ ...ev, started_at: null, ended_at: null }), "Octubre · reservas abiertas");
+  assert.equal(eventSubtitle(general), "Ludoteca, web y otros sin evento");
+  assert.deepEqual(eventTotals([ev, general]), { seats: 24, income: 192000, expense: 197800, result: -5800 });
+});
+
+test("labels", () => {
+  assert.equal(monthLabel("2026-11-01", "2026-11-19"), "Nov (en curso)");
+  assert.equal(monthLabel("2026-10-01", "2026-11-19"), "Oct");
+  const months = [{ month: "2026-08-01", income: 0, expense: 1 }, { month: "2026-11-01", income: 1, expense: 0 }];
+  assert.equal(rangeLabel({ from: null, to: null }, months), "Agosto – noviembre 2026");
+  assert.equal(rangeLabel({ from: "2026-10-01", to: "2026-10-31" }, months), "Octubre 2026");
+  assert.equal(rangeLabel({ from: null, to: null }, []), "");
+});
+
+test("formatCompact matches the chart labels in the mockup", () => {
+  assert.equal(formatCompact(0), "0");
+  assert.equal(formatCompact(42000), "42k");
+  assert.equal(formatCompact(192000), "192k");
+  assert.equal(formatCompact(1200000), "1,2M");
 });
