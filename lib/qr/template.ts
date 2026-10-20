@@ -1,5 +1,5 @@
 // Private bucket for the mission-card .docx template (created in
-// 048_shg_mission_qr_codes.sql). Its storage path lives in shg_settings
+// 053_shg_mission_qr_codes.sql). Its storage path lives in shg_settings
 // under QR_SETTING_KEYS.templatePath.
 export const TEMPLATE_BUCKET = "shg-templates";
 

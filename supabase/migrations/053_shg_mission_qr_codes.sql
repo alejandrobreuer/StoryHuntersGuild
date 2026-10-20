@@ -1,7 +1,7 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 -- Story Hunters Guild — mission & check-in QR codes
 -- ═══════════════════════════════════════════════════════════════════════════
--- Run AFTER 047_shg_admin_notifications.sql. See
+-- Run AFTER 052_shg_finance_responsible.sql. See
 -- "Reference/Mission & Check-in QR Codes — Spec.md".
 --
 -- 1. shg_event_mission_codes: one QR token per (event, mission) link. The
