@@ -3,6 +3,7 @@ import { requirePermission } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { eventSchema } from "@/lib/validation/events";
 import { validateEventQuestLinks } from "@/lib/quests/validateEventQuestLinks";
+import { ensureEventQrCodes } from "@/lib/qr/codes";
 
 function slugify(title: string): string {
   return title.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
@@ -70,6 +71,10 @@ export async function POST(req: NextRequest) {
   if (quest_ids.length > 0) {
     await admin.from("shg_quest_events").insert(quest_ids.map((quest_id) => ({ event_id: event.id, quest_id })));
   }
+
+  // Check-in token + one QR code per attached mission, created up front.
+  // Best effort, same as on PATCH — the QR tab backfills anything missing.
+  await ensureEventQrCodes(admin, event.id, null).catch(() => undefined);
 
   return NextResponse.json({ data: event }, { status: 201 });
 }

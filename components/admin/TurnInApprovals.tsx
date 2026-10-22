@@ -5,19 +5,19 @@ import { Check, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { formatDateTime } from "@/lib/formatting";
 import { toast } from "sonner";
-import type { QuestType } from "@/types/database";
+import type { QuestType, SubmissionSource } from "@/types/database";
 
 interface UserInfo { id: string; email: string; name: string | null; }
 interface EventInfo { id: string; title: string; }
 
 interface ActivationRow {
-  id: string; quest_id: string; event_id: string | null; user_id: string; turned_in_at: string;
+  id: string; quest_id: string; event_id: string | null; user_id: string; turned_in_at: string; source: SubmissionSource;
   quest: { id: string; title: string; type: QuestType; reward_xp: number; reward_rp: number } | { id: string; title: string; type: QuestType; reward_xp: number; reward_rp: number }[] | null;
   user: UserInfo | UserInfo[] | null;
   event: EventInfo | EventInfo[] | null;
 }
 interface GroupRow {
-  id: string; quest_id: string; event_id: string; turned_in_at: string;
+  id: string; quest_id: string; event_id: string; turned_in_at: string; source: SubmissionSource;
   quest: { id: string; title: string; reward_xp: number; reward_rp: number } | { id: string; title: string; reward_xp: number; reward_rp: number }[] | null;
   event: EventInfo | EventInfo[] | null;
   members: { user_id: string; user: UserInfo | UserInfo[] | null }[];
@@ -30,6 +30,15 @@ type QueueItem =
 const TYPE_LABELS: Record<QuestType, string> = {
   individual: "Individual", group: "Grupo", event: "Evento", guild: "Misión de Gremio",
 };
+
+/** Marks a submission that came in by scanning a mission card's QR. */
+function QrLabel() {
+  return (
+    <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-brass/15 text-brass" title="Entregada escaneando el QR de la tarjeta">
+      QR
+    </span>
+  );
+}
 
 function one<T>(v: T | T[] | null): T | null {
   return Array.isArray(v) ? (v[0] ?? null) : v;
@@ -105,6 +114,7 @@ export function TurnInApprovals() {
                       <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-leather/10 text-leather">
                         {TYPE_LABELS[quest.type]}
                       </span>
+                      {a.source === "qr" && <QrLabel />}
                     </div>
                     <p className="font-body text-xs text-ink-light">
                       {userLabel(user)}{event ? ` · ${event.title}` : ""} · {formatDateTime(a.turned_in_at)}
@@ -141,6 +151,7 @@ export function TurnInApprovals() {
                   <div className="flex items-center gap-2 flex-wrap mb-0.5">
                     <p className="font-label text-sm font-bold text-ink">{quest.title}</p>
                     <span className="font-label text-2xs uppercase tracking-wide px-1.5 py-0.5 rounded-sm bg-leather/10 text-leather">Grupo</span>
+                    {g.source === "qr" && <QrLabel />}
                   </div>
                   <p className="font-body text-xs text-ink-light">
                     {labels.join(", ")}{event ? ` · ${event.title}` : ""} · {formatDateTime(g.turned_in_at)}

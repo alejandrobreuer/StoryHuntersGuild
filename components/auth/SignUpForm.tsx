@@ -7,10 +7,12 @@ import { UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { toast } from "sonner";
+import { safeNext } from "@/lib/auth/safeNext";
 
 export function SignUpForm() {
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") || "/my-bookings";
+  const next = safeNext(searchParams.get("next"));
+  const signInHref = `/sign-in?next=${encodeURIComponent(next)}`;
 
   const [name, setName] = React.useState("");
   const [email, setEmail] = React.useState("");
@@ -57,7 +59,7 @@ export function SignUpForm() {
       {alreadyExists && (
         <p className="mb-4 text-xs text-crimson font-body text-center">
           Ya existe una cuenta con ese email.{" "}
-          <Link href="/sign-in" className="underline">Iniciá sesión</Link>.
+          <Link href={signInHref} className="underline">Iniciá sesión</Link>.
         </p>
       )}
 
@@ -99,7 +101,7 @@ export function SignUpForm() {
 
       <p className="mt-4 text-center font-body text-xs text-ink-light">
         ¿Ya tenés cuenta?{" "}
-        <Link href="/sign-in" className="text-brass underline">Iniciá sesión</Link>
+        <Link href={signInHref} className="text-brass underline">Iniciá sesión</Link>
       </p>
     </div>
   );

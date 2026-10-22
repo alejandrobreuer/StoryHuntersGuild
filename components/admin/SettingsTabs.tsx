@@ -9,10 +9,12 @@ import { TagsManager } from "@/components/admin/TagsManager";
 import { CouponsManager } from "@/components/admin/CouponsManager";
 import { FeatureFlagsManager } from "@/components/admin/FeatureFlagsManager";
 import { RolesManager } from "@/components/admin/RolesManager";
+import { QrSettingsForm } from "@/components/admin/QrSettingsForm";
 import type { PermissionKey } from "@/types/database";
 
 const TABS = [
   { key: "general",       label: "General",    perm: "settings" as PermissionKey,      Component: SettingsForm },
+  { key: "qr",            label: "Códigos QR",  perm: "settings" as PermissionKey,       Component: QrSettingsForm },
   { key: "ranks",         label: "Rangos",      perm: "ranks" as PermissionKey,          Component: RanksManager },
   { key: "badges",        label: "Insignias",   perm: "badges" as PermissionKey,         Component: BadgesManager },
   { key: "tags",          label: "Tags",        perm: "tags" as PermissionKey,           Component: TagsManager },
