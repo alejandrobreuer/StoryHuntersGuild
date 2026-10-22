@@ -36,11 +36,15 @@ export function SiteChromeGuard({
 
   if (hidden) return <>{children}</>;
 
+  // At least one screen tall, so the footer sits at the bottom of short pages
+  // instead of halfway up. The page itself stays a normal block (not a flex
+  // item) so its own width/centering is untouched; a page whose root has
+  // `page-light` gets the empty space below it painted parchment too.
   return (
-    <>
+    <div className="flex min-h-dvh flex-col">
       <Nav sessionUser={sessionUser} isAdmin={isAdmin} questsEnabled={questsEnabled} myLiveEvent={myLiveEvent} />
-      {children}
+      <div className="flex-1 has-[>.page-light]:bg-parchment">{children}</div>
       <StudioCreditFooter />
-    </>
+    </div>
   );
 }

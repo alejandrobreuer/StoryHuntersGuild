@@ -1,4 +1,5 @@
 import { Crosshair } from "lucide-react";
+import { SocialLinks } from "@/components/layout/SocialLinks";
 
 export function StudioCreditFooter() {
   return (
@@ -7,6 +8,7 @@ export function StudioCreditFooter() {
         <Crosshair size={18} className="text-brass-light" />
         <span className="font-display text-base text-brass-light">Story Hunters Guild</span>
       </div>
+      <SocialLinks className="justify-center mb-2 text-brass-light [&_a:hover]:text-brass-bright" />
       <p className="font-label text-2xs tracking-widest text-leather-lighter uppercase">
         Creado por Story Hunters
       </p>
