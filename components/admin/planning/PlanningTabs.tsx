@@ -9,6 +9,7 @@ export function PlanningTabs({ canManage }: { canManage: boolean }) {
 
   const tabs = [
     { href: "/admin/planning", label: "Épicas", match: (p: string) => p === "/admin/planning" },
+    { href: "/admin/planning/overview", label: "Resumen", match: (p: string) => p.startsWith("/admin/planning/overview") },
     { href: "/admin/planning/my-tasks", label: "Mis tareas", match: (p: string) => p.startsWith("/admin/planning/my-tasks") },
     ...(canManage
       ? [{ href: "/admin/planning/templates", label: "Plantillas", match: (p: string) => p.startsWith("/admin/planning/templates") }]

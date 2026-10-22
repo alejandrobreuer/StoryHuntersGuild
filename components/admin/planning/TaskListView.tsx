@@ -11,9 +11,10 @@ interface TaskListViewProps {
   tasksByStatus: Record<PlanningTaskStatus, PlanningTask[]>;
   onOpenTask: (id: string) => void;
   onToggleDone: (task: PlanningTask) => void;
+  onAssignToMe: (task: PlanningTask) => void;
 }
 
-export function TaskListView({ tasksByStatus, onOpenTask, onToggleDone }: TaskListViewProps) {
+export function TaskListView({ tasksByStatus, onOpenTask, onToggleDone, onAssignToMe }: TaskListViewProps) {
   return (
     <div className="flex flex-col gap-5">
       {TASK_STATUS_ORDER.map((status) => {
@@ -27,7 +28,7 @@ export function TaskListView({ tasksByStatus, onOpenTask, onToggleDone }: TaskLi
             <DroppableColumn status={status} className="surface-parchment overflow-hidden min-h-[8px]">
               <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
                 {tasks.map((t) => (
-                  <TaskRow key={t.id} task={t} onOpen={() => onOpenTask(t.id)} onToggleDone={() => onToggleDone(t)} />
+                  <TaskRow key={t.id} task={t} onOpen={() => onOpenTask(t.id)} onToggleDone={() => onToggleDone(t)} onAssignToMe={() => onAssignToMe(t)} />
                 ))}
               </SortableContext>
             </DroppableColumn>

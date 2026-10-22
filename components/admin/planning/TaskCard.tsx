@@ -4,12 +4,14 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { MessageSquare } from "lucide-react";
 import { AssigneeAvatar } from "@/components/admin/planning/AssigneeAvatar";
+import { AssignToMeButton, canAssignToMe } from "@/components/admin/planning/AssignToMeButton";
 import { formatPlanningDate } from "@/lib/planning/dates";
+import { closedOn } from "@/lib/planning/overview";
 import { todayISOInEventTimeZone } from "@/lib/formatting";
 import { cn } from "@/lib/utils";
 import type { PlanningTask } from "@/components/admin/planning/types";
 
-export function TaskCard({ task, onOpen }: { task: PlanningTask; onOpen: () => void }) {
+export function TaskCard({ task, onOpen, onAssignToMe }: { task: PlanningTask; onOpen: () => void; onAssignToMe: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id });
   const overdue = !!task.due_date && task.due_date < todayISOInEventTimeZone() && task.status !== "done";
 
@@ -29,12 +31,19 @@ export function TaskCard({ task, onOpen }: { task: PlanningTask; onOpen: () => v
       <p className="font-body text-sm leading-snug">{task.title}</p>
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2.5 font-label text-xs">
-          <span className={overdue ? "text-crimson font-bold" : "text-ink-light"}>
-            {task.due_date ? formatPlanningDate(task.due_date) : ""}
-          </span>
+          {task.status === "done" && task.completed_at ? (
+            <span className="text-moss-dark" title="Fecha de cierre">Cerrada {formatPlanningDate(closedOn(task)!)}</span>
+          ) : (
+            <span className={overdue ? "text-crimson font-bold" : "text-ink-light"}>
+              {task.due_date ? formatPlanningDate(task.due_date) : ""}
+            </span>
+          )}
           <span className="flex items-center gap-1 text-ink-light"><MessageSquare size={13} />{task.comment_count}</span>
         </div>
-        <AssigneeAvatar name={task.assignee?.name} />
+        <div className="flex items-center gap-2">
+          {canAssignToMe(task) && <AssignToMeButton onClick={onAssignToMe} />}
+          <AssigneeAvatar name={task.assignee?.name} />
+        </div>
       </div>
     </div>
   );

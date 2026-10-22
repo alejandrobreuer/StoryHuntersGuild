@@ -4,7 +4,9 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { MessageSquare } from "lucide-react";
 import { AssigneeAvatar } from "@/components/admin/planning/AssigneeAvatar";
+import { AssignToMeButton, canAssignToMe } from "@/components/admin/planning/AssignToMeButton";
 import { formatPlanningDate } from "@/lib/planning/dates";
+import { closedOn } from "@/lib/planning/overview";
 import { todayISOInEventTimeZone } from "@/lib/formatting";
 import { cn } from "@/lib/utils";
 import type { PlanningTask } from "@/components/admin/planning/types";
@@ -13,9 +15,10 @@ interface TaskRowProps {
   task: PlanningTask;
   onOpen: () => void;
   onToggleDone: () => void;
+  onAssignToMe: () => void;
 }
 
-export function TaskRow({ task, onOpen, onToggleDone }: TaskRowProps) {
+export function TaskRow({ task, onOpen, onToggleDone, onAssignToMe }: TaskRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id });
   const overdue = !!task.due_date && task.due_date < todayISOInEventTimeZone() && task.status !== "done";
 
@@ -52,11 +55,16 @@ export function TaskRow({ task, onOpen, onToggleDone }: TaskRowProps) {
       <span className="shrink-0 flex items-center gap-1 font-label text-xs text-ink-light">
         <MessageSquare size={14} />{task.comment_count}
       </span>
-      {task.due_date && (
+      {task.status === "done" && task.completed_at ? (
+        <span className="shrink-0 w-24 text-right font-label text-xs text-moss-dark" title="Fecha de cierre">
+          Cerrada {formatPlanningDate(closedOn(task)!)}
+        </span>
+      ) : task.due_date && (
         <span className={cn("shrink-0 w-20 text-right font-label text-xs", overdue ? "text-crimson font-bold" : "text-ink-light")}>
           {formatPlanningDate(task.due_date)}
         </span>
       )}
+      {canAssignToMe(task) && <AssignToMeButton onClick={onAssignToMe} />}
       <AssigneeAvatar name={task.assignee?.name} />
     </div>
   );
