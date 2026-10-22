@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "generate-icon-outlines": "tsx scripts/generate-icon-outlines.ts",
-    "test": "tsx --test lib/finance/finance.test.ts"
+    "test": "tsx --test lib/finance/finance.test.ts lib/planning/overview.test.ts"
   },
   "dependencies": {
     "@3d-dice/dice-box": "^1.1.4",

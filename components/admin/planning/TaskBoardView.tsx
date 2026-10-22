@@ -12,9 +12,10 @@ interface TaskBoardViewProps {
   tasksByStatus: Record<PlanningTaskStatus, PlanningTask[]>;
   onOpenTask: (id: string) => void;
   onQuickAddTodo: () => void;
+  onAssignToMe: (task: PlanningTask) => void;
 }
 
-export function TaskBoardView({ tasksByStatus, onOpenTask, onQuickAddTodo }: TaskBoardViewProps) {
+export function TaskBoardView({ tasksByStatus, onOpenTask, onQuickAddTodo, onAssignToMe }: TaskBoardViewProps) {
   return (
     <div className="overflow-x-auto pb-2">
       <div className="grid grid-cols-4 gap-4 min-w-[900px] items-start">
@@ -32,7 +33,7 @@ export function TaskBoardView({ tasksByStatus, onOpenTask, onQuickAddTodo }: Tas
               <DroppableColumn status={status} className="flex flex-col gap-2.5 min-h-[40px]">
                 <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
                   {tasks.map((t) => (
-                    <TaskCard key={t.id} task={t} onOpen={() => onOpenTask(t.id)} />
+                    <TaskCard key={t.id} task={t} onOpen={() => onOpenTask(t.id)} onAssignToMe={() => onAssignToMe(t)} />
                   ))}
                 </SortableContext>
               </DroppableColumn>

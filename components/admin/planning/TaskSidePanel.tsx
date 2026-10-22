@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Trash2 } from "lucide-react";
+import { Trash2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
@@ -10,6 +10,8 @@ import { Select } from "@/components/ui/Select";
 import { CommentThread, type PlanningComment } from "@/components/admin/planning/CommentThread";
 import { TASK_STATUS_LABEL } from "@/lib/planning/status";
 import { formatPlanningDate } from "@/lib/planning/dates";
+import { closedOn, createdOn } from "@/lib/planning/overview";
+import { cn } from "@/lib/utils";
 import type { ShgPlanningAssignee, PlanningTaskStatus } from "@/types/database";
 import type { PlanningTask } from "@/components/admin/planning/types";
 
@@ -120,14 +122,25 @@ export function TaskSidePanel({ taskId, owners, currentUserId, canDeleteAnyComme
                 <option key={s} value={s}>{TASK_STATUS_LABEL[s]}</option>
               ))}
             </Select>
-            <Select
-              label="Asignado a"
-              value={task.assignee?.id ?? ""}
-              onChange={(e) => patchTask({ assignee_id: e.target.value || null })}
-            >
-              <option value="">Sin asignar</option>
-              {owners.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </Select>
+            <div className="flex flex-col gap-1">
+              <Select
+                label="Asignado a"
+                value={task.assignee?.id ?? ""}
+                onChange={(e) => patchTask({ assignee_id: e.target.value || null })}
+              >
+                <option value="">Sin asignar</option>
+                {owners.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+              </Select>
+              {task.assignee_id !== currentUserId && (
+                <button
+                  type="button"
+                  onClick={() => patchTask({ assignee_id: currentUserId })}
+                  className="self-start inline-flex items-center gap-1 font-label text-xs text-brass hover:text-crimson"
+                >
+                  <UserPlus size={13} /> Asignarme
+                </button>
+              )}
+            </div>
             <Input
               label="Fecha límite"
               type="date"
@@ -135,9 +148,15 @@ export function TaskSidePanel({ taskId, owners, currentUserId, canDeleteAnyComme
               onChange={(e) => patchTask({ due_date: e.target.value || null })}
             />
             <div className="flex flex-col gap-1.5">
-              <span className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">Creada</span>
+              <span className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">Fecha de creación</span>
               <span className="font-body text-sm text-ink py-2.5">
-                {task.creator?.name ?? "—"}{task.created_at ? ` · ${formatPlanningDate(task.created_at.slice(0, 10))}` : ""}
+                {formatPlanningDate(createdOn(task))}{task.creator?.name ? ` · ${task.creator.name}` : ""}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <span className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">Fecha de cierre</span>
+              <span className={cn("font-body text-sm py-2.5", task.completed_at ? "text-ink" : "text-ink-light italic")}>
+                {task.completed_at ? formatPlanningDate(closedOn(task)!) : "Se completa al marcarla como Hecho"}
               </span>
             </div>
           </div>

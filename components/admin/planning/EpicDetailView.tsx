@@ -133,6 +133,17 @@ export function EpicDetailView({ epicId, canManage, currentUserId }: { epicId: s
     setTasks((ts) => ts.map((t) => (t.id === task.id ? json.data : t)));
   }
 
+  async function handleAssignToMe(task: PlanningTask) {
+    const res = await fetch(`/api/admin/planning/tasks/${task.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ assignee_id: currentUserId }),
+    });
+    const json = await res.json();
+    if (!res.ok) { toast.error(json.error ?? "No se pudo asignar."); return; }
+    setTasks((ts) => ts.map((t) => (t.id === task.id ? { ...t, ...json.data } : t)));
+  }
+
   const filteredTasks = React.useMemo(() => {
     return tasks.filter((t) => {
       if (mineOnly) return t.assignee?.id === currentUserId;
@@ -328,9 +339,9 @@ export function EpicDetailView({ epicId, canManage, currentUserId }: { epicId: s
 
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
         {viewMode === "list" ? (
-          <TaskListView tasksByStatus={tasksByStatus} onOpenTask={openTask} onToggleDone={handleToggleDone} />
+          <TaskListView tasksByStatus={tasksByStatus} onOpenTask={openTask} onToggleDone={handleToggleDone} onAssignToMe={handleAssignToMe} />
         ) : (
-          <TaskBoardView tasksByStatus={tasksByStatus} onOpenTask={openTask} onQuickAddTodo={() => quickAddRef.current?.focus()} />
+          <TaskBoardView tasksByStatus={tasksByStatus} onOpenTask={openTask} onQuickAddTodo={() => quickAddRef.current?.focus()} onAssignToMe={handleAssignToMe} />
         )}
       </DndContext>
 
