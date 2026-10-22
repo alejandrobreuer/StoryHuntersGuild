@@ -5,6 +5,7 @@ import { formatCompact, formatMoney, formatSignedMoney, formatShortDate, parseAm
 import { draftToPayload, newDraft, validateDraft, withType } from "./draft";
 import { eventSubtitle, eventTotals, margin, monthLabel, perAttendee, rangeLabel, topCategory } from "./summary";
 import { describeRange, filtersFromParams, filtersToParams, periodRange, todayIso } from "./periods";
+import { categoriesOfType, moveCategory, withOrder } from "./categories";
 
 test("formatMoney: es-AR, decimals only when non-zero", () => {
   assert.equal(formatMoney(16000), "$ 16.000");
@@ -154,4 +155,27 @@ test("formatCompact matches the chart labels in the mockup", () => {
   assert.equal(formatCompact(42000), "42k");
   assert.equal(formatCompact(192000), "192k");
   assert.equal(formatCompact(1200000), "1,2M");
+});
+
+// ─── Categorías ──────────────────────────────────────────────────────────────
+
+test("categories: one type, in order", () => {
+  const list = categoriesOfType(CATS, "expense").map((c) => c.id);
+  assert.deepEqual(list.sort(), ["i", "j", "x"]);
+  const ordered = categoriesOfType([
+    { ...CATS[3], sort_order: 2 }, { ...CATS[2], sort_order: 1 },
+  ], "expense").map((c) => c.id);
+  assert.deepEqual(ordered, ["j", "i"]);
+});
+
+test("categories: move up/down and renumber", () => {
+  const list = [{ id: "a" }, { id: "b" }, { id: "c" }];
+  assert.deepEqual(moveCategory(list, "b", -1), ["b", "a", "c"]);
+  assert.deepEqual(moveCategory(list, "b", 1), ["a", "c", "b"]);
+  assert.equal(moveCategory(list, "a", -1), null);
+  assert.equal(moveCategory(list, "c", 1), null);
+  const renumbered = withOrder(CATS, ["i", "j"]);
+  assert.equal(renumbered.find((c) => c.id === "i")?.sort_order, 1);
+  assert.equal(renumbered.find((c) => c.id === "j")?.sort_order, 2);
+  assert.equal(renumbered.find((c) => c.id === "r")?.sort_order, CATS.find((c) => c.id === "r")?.sort_order);
 });
