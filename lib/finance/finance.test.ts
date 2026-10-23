@@ -102,6 +102,13 @@ test("new rows start with the spec's defaults", () => {
   assert.equal(newDraft("new:3", "expense", "2026-10-19", CATS, "admin-1").responsible_id, "admin-1");
 });
 
+test("a Reservas row may be $0 (free event); a manual one may not", () => {
+  const free = { ...newDraft("x", "income", "2026-10-19", CATS), description: "Reserva #0001 · 1 lugar", amount: "0" };
+  assert.ok(validateDraft(free, CATS).amount);
+  assert.deepEqual(validateDraft({ ...free, fromBooking: true }, CATS), {});
+  assert.ok(validateDraft({ ...free, fromBooking: true, amount: "-5" }, CATS).amount);
+});
+
 test("changing type swaps a category of the wrong type", () => {
   const g = { ...newDraft("new:1", "expense", "2026-10-19", CATS), category_id: "j" };
   assert.equal(withType(g, "income", CATS).category_id, "r");

@@ -6,8 +6,9 @@ import { updateTransactionSchema } from "@/lib/validation/finance";
 
 // ─── PATCH /api/admin/finance/transactions/[id] ─────────────────────────────
 // Unlock: { is_locked: false }. Save: { ...changes, is_locked: true }.
-// The lock and the read-only rule for reservations are enforced by the
-// database; its message comes back as the error.
+// The lock and what a Reservas row may not change (type, Responsable,
+// deletion — 055) are enforced by the database; its message comes back as
+// the error.
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   const { user, error } = await requirePermission("finances");

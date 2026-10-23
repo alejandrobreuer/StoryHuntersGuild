@@ -21,6 +21,7 @@ export interface Draft {
   receipt_path:   string | null;
   notes:          string;
   responsible_id: string;     // "" = nobody
+  fromBooking:    boolean;    // a Reservas income row: type, Responsable and receipt stay as they are
   showNotes:      boolean;
 }
 
@@ -49,6 +50,7 @@ export function draftFromRow(row: LedgerRow): Draft {
     payment_method: row.payment_method, amount: amountToInput(row.amount), status: row.status,
     receipt_path: row.receipt_path, notes: row.notes ?? "", showNotes: Boolean(row.notes),
     responsible_id: row.responsible_id ?? "",
+    fromBooking: row.source === "booking",
   };
 }
 
@@ -71,6 +73,7 @@ export function newDraft(
     category_id: defaultCategoryId(type, categories), event_id: "",
     payment_method: "transfer", amount: "", status: "confirmed",
     receipt_path: null, notes: "", showNotes: false, responsible_id: responsibleId,
+    fromBooking: false,
   };
 }
 
@@ -88,7 +91,10 @@ export function validateDraft(draft: Draft, categories: ShgFinanceCategory[]): D
   if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.occurred_on)) errors.occurred_on = "Elegí la fecha.";
   if (!draft.description.trim()) errors.description = "Escribí el concepto.";
   const amount = parseAmount(draft.amount);
-  if (amount === null || amount <= 0) errors.amount = "El monto tiene que ser un número mayor a 0.";
+  // A reservation can legitimately be $0 (free event, 100% coupon).
+  if (amount === null || amount < 0 || (amount === 0 && !draft.fromBooking)) {
+    errors.amount = "El monto tiene que ser un número mayor a 0.";
+  }
   const category = categories.find((c) => c.id === draft.category_id);
   if (!category) errors.category_id = "Elegí una categoría.";
   else if (category.type !== draft.type) errors.category_id = "La categoría no corresponde al tipo.";

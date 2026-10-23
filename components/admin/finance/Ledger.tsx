@@ -92,7 +92,7 @@ export function Ledger() {
     setDrafts((prev) => {
       const next = { ...prev };
       for (const r of loaded) {
-        if (!r.is_locked && r.source === "manual" && !next[r.id]) next[r.id] = draftFromRow(r);
+        if (!r.is_locked && r.source !== "subscription" && !next[r.id]) next[r.id] = draftFromRow(r);
       }
       return next;
     });
@@ -191,7 +191,8 @@ export function Ledger() {
       category_name: categories.find((c) => c.id === p.category_id)?.name ?? "—",
       event_title: events.find((e) => e.id === p.event_id)?.title ?? null,
       responsible_name: team.find((m) => m.id === p.responsible_id)?.name ?? null,
-      has_receipt: Boolean(p.receipt_path),
+      // A reservation's receipt is on the booking, not in the draft.
+      has_receipt: base?.source === "booking" ? base.has_receipt : Boolean(p.receipt_path),
       is_locked: true,
     } as LedgerRow;
   }
@@ -199,6 +200,11 @@ export function Ledger() {
   // ── Actions ──────────────────────────────────────────────────────────────
 
   async function unlock(row: LedgerRow) {
+    // Reservas rows are normally kept by the sync: make editing one deliberate.
+    if (row.source === "booking" && !confirm(
+      "Este ingreso viene de una reserva. ¿Seguro que querés editarlo?\n\n" +
+      "Si después la reserva cambia (estado, monto, lugares o evento), ese dato se vuelve a copiar desde Reservas.",
+    )) return;
     setDrafts((prev) => ({ ...prev, [row.id]: draftFromRow(row) }));
     setFocusId(row.id);
     mark(setBusy, row.id, true);
