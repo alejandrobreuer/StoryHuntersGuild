@@ -25,7 +25,7 @@ export function SiteChromeGuard({
   myLiveEvent,
 }: {
   children: React.ReactNode;
-  sessionUser: { id: string; email: string } | null;
+  sessionUser: { id: string; email: string; name: string | null } | null;
   isAdmin: boolean;
   questsEnabled: boolean;
   myLiveEvent: { id: string; title: string } | null;
