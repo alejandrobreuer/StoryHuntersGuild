@@ -86,7 +86,7 @@ export function LockedRow({
       <td className={cn(cell, "truncate")}>{row.category_name}</td>
       <td className={cn(cell, "truncate")}>{row.event_title ?? "General"}</td>
       <td className={cn(cell, "text-fin-muted truncate")}>{PAY_METHOD_LABELS[row.payment_method]}</td>
-      <td className={cn(cell, "truncate")} title={row.responsible_name ?? undefined}>
+      <td className={cn(cell, "truncate")} title={row.responsible_name && row.source === "booking" ? `Cliente de la reserva: ${row.responsible_name}` : row.responsible_name ?? undefined}>
         {row.responsible_name ?? <span className="text-fin-muted" aria-label="Sin responsable">—</span>}
       </td>
       <td className={cn(cell, "text-right")}><Amount row={row} /></td>
@@ -236,16 +236,21 @@ export function EditingRow(props: EditingRowProps) {
           </select>
         </td>
         <td className={cell}>
-          <select
-            aria-label={label(`Responsable: ${responsibleHint}`)} value={draft.responsible_id}
-            disabled={draft.fromBooking}
-            title={draft.fromBooking ? "Las reservas no llevan responsable: el pago va a la cuenta del gremio" : responsibleHint}
-            onChange={(e) => onChange({ responsible_id: e.target.value })}
-            className={cn(inputClass, !draft.responsible_id && "text-fin-muted")}
-          >
-            <option value="">{responsibleHint}</option>
-            {rowTeam.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-          </select>
+          {draft.fromBooking ? (
+            // A reservation's "Responsable" is its client, from the booking.
+            <p className="truncate px-1 text-fin-ink" title={`Cliente de la reserva${draft.bookingClient ? `: ${draft.bookingClient}` : ""}`}>
+              {draft.bookingClient ?? <span className="text-fin-muted">—</span>}
+            </p>
+          ) : (
+            <select
+              aria-label={label(`Responsable: ${responsibleHint}`)} title={responsibleHint} value={draft.responsible_id}
+              onChange={(e) => onChange({ responsible_id: e.target.value })}
+              className={cn(inputClass, !draft.responsible_id && "text-fin-muted")}
+            >
+              <option value="">{responsibleHint}</option>
+              {rowTeam.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+            </select>
+          )}
         </td>
         <td className={cell}>
           <input
