@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { Search, Tags } from "lucide-react";
+import { ChevronDown, Search, Tags } from "lucide-react";
 import { Select } from "@/components/ui/Select";
 import { cn } from "@/lib/utils";
 
@@ -38,7 +38,7 @@ export function GameSearchToolbar() {
     // instead of mb so its opaque background hides the cards scrolling under it,
     // widened sideways (like the header) to also cover their glow; the sidebar
     // sits above it (z-30) so it isn't covered in turn.
-    <div className="flex flex-wrap gap-3 pb-8 lg:sticky lg:top-[195px] lg:z-20 bg-background lg:shadow-[0_0_0_100vmax_#3d3830] lg:[clip-path:inset(0_-100vmax)]">
+    <div className="flex flex-wrap gap-3 pb-8 lg:pb-5 lg:sticky lg:top-[195px] lg:z-20 bg-background lg:shadow-[0_0_0_100vmax_#3d3830] lg:[clip-path:inset(0_-100vmax)]">
       <div className="relative flex-1 min-w-[200px]">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-leather-light pointer-events-none" />
         <input
@@ -72,30 +72,22 @@ export function GameSearchToolbar() {
   );
 }
 
-// Tag list, laid out as a left-hand column next to the games grid.
+// Filter sidebar, laid out as a left-hand column next to the games grid; for
+// now its only (collapsible) section is the tag list, more filters will join it.
 // lg:top-[195px] pins it below the nav and the pinned page header (see
 // app/games/page.tsx), the same spot it occupies before scrolling, so it
-// never moves; max-h leaves a 24px gap at the bottom so it can never be
-// taller than the visible area. Without that cap, a sticky
-// element taller than the viewport scrolls along with the page (its
-// correct, if surprising, default behavior) until its bottom edge comes
-// into view before it actually "catches" — which reads as the sidebar
-// randomly refusing to stay put until you scroll past the whole tag list.
-// Capping the height instead makes the tag list itself (not the sidebar)
-// the thing that scrolls once it doesn't fit. lg:flex-nowrap is required
-// alongside lg:flex-col: the base flex-wrap class (for the mobile row
-// layout) stays active at lg unless explicitly reset, and a wrapping
-// column-direction flex container with a constrained height doesn't
-// overflow a single column — it starts new columns side by side instead,
-// which looked like "two columns of tags" instead of one scrollable one.
+// never moves. On lg it has a fixed height (the visible area minus a 24px
+// gap at the bottom) whatever its content, and scrolls its content itself
+// when the open sections don't fit.
 export function GameTagSidebar({ allTags }: { allTags: string[] }) {
   const { selectedTags, toggleTag } = useGameFilterParams();
   const asideRef = useRef<HTMLElement>(null);
+  const [open, setOpen] = useState(false);
 
   // Near the bottom of the page the grid ends, and a sticky element gets pushed
   // up by the end of its containing block — over the search bar. So the sticky
   // sits in a wrapper stretched 100vh past the grid (never pushes), and this
-  // caps its height at the grid's content edge so it shrinks in place instead.
+  // ends it at the grid's content edge so it shrinks in place instead.
   // Scroll handlers run a frame behind the compositor; during that frame the
   // grid's overflow-y clip (see app/games/page.tsx) hides the overshoot.
   useEffect(() => {
@@ -108,7 +100,7 @@ export function GameTagSidebar({ allTags }: { allTags: string[] }) {
       const top = parseFloat(getComputedStyle(el).top);
       const gridBottom = grid.getBoundingClientRect().bottom - parseFloat(getComputedStyle(grid).paddingBottom);
       const bottom = Math.min(window.innerHeight - 24, gridBottom);
-      el.style.maxHeight = desktop.matches ? `${bottom - top}px` : "";
+      el.style.height = desktop.matches ? `${bottom - top}px` : "";
     }
     fit();
     window.addEventListener("scroll", fit, { passive: true });
@@ -123,27 +115,48 @@ export function GameTagSidebar({ allTags }: { allTags: string[] }) {
 
   return (
     <div className="lg:self-stretch lg:-mb-[100vh]">
-      <aside ref={asideRef} className="surface-parchment p-4 lg:sticky lg:top-[195px] lg:z-30 lg:max-h-[calc(100vh-219px)] shrink-0 flex flex-col">
-        <p className="flex items-center gap-1.5 font-label text-sm font-bold uppercase tracking-widest text-ink mb-3 shrink-0">
+      {/* scrollbar-gutter: the scrollbar's space is always reserved, so the
+          content (e.g. the section's arrow) doesn't shift when it appears. */}
+      <aside ref={asideRef} className="surface-parchment p-4 lg:sticky lg:top-[195px] lg:z-30 lg:h-[calc(100vh-219px)] lg:overflow-y-auto lg:[scrollbar-gutter:stable]">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          aria-controls="game-tag-list"
+          className={cn(
+            "flex w-full items-center gap-1.5 font-label text-sm font-bold uppercase tracking-widest text-ink hover:text-brass-bright transition-colors",
+            open && "mb-3"
+          )}
+        >
           <Tags size={14} /> Categorías
-        </p>
-        <div className="flex flex-wrap lg:flex-col lg:flex-nowrap gap-2 lg:overflow-y-auto lg:min-h-0 lg:pr-1">
+          {/* How many are selected — mostly for when it's collapsed. */}
+          {selectedTags.length > 0 && (
+            <span className="font-label text-2xs tracking-wide px-1.5 rounded-sm bg-brass text-ink">
+              {selectedTags.length}
+            </span>
+          )}
+          <ChevronDown size={16} className={cn("ml-auto transition-transform", open && "rotate-180")} />
+        </button>
+        {/* !hidden: plain `hidden` (or the hidden attribute) loses to `flex`. */}
+        <div id="game-tag-list" className={cn("flex flex-wrap gap-x-4 gap-y-2 lg:flex-col", !open && "!hidden")}>
           {allTags.map((tag) => {
             const active = selectedTags.includes(tag);
             return (
-              <button
+              <label
                 key={tag}
-                type="button"
-                onClick={() => toggleTag(tag)}
                 className={cn(
-                  "font-label text-2xs font-semibold uppercase tracking-wide px-2.5 py-1.5 rounded-sm border transition-colors lg:text-left",
-                  active
-                    ? "bg-brass text-ink border-brass"
-                    : "bg-transparent text-ink-light border-border hover:border-brass hover:text-brass-bright"
+                  "flex items-center gap-2 cursor-pointer font-label text-xs font-semibold uppercase tracking-wide transition-colors hover:text-brass-bright",
+                  active ? "text-ink" : "text-ink-light"
                 )}
               >
+                <input
+                  type="checkbox"
+                  checked={active}
+                  onChange={() => toggleTag(tag)}
+                  className="accent-moss size-4 shrink-0"
+                />
                 {tag}
-              </button>
+              </label>
             );
           })}
         </div>

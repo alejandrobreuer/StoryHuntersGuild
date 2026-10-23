@@ -48,7 +48,7 @@ export default async function GamesPage({
         </p>
       </header>
 
-      {/* min-h: at least as tall as the full-size sidebar, so a short result
+      {/* min-h: at least as tall as the full-height sidebar, so a short result
           list doesn't make the sidebar shrink. overflow-y clip cuts off the
           sidebar's wrapper, which runs past the grid, without breaking sticky
           (unlike hidden); pb-4 (taken from main's pb) keeps the last row's

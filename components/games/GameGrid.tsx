@@ -30,7 +30,9 @@ export function GameGrid({ games }: { games: ShgGamePublic[] }) {
 
   return (
     <>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-5">
+      {/* lg:pt-3 (taken from the pinned toolbar's padding, which is opaque):
+          room for the first row's top edge, shadow and hover lift. */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-5 lg:pt-3">
         {games.map((g) => (
           <GameCard key={g.id} game={g} onClick={() => openGame(g)} />
         ))}
