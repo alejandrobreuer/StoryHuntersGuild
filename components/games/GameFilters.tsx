@@ -2,9 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { ChevronDown, Search, Tags } from "lucide-react";
-import { Select } from "@/components/ui/Select";
+import { ChevronDown, Clock, Gauge, PackageCheck, Search, Sprout, Tags, Users, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  COMPLEXITY_OPTIONS,
+  PLAYER_OPTIONS,
+  PLAYTIME_OPTIONS,
+  STATUS_OPTIONS,
+  parseListParam,
+  type FilterOption,
+} from "@/lib/games/filters";
 
 // Shared URL-param plumbing for both filter pieces below — they're rendered
 // in different parts of the page layout (sidebar vs. toolbar) but both read/
@@ -13,7 +20,6 @@ function useGameFilterParams() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const selectedTags = (searchParams.get("tags") ?? "").split(",").filter(Boolean);
 
   function updateParam(key: string, value: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -21,15 +27,20 @@ function useGameFilterParams() {
     router.push(`${pathname}?${params.toString()}`);
   }
 
-  function toggleTag(tag: string) {
-    const next = selectedTags.includes(tag) ? selectedTags.filter((t) => t !== tag) : [...selectedTags, tag];
-    updateParam("tags", next.join(","));
+  function getList(key: string) {
+    return parseListParam(searchParams.get(key) ?? undefined);
   }
 
-  return { searchParams, selectedTags, updateParam, toggleTag };
+  function toggleInList(key: string, value: string) {
+    const current = getList(key);
+    const next = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
+    updateParam(key, next.join(","));
+  }
+
+  return { searchParams, updateParam, getList, toggleInList };
 }
 
-// Search box, difficulty and "beginner friendly" — the toolbar above the grid.
+// Search box — the toolbar above the grid.
 export function GameSearchToolbar() {
   const { searchParams, updateParam } = useGameFilterParams();
 
@@ -49,40 +60,84 @@ export function GameSearchToolbar() {
           className="w-full h-11 pl-9 pr-3 font-body text-sm text-ink bg-parchment/90 border border-border focus:border-brass focus:ring-1 focus:ring-brass/40 outline-none"
         />
       </div>
-      <Select
-        defaultValue={searchParams.get("complexity") ?? ""}
-        onChange={(e) => updateParam("complexity", e.target.value)}
-        wrapperClassName="w-44"
-      >
-        <option value="">Toda dificultad</option>
-        <option value="light">Fácil</option>
-        <option value="medium">Intermedio</option>
-        <option value="heavy">Avanzado</option>
-      </Select>
-      <label className="flex items-center gap-2 font-body text-sm text-parchment-dark px-2">
-        <input
-          type="checkbox"
-          defaultChecked={searchParams.get("beginner") === "1"}
-          onChange={(e) => updateParam("beginner", e.target.checked ? "1" : "")}
-          className="accent-moss size-4"
-        />
-        Ideal para empezar
-      </label>
     </div>
   );
 }
 
-// Filter sidebar, laid out as a left-hand column next to the games grid; for
-// now its only (collapsible) section is the tag list, more filters will join it.
+function FilterSection({
+  id,
+  title,
+  icon: Icon,
+  options,
+  selected,
+  onToggle,
+}: {
+  id: string;
+  title: string;
+  icon: LucideIcon;
+  options: readonly FilterOption[];
+  selected: string[];
+  onToggle: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const listId = `game-filter-${id}`;
+
+  return (
+    <section className="border-t border-border/60 pt-3 mt-3 first:border-t-0 first:pt-0 first:mt-0">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls={listId}
+        className={cn(
+          "flex w-full items-center gap-1.5 font-label text-sm font-bold uppercase tracking-widest text-ink hover:text-brass-bright transition-colors",
+          open && "mb-3"
+        )}
+      >
+        <Icon size={14} /> {title}
+        {selected.length > 0 && (
+          <span className="font-label text-2xs tracking-wide px-1.5 rounded-sm bg-brass text-ink">
+            {selected.length}
+          </span>
+        )}
+        <ChevronDown size={16} className={cn("ml-auto transition-transform", open && "rotate-180")} />
+      </button>
+      <div id={listId} className={cn("flex flex-wrap gap-x-4 gap-y-2 lg:flex-col", !open && "!hidden")}>
+        {options.map((option) => {
+          const active = selected.includes(option.value);
+          return (
+            <label
+              key={option.value}
+              className={cn(
+                "flex items-center gap-2 cursor-pointer font-label text-xs font-semibold uppercase tracking-wide transition-colors hover:text-brass-bright",
+                active ? "text-ink" : "text-ink-light"
+              )}
+            >
+              <input
+                type="checkbox"
+                checked={active}
+                onChange={() => onToggle(option.value)}
+                className="accent-moss size-4 shrink-0"
+              />
+              {option.label}
+            </label>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+// Filter sidebar, laid out as a left-hand column next to the games grid, made
+// of collapsible sections (see FilterSection and lib/games/filters.ts).
 // lg:top-[195px] pins it below the nav and the pinned page header (see
 // app/games/page.tsx), the same spot it occupies before scrolling, so it
 // never moves. On lg it has a fixed height (the visible area minus a 24px
 // gap at the bottom) whatever its content, and scrolls its content itself
 // when the open sections don't fit.
-export function GameTagSidebar({ allTags }: { allTags: string[] }) {
-  const { selectedTags, toggleTag } = useGameFilterParams();
+export function GameFilterSidebar({ allTags }: { allTags: string[] }) {
+  const { getList, toggleInList } = useGameFilterParams();
   const asideRef = useRef<HTMLElement>(null);
-  const [open, setOpen] = useState(false);
 
   // Near the bottom of the page the grid ends, and a sticky element gets pushed
   // up by the end of its containing block — over the search bar. So the sticky
@@ -111,55 +166,33 @@ export function GameTagSidebar({ allTags }: { allTags: string[] }) {
     };
   }, []);
 
-  if (allTags.length === 0) return null;
+  const sections: [string, string, LucideIcon, readonly FilterOption[]][] = [
+    ["tags",       "Categorías",     Tags,         allTags.map((t) => ({ value: t, label: t }))],
+    ["players",    "Jugadores",      Users,        PLAYER_OPTIONS],
+    ["time",       "Duración",       Clock,        PLAYTIME_OPTIONS],
+    ["complexity", "Dificultad",     Gauge,        COMPLEXITY_OPTIONS],
+    ["beginner",   "Para empezar",   Sprout,       [{ value: "1", label: "Ideal para empezar" }]],
+    ["status",     "Disponibilidad", PackageCheck, STATUS_OPTIONS],
+  ];
 
   return (
     <div className="lg:self-stretch lg:-mb-[100vh]">
       {/* scrollbar-gutter: the scrollbar's space is always reserved, so the
-          content (e.g. the section's arrow) doesn't shift when it appears. */}
+          content (e.g. the sections' arrows) doesn't shift when it appears. */}
       <aside ref={asideRef} className="surface-parchment p-4 lg:sticky lg:top-[195px] lg:z-30 lg:h-[calc(100vh-219px)] lg:overflow-y-auto lg:[scrollbar-gutter:stable]">
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          aria-expanded={open}
-          aria-controls="game-tag-list"
-          className={cn(
-            "flex w-full items-center gap-1.5 font-label text-sm font-bold uppercase tracking-widest text-ink hover:text-brass-bright transition-colors",
-            open && "mb-3"
-          )}
-        >
-          <Tags size={14} /> Categorías
-          {/* How many are selected — mostly for when it's collapsed. */}
-          {selectedTags.length > 0 && (
-            <span className="font-label text-2xs tracking-wide px-1.5 rounded-sm bg-brass text-ink">
-              {selectedTags.length}
-            </span>
-          )}
-          <ChevronDown size={16} className={cn("ml-auto transition-transform", open && "rotate-180")} />
-        </button>
-        {/* !hidden: plain `hidden` (or the hidden attribute) loses to `flex`. */}
-        <div id="game-tag-list" className={cn("flex flex-wrap gap-x-4 gap-y-2 lg:flex-col", !open && "!hidden")}>
-          {allTags.map((tag) => {
-            const active = selectedTags.includes(tag);
-            return (
-              <label
-                key={tag}
-                className={cn(
-                  "flex items-center gap-2 cursor-pointer font-label text-xs font-semibold uppercase tracking-wide transition-colors hover:text-brass-bright",
-                  active ? "text-ink" : "text-ink-light"
-                )}
-              >
-                <input
-                  type="checkbox"
-                  checked={active}
-                  onChange={() => toggleTag(tag)}
-                  className="accent-moss size-4 shrink-0"
-                />
-                {tag}
-              </label>
-            );
-          })}
-        </div>
+        {sections
+          .filter(([, , , options]) => options.length > 0)
+          .map(([param, title, icon, options]) => (
+            <FilterSection
+              key={param}
+              id={param}
+              title={title}
+              icon={icon}
+              options={options}
+              selected={getList(param)}
+              onToggle={(value) => toggleInList(param, value)}
+            />
+          ))}
       </aside>
     </div>
   );

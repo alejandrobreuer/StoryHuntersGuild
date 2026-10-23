@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { GameGrid } from "@/components/games/GameGrid";
-import { GameSearchToolbar, GameTagSidebar } from "@/components/games/GameFilters";
-import type { ShgGamePublic, GameComplexity } from "@/types/database";
+import { GameSearchToolbar, GameFilterSidebar } from "@/components/games/GameFilters";
+import { parseListParam, playersCondition, playtimeCondition } from "@/lib/games/filters";
+import type { ShgGamePublic, GameComplexity, GameStatus } from "@/types/database";
 
 export const metadata: Metadata = { title: "Ludoteca — Story Hunters Guild" };
 export const dynamic = "force-dynamic";
@@ -16,16 +17,23 @@ const PUBLIC_GAME_COLUMNS = "id, name, slug, min_players, max_players, playtime_
 export default async function GamesPage({
   searchParams,
 }: {
-  searchParams: { q?: string; complexity?: string; beginner?: string; tags?: string };
+  searchParams: { q?: string; tags?: string; players?: string; time?: string; complexity?: string; beginner?: string; status?: string };
 }) {
   const admin = createAdminClient();
-  const selectedTags = searchParams.tags ? searchParams.tags.split(",").filter(Boolean) : [];
+  const selectedTags = parseListParam(searchParams.tags);
+  const complexities = parseListParam<GameComplexity>(searchParams.complexity, ["light", "medium", "heavy"]);
+  const statuses = parseListParam<GameStatus>(searchParams.status, ["available", "unavailable", "request_ahead"]);
+  const players = playersCondition(parseListParam(searchParams.players));
+  const playtime = playtimeCondition(parseListParam(searchParams.time));
 
   let query = admin.from("shg_games").select(PUBLIC_GAME_COLUMNS).order("name");
   if (searchParams.q) query = query.ilike("name", `%${searchParams.q}%`);
-  if (searchParams.complexity) query = query.eq("complexity", searchParams.complexity as GameComplexity);
-  if (searchParams.beginner === "1") query = query.eq("beginner_friendly", true);
   if (selectedTags.length > 0) query = query.overlaps("tags", selectedTags);
+  if (complexities.length > 0) query = query.in("complexity", complexities);
+  if (searchParams.beginner === "1") query = query.eq("beginner_friendly", true);
+  if (statuses.length > 0) query = query.in("status", statuses);
+  if (players) query = query.or(players);
+  if (playtime) query = query.or(playtime);
 
   const [{ data }, { data: allGamesTags }] = await Promise.all([
     query,
@@ -52,9 +60,9 @@ export default async function GamesPage({
           list doesn't make the sidebar shrink. overflow-y clip cuts off the
           sidebar's wrapper, which runs past the grid, without breaking sticky
           (unlike hidden); pb-4 (taken from main's pb) keeps the last row's
-          glow inside the clip. See GameTagSidebar. */}
+          glow inside the clip. See GameFilterSidebar. */}
       <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-8 items-start lg:min-h-[calc(100vh-219px)] lg:[overflow-y:clip] lg:pb-4">
-        <GameTagSidebar allTags={allTags} />
+        <GameFilterSidebar allTags={allTags} />
 
         <div className="min-w-0">
           <GameSearchToolbar />
