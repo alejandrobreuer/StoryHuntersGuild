@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { ChevronDown, Clock, Gauge, PackageCheck, Search, Sprout, Tags, Users, type LucideIcon } from "lucide-react";
+import { ChevronDown, Clock, Gauge, PackageCheck, Search, SlidersHorizontal, Sprout, Tags, Users, X, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   COMPLEXITY_OPTIONS,
@@ -37,7 +37,13 @@ function useGameFilterParams() {
     updateParam(key, next.join(","));
   }
 
-  return { searchParams, updateParam, getList, toggleInList };
+  function clearParams(keys: string[]) {
+    const params = new URLSearchParams(searchParams.toString());
+    keys.forEach((key) => params.delete(key));
+    router.push(`${pathname}?${params.toString()}`);
+  }
+
+  return { searchParams, updateParam, getList, toggleInList, clearParams };
 }
 
 // Search box — the toolbar above the grid.
@@ -136,7 +142,7 @@ function FilterSection({
 // gap at the bottom) whatever its content, and scrolls its content itself
 // when the open sections don't fit.
 export function GameFilterSidebar({ allTags }: { allTags: string[] }) {
-  const { getList, toggleInList } = useGameFilterParams();
+  const { getList, toggleInList, clearParams } = useGameFilterParams();
   const asideRef = useRef<HTMLElement>(null);
 
   // Near the bottom of the page the grid ends, and a sticky element gets pushed
@@ -174,25 +180,45 @@ export function GameFilterSidebar({ allTags }: { allTags: string[] }) {
     ["beginner",   "Para empezar",   Sprout,       [{ value: "1", label: "Ideal para empezar" }]],
     ["status",     "Disponibilidad", PackageCheck, STATUS_OPTIONS],
   ];
+  const activeCount = sections.reduce((n, [param]) => n + getList(param).length, 0);
 
   return (
     <div className="lg:self-stretch lg:-mb-[100vh]">
-      {/* scrollbar-gutter: the scrollbar's space is always reserved, so the
-          content (e.g. the sections' arrows) doesn't shift when it appears. */}
-      <aside ref={asideRef} className="surface-parchment p-4 lg:sticky lg:top-[195px] lg:z-30 lg:h-[calc(100vh-219px)] lg:overflow-y-auto lg:[scrollbar-gutter:stable]">
-        {sections
-          .filter(([, , , options]) => options.length > 0)
-          .map(([param, title, icon, options]) => (
-            <FilterSection
-              key={param}
-              id={param}
-              title={title}
-              icon={icon}
-              options={options}
-              selected={getList(param)}
-              onToggle={(value) => toggleInList(param, value)}
-            />
-          ))}
+      <aside ref={asideRef} className="surface-parchment p-4 flex flex-col lg:sticky lg:top-[195px] lg:z-30 lg:h-[calc(100vh-219px)]">
+        {/* Stays put above the scrolling sections. Clears the sidebar's filters
+            only, not the search box. overflow-hidden + scrollbar-gutter reserves
+            the same scrollbar space as the list below, so "Limpiar" lines up
+            with the sections' arrows. */}
+        <div className="flex items-center gap-2 pb-3 mb-3 border-b border-border shrink-0 lg:overflow-hidden lg:[scrollbar-gutter:stable]">
+          <SlidersHorizontal size={14} className="text-ink" />
+          <span className="font-label text-sm font-bold uppercase tracking-widest text-ink">Filtros</span>
+          {activeCount > 0 && (
+            <button
+              type="button"
+              onClick={() => clearParams(sections.map(([param]) => param))}
+              className="ml-auto flex items-center gap-1 font-label text-xs font-semibold uppercase tracking-wide text-ink-light hover:text-brass-bright transition-colors"
+            >
+              <X size={12} /> Limpiar ({activeCount})
+            </button>
+          )}
+        </div>
+        {/* scrollbar-gutter: the scrollbar's space is always reserved, so the
+            content (e.g. the sections' arrows) doesn't shift when it appears. */}
+        <div className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto lg:[scrollbar-gutter:stable]">
+          {sections
+            .filter(([, , , options]) => options.length > 0)
+            .map(([param, title, icon, options]) => (
+              <FilterSection
+                key={param}
+                id={param}
+                title={title}
+                icon={icon}
+                options={options}
+                selected={getList(param)}
+                onToggle={(value) => toggleInList(param, value)}
+              />
+            ))}
+        </div>
       </aside>
     </div>
   );
