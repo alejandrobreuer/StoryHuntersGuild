@@ -23,7 +23,7 @@ const LINKS: { href: string; label: string; icon: typeof LayoutDashboard; perm?:
   { href: "/admin/finanzas",  label: "Finanzas",               icon: Wallet,         perm: "finances" },
   { href: "/admin/turn-ins",  label: "Aprobaciones de entregas", icon: BadgeCheck,   perm: ["quests", "turn_ins"] },
   { href: "/admin/reports",   label: "Reportes",               icon: BarChart3,      perm: "reports" },
-  { href: "/admin/settings",  label: "Configuración",          icon: Settings,       perm: ["settings", "ranks", "badges", "tags", "feature_flags", "roles"] },
+  { href: "/admin/settings",  label: "Configuración",          icon: Settings,       perm: ["settings", "ranks", "badges", "tags", "games", "feature_flags", "roles"] },
   { href: "/admin/admins",    label: "Administradores",        icon: UserCog,        perm: "roles" },
 ];
 
@@ -46,7 +46,7 @@ export function AdminSidebar({ permissions }: AdminSidebarProps) {
   });
 
   return (
-    <aside className="w-56 shrink-0 bg-[#1c1810] border-r border-brass/20 min-h-screen flex flex-col p-3">
+    <aside className="w-56 shrink-0 bg-[#1c1810] border-r border-brass/20 sticky top-0 self-start h-screen overflow-y-auto flex flex-col p-3">
       <div className="flex items-start justify-between px-2 py-3 mb-2">
         <div>
           <span className="font-display text-sm text-brass-light">Story Hunters</span>
