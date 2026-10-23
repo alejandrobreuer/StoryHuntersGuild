@@ -4,7 +4,7 @@ import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, Radio, CalendarCheck, User, ScrollText, Shield, LogOut } from "lucide-react";
+import { Menu, X, Radio, CalendarCheck, User, Swords, ScrollText, Shield, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const MAIN_LINKS = [
@@ -12,7 +12,6 @@ const MAIN_LINKS = [
   { href: "/events", label: "Eventos" },
   { href: "/games",  label: "Ludoteca" },
   { href: "/about",  label: "Nosotros" },
-  { href: "/rol",    label: "RPG" },
 ];
 
 type NavUser = { id: string; email: string; name: string | null };
@@ -94,6 +93,7 @@ function ProfileMenu({ user, isAdmin, questsEnabled }: { user: NavUser; isAdmin:
   const items = [
     { href: "/my-bookings", label: "Reservas", icon: CalendarCheck },
     { href: "/profile",     label: "Mi perfil", icon: User },
+    { href: "/rol",         label: "RPG",       icon: Swords },
     ...(questsEnabled ? [{ href: "/quests", label: "Historial", icon: ScrollText }] : []),
     ...(isAdmin ? [{ href: "/admin", label: "Panel de Admin", icon: Shield }] : []),
   ];
@@ -176,9 +176,10 @@ export function Nav({
   React.useEffect(() => { setMobileOpen(false); }, [pathname]);
 
   // Signed out: "Ingresar" instead of the profile button. An admin signed in
-  // only to the panel (no player session) still gets a way back to it.
+  // only to the panel (no player session) still gets a way back to it, and to
+  // RPG (the DM tools there only need the admin session).
   const extraLinks = sessionUser ? [] : [
-    ...(isAdmin ? [{ href: "/admin", label: "Panel de Admin" }] : []),
+    ...(isAdmin ? [{ href: "/rol", label: "RPG" }, { href: "/admin", label: "Panel de Admin" }] : []),
     { href: "/sign-in", label: "Ingresar" },
   ];
 
