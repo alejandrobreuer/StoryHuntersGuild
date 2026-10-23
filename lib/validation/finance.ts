@@ -35,9 +35,10 @@ export const createTransactionSchema = z.object({
 });
 
 /** Existing row: any subset of fields, plus the lock. Unlock = { is_locked: false };
- * save = { ...changes, is_locked: true }. */
+ * save = { ...changes, is_locked: true }. $0 passes here because a Reservas row
+ * may be free; the database still refuses it on a manual row. */
 export const updateTransactionSchema = z
-  .object({ ...fields, is_locked: z.boolean() })
+  .object({ ...fields, amount: fields.amount.or(z.literal(0)), is_locked: z.boolean() })
   .partial()
   .refine((v) => Object.keys(v).length > 0, "Nada para guardar.");
 

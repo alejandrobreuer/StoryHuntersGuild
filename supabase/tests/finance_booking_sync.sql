@@ -118,14 +118,7 @@ begin
     perform pg_temp.check((select amount from shg_finance_transactions where booking_id = v_free.id) = 0,
       'una reserva gratis crea un ingreso de $ 0');
 
-    -- ── Rows stay read-only from the API ───────────────────────────────────
-    begin
-      perform shg_finance_save(v_admin, (select id from shg_finance_transactions where booking_id = v_free.id),
-        '{"is_locked": false}');
-      raise exception 'FALLÓ [el ingreso de una reserva no se puede desbloquear]';
-    exception when others then
-      if sqlerrm like 'FALLÓ%' then raise; end if;
-    end;
+    -- (Editing these rows by hand: finance_booking_edit.sql, after 055.)
 
     -- ── Backfill is idempotent ─────────────────────────────────────────────
     select count(*) into v_audits from shg_finance_audit_log;

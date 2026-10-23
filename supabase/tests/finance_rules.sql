@@ -153,12 +153,11 @@ begin
       'auditoría: sync sin administrador');
     perform set_config('app.finance_sync', '', true);
 
+    -- Since 055 they can be unlocked and edited (finance_booking_edit.sql),
+    -- but the lock still holds.
     perform pg_temp.expect_error(
-      format($q$select shg_finance_save(%L, %L, '{"is_locked": false}')$q$, v_admin, v_sync_id),
-      'Reservas', 'desbloquear una fila de reserva falla');
-    perform pg_temp.expect_error(
-      format($q$update shg_finance_transactions set status = 'confirmed' where id = %L$q$, v_sync_id),
-      'Reservas', 'editar una fila de reserva falla');
+      format($q$select shg_finance_save(%L, %L, '{"status": "confirmed"}')$q$, v_admin, v_sync_id),
+      'bloqueado', 'editar una fila de reserva bloqueada falla');
 
     -- ── Categories ─────────────────────────────────────────────────────────
     perform pg_temp.expect_error(

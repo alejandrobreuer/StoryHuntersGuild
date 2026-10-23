@@ -45,14 +45,19 @@ export function LockedRow({
   onOpenReceipt: () => void;
 }) {
   const fromBookings = row.source !== "manual";
+  // Reservas rows can be edited too (after a confirmation); memberships can't.
+  const readOnly = row.source === "subscription";
+  const unlockLabel = row.source === "booking"
+    ? "Desbloquear para editar (viene de Reservas)"
+    : "Desbloquear fila para editar";
   return (
     <tr className="border-b border-fin-rowline last:border-b-0">
       <td className={cn(cell, "w-14 text-center")}>
-        {fromBookings ? (
+        {readOnly ? (
           <span
             className="inline-flex size-11 items-center justify-center text-fin-muted"
-            title="Sincronizado desde Reservas: se edita ahí"
-            aria-label="Sincronizado desde Reservas: se edita ahí"
+            title="Movimiento automático: no se edita desde acá"
+            aria-label="Movimiento automático: no se edita desde acá"
             role="img"
           >
             <Link2 size={16} />
@@ -60,7 +65,7 @@ export function LockedRow({
         ) : (
           <button
             type="button" className={iconButton} onClick={onUnlock} disabled={busy}
-            aria-label="Desbloquear fila para editar" title="Desbloquear fila para editar"
+            aria-label={unlockLabel} title={unlockLabel}
           >
             <Lock size={16} />
           </button>
@@ -179,7 +184,8 @@ export function EditingRow(props: EditingRowProps) {
         </td>
         <td className={cell}>
           <select
-            aria-label={label("Tipo")} value={draft.type}
+            aria-label={label("Tipo")} value={draft.type} disabled={draft.fromBooking}
+            title={draft.fromBooking ? "El ingreso de una reserva no cambia de tipo" : undefined}
             onChange={(e) => props.onTypeChange(e.target.value as FinanceTxType)}
             className={inputClass}
           >
@@ -231,7 +237,9 @@ export function EditingRow(props: EditingRowProps) {
         </td>
         <td className={cell}>
           <select
-            aria-label={label(`Responsable: ${responsibleHint}`)} title={responsibleHint} value={draft.responsible_id}
+            aria-label={label(`Responsable: ${responsibleHint}`)} value={draft.responsible_id}
+            disabled={draft.fromBooking}
+            title={draft.fromBooking ? "Las reservas no llevan responsable: el pago va a la cuenta del gremio" : responsibleHint}
             onChange={(e) => onChange({ responsible_id: e.target.value })}
             className={cn(inputClass, !draft.responsible_id && "text-fin-muted")}
           >
@@ -248,6 +256,9 @@ export function EditingRow(props: EditingRowProps) {
           />
         </td>
         <td className={cn(cell, "text-center")}>
+          {draft.fromBooking ? (
+            <span className="text-fin-muted" title="El comprobante de una reserva se ve en Reservas">—</span>
+          ) : (<>
           <input
             ref={fileInput} type="file" className="hidden" accept="image/*,application/pdf"
             onChange={(e) => { const f = e.target.files?.[0]; if (f) props.onUpload(f); e.target.value = ""; }}
@@ -264,6 +275,7 @@ export function EditingRow(props: EditingRowProps) {
           >
             {draft.receipt_path ? <Paperclip size={16} /> : <Upload size={16} />}
           </button>
+          </>)}
         </td>
         <td className={cell}>
           <select
@@ -286,11 +298,14 @@ export function EditingRow(props: EditingRowProps) {
             </button>
             {menuOpen && (
               <div role="menu" className="absolute right-0 top-full z-20 mt-1 w-44 rounded-lg border border-fin-line bg-fin-surface py-1 shadow-lg">
-                <MenuItem icon={<Copy size={14} />} onClick={() => { setMenuOpen(false); props.onDuplicate(); }}>Duplicar</MenuItem>
+                {!draft.fromBooking && (
+                  <MenuItem icon={<Copy size={14} />} onClick={() => { setMenuOpen(false); props.onDuplicate(); }}>Duplicar</MenuItem>
+                )}
                 <MenuItem icon={<StickyNote size={14} />} onClick={() => { setMenuOpen(false); onChange({ showNotes: true }); }}>
                   {draft.notes ? "Editar nota" : "Agregar nota"}
                 </MenuItem>
-                {!draft.isNew && (
+                {/* A reservation's income goes away by cancelling the booking in Reservas. */}
+                {!draft.isNew && !draft.fromBooking && (
                   <MenuItem icon={<Trash2 size={14} />} danger onClick={() => { setMenuOpen(false); props.onDelete(); }}>Eliminar</MenuItem>
                 )}
               </div>
