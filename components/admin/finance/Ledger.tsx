@@ -190,7 +190,9 @@ export function Ledger() {
       ...p,
       category_name: categories.find((c) => c.id === p.category_id)?.name ?? "—",
       event_title: events.find((e) => e.id === p.event_id)?.title ?? null,
-      responsible_name: team.find((m) => m.id === p.responsible_id)?.name ?? null,
+      responsible_name: base?.source === "booking"
+        ? base.responsible_name   // the client
+        : team.find((m) => m.id === p.responsible_id)?.name ?? null,
       // A reservation's receipt is on the booking, not in the draft.
       has_receipt: base?.source === "booking" ? base.has_receipt : Boolean(p.receipt_path),
       is_locked: true,

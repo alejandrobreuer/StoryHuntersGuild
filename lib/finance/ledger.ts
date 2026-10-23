@@ -39,7 +39,7 @@ export const LEDGER_SELECT = `
   booking_id, receipt_path, notes, responsible_id, recurring_id, is_locked, created_at,
   category:shg_finance_categories(name),
   event:shg_events(title),
-  booking:shg_bookings(booking_number, receipt_path),
+  booking:shg_bookings(booking_number, receipt_path, name),
   responsible:shg_admin_users!responsible_id(name)
 `;
 
@@ -55,7 +55,7 @@ export interface RawRow {
   responsible_id: string | null; recurring_id: string | null; is_locked: boolean; created_at: string;
   category: Embedded<{ name: string }>;
   event: Embedded<{ title: string }>;
-  booking: Embedded<{ booking_number: number; receipt_path: string | null }>;
+  booking: Embedded<{ booking_number: number; receipt_path: string | null; name: string }>;
   responsible: Embedded<{ name: string }>;
 }
 
@@ -71,7 +71,9 @@ export function toLedgerRow(r: RawRow): LedgerRow {
     // A reservation's receipt lives on the booking, not on the ledger row.
     has_receipt: r.source === "booking" ? Boolean(booking?.receipt_path) : Boolean(r.receipt_path),
     notes: r.notes,
-    responsible_id: r.responsible_id, responsible_name: one(r.responsible)?.name ?? null,
+    // A reservation has no team Responsable: its client is shown there instead.
+    responsible_id: r.responsible_id,
+    responsible_name: r.source === "booking" ? booking?.name ?? null : one(r.responsible)?.name ?? null,
     recurring_id: r.recurring_id ?? null,
     is_locked: r.is_locked, created_at: r.created_at,
   };
@@ -82,20 +84,22 @@ function searchTerm(q: string): string {
   return q.replace(/[,()*%\\"'.:]/g, " ").trim();
 }
 
-/** Ids whose names match the search: it covers category and responsable
- * names too, so look those up first. */
-export interface SearchMatches { categoryIds: string[]; responsibleIds: string[] }
+/** Ids whose names match the search: it covers category, Responsable and
+ * reservation client names too, so look those up first. */
+export interface SearchMatches { categoryIds: string[]; responsibleIds: string[]; bookingIds: string[] }
 
 export async function searchMatches(admin: AdminClient, f: FinanceFilters): Promise<SearchMatches> {
   const term = searchTerm(f.q);
-  if (!term) return { categoryIds: [], responsibleIds: [] };
-  const [{ data: categories }, { data: admins }] = await Promise.all([
+  if (!term) return { categoryIds: [], responsibleIds: [], bookingIds: [] };
+  const [{ data: categories }, { data: admins }, { data: bookings }] = await Promise.all([
     admin.from("shg_finance_categories").select("id").ilike("name", `%${term}%`),
     admin.from("shg_admin_users").select("id").ilike("name", `%${term}%`),
+    admin.from("shg_bookings").select("id").ilike("name", `%${term}%`),
   ]);
   return {
     categoryIds: (categories ?? []).map((c) => c.id as string),
     responsibleIds: (admins ?? []).map((a) => a.id as string),
+    bookingIds: (bookings ?? []).map((b) => b.id as string),
   };
 }
 
@@ -128,6 +132,7 @@ export function applyLedgerFilters<Q>(query: Q, f: FinanceFilters, matches: Sear
       `description.ilike.%${term}%`,
       ...(matches.categoryIds.length ? [`category_id.in.(${matches.categoryIds.join(",")})`] : []),
       ...(matches.responsibleIds.length ? [`responsible_id.in.(${matches.responsibleIds.join(",")})`] : []),
+      ...(matches.bookingIds.length ? [`booking_id.in.(${matches.bookingIds.join(",")})`] : []),
     ].join(","));
   }
   return q as unknown as Q;

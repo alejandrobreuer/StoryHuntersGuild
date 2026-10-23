@@ -22,6 +22,7 @@ export interface Draft {
   notes:          string;
   responsible_id: string;     // "" = nobody
   fromBooking:    boolean;    // a Reservas income row: type, Responsable and receipt stay as they are
+  bookingClient:  string | null;   // its client, shown where the Responsable goes
   showNotes:      boolean;
 }
 
@@ -51,6 +52,7 @@ export function draftFromRow(row: LedgerRow): Draft {
     receipt_path: row.receipt_path, notes: row.notes ?? "", showNotes: Boolean(row.notes),
     responsible_id: row.responsible_id ?? "",
     fromBooking: row.source === "booking",
+    bookingClient: row.source === "booking" ? row.responsible_name : null,
   };
 }
 
@@ -73,7 +75,7 @@ export function newDraft(
     category_id: defaultCategoryId(type, categories), event_id: "",
     payment_method: "transfer", amount: "", status: "confirmed",
     receipt_path: null, notes: "", showNotes: false, responsible_id: responsibleId,
-    fromBooking: false,
+    fromBooking: false, bookingClient: null,
   };
 }
 
