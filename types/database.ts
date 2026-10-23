@@ -738,9 +738,30 @@ export interface ShgFinanceTransaction {
   notes:           string | null;
   is_locked:       boolean;
   responsible_id:  string | null;   // who on the team paid / received it (manual rows only)
+  recurring_id:     string | null;   // the subscription that generated it
+  recurring_period: string | null;   // YYYY-MM-01, the month it covers
   created_by:      string | null;
   updated_by:      string | null;
   created_at:      string;
   updated_at:      string;
   deleted_at:      string | null;
+}
+
+/** A monthly recurring expense (UI: "Suscripciones"). shg_finance_run_recurring()
+ * writes one ledger row per month on day_of_month (the last day in shorter months). */
+export interface ShgFinanceRecurring {
+  id:             string;
+  name:           string;
+  category_id:    string;
+  amount:         number;   // ARS per month
+  day_of_month:   number;   // 1–31
+  payment_method: FinancePayMethod;
+  responsible_id: string | null;
+  create_status:  "pending" | "confirmed";
+  starts_on:      string;   // YYYY-MM-DD, first charge on or after it
+  ends_on:        string | null;
+  is_active:      boolean;
+  created_by:     string | null;
+  created_at:     string;
+  updated_at:     string;
 }

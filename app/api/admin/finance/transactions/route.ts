@@ -3,7 +3,7 @@ import { requirePermission } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { filtersFromParams } from "@/lib/finance/periods";
 import {
-  LEDGER_SELECT, applyLedgerFilters, financeDbError, ledgerTotals, searchMatches, toLedgerRow,
+  LEDGER_SELECT, applyLedgerFilters, financeDbError, ledgerTotals, runRecurring, searchMatches, toLedgerRow,
 } from "@/lib/finance/ledger";
 import { createTransactionSchema } from "@/lib/validation/finance";
 
@@ -25,6 +25,9 @@ export async function GET(req: NextRequest) {
   const all = params.get("all") === "1";
   const offset = Math.max(0, Number(params.get("offset")) || 0);
   const admin = createAdminClient();
+
+  // First load of the page: write any subscription rows that are due.
+  if (offset === 0 && params.get("totals") !== "1") await runRecurring(admin);
 
   const matches = await searchMatches(admin, filters);
 

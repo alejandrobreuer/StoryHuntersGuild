@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { filtersFromParams, filtersRange, todayIso } from "@/lib/finance/periods";
+import { runRecurring } from "@/lib/finance/ledger";
 
 // ─── GET /api/admin/finance/summary ─────────────────────────────────────────
 // The Dashboard's numbers, from shg_finance_summary(). Same query params as
@@ -16,6 +17,7 @@ export async function GET(req: NextRequest) {
   const range = filtersRange(filters, todayIso());
 
   const admin = createAdminClient();
+  await runRecurring(admin);
   const { data, error: rpcErr } = await admin.rpc("shg_finance_summary", {
     p_from: range.from,
     p_to: range.to,

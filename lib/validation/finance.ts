@@ -47,3 +47,26 @@ export const categorySchema = z.object({
   is_active:  z.boolean(),
   sort_order: z.number().int().min(0).max(10_000),
 });
+
+const recurringFields = z.object({
+  name:           z.string().trim().min(1, "Escribí el nombre.").max(120),
+  category_id:    uuid,
+  amount:         z.number().positive("El monto tiene que ser mayor a 0.").max(9_999_999_999),
+  day_of_month:   z.number().int().min(1, "El día va de 1 a 31.").max(31, "El día va de 1 a 31."),
+  payment_method: z.enum(PAY_METHODS),
+  responsible_id: uuid.nullable(),
+  create_status:  z.enum(["pending", "confirmed"]),
+  starts_on:      isoDate,
+  ends_on:        isoDate.nullable(),
+  is_active:      z.boolean(),
+});
+
+/** New subscription (Suscripciones). */
+export const recurringSchema = recurringFields.refine(
+  (v) => !v.ends_on || v.ends_on >= v.starts_on,
+  { message: "La fecha de fin es anterior al inicio.", path: ["ends_on"] },
+);
+
+/** Edit: any subset. End-after-start is then checked by the database. */
+export const updateRecurringSchema = recurringFields.partial()
+  .refine((v) => Object.keys(v).length > 0, "Nada para guardar.");
