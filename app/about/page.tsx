@@ -4,12 +4,19 @@ import { SocialLinks } from "@/components/layout/SocialLinks";
 
 export const metadata: Metadata = { title: "Nosotros — Story Hunters Guild" };
 
+// Treasure-map background. Set to null to go back to the plain parchment page.
+const MAP_BACKGROUND: string | null = "/images/about-map-bg.png";
+
 // A light page on purpose: the crest's dark reds and blacks disappear on the
 // site's leather background. `page-light` also paints the space down to the
-// footer on short screens (see SiteChromeGuard).
+// footer on short screens, and `page-fill` stretches the page itself down to
+// it so the map covers it all (see SiteChromeGuard).
 export default function AboutPage() {
   return (
-    <main className="page-light bg-parchment">
+    <main className="page-light page-fill relative isolate bg-parchment">
+      {MAP_BACKGROUND && (
+        <Image src={MAP_BACKGROUND} alt="" fill priority sizes="100vw" className="-z-10 object-cover" />
+      )}
       <div className="max-w-2xl mx-auto px-6 py-16">
         <Image src="/images/crest.png" alt="" width={160} height={160} className="mx-auto mb-8 object-contain" priority />
         <h1 className="font-display text-3xl text-ink text-center mb-8">Nosotros</h1>
@@ -32,7 +39,7 @@ export default function AboutPage() {
             Si alguna vez un libro te llevó lejos, te esperamos en la mesa. 🎲
           </p>
         </div>
-        <div className="mt-12 border-t border-parchment-deep pt-8 text-center">
+        <div className="mt-12 border-t border-ink/20 pt-8 text-center">
           <p className="font-label text-2xs uppercase tracking-widest text-ink-light mb-3">Seguinos</p>
           <SocialLinks className="justify-center text-ink [&_a:hover]:text-crimson" />
         </div>
