@@ -74,6 +74,8 @@ export function LockedRow({
           <p className="truncate text-xs text-fin-muted">Automático · desde Reservas</p>
         ) : row.notes ? (
           <p className="truncate text-xs italic text-fin-muted" title={row.notes}>{row.notes}</p>
+        ) : row.recurring_id ? (
+          <p className="truncate text-xs text-fin-muted">Automático · desde Suscripciones</p>
         ) : null}
       </td>
       <td className={cn(cell, "truncate")}>{row.category_name}</td>

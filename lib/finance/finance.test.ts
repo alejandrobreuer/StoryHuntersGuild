@@ -6,6 +6,7 @@ import { draftToPayload, newDraft, validateDraft, withType } from "./draft";
 import { eventSubtitle, eventTotals, margin, monthLabel, perAttendee, rangeLabel, topCategory } from "./summary";
 import { describeRange, filtersFromParams, filtersToParams, periodRange, todayIso } from "./periods";
 import { categoriesOfType, moveCategory, withOrder } from "./categories";
+import { chargeDate, monthlyTotal, nextChargeDate } from "./recurring";
 
 test("formatMoney: es-AR, decimals only when non-zero", () => {
   assert.equal(formatMoney(16000), "$ 16.000");
@@ -178,4 +179,25 @@ test("categories: move up/down and renumber", () => {
   assert.equal(renumbered.find((c) => c.id === "i")?.sort_order, 1);
   assert.equal(renumbered.find((c) => c.id === "j")?.sort_order, 2);
   assert.equal(renumbered.find((c) => c.id === "r")?.sort_order, CATS.find((c) => c.id === "r")?.sort_order);
+});
+
+test("recurring: charge date falls back to the month's last day", () => {
+  assert.equal(chargeDate(2026, 10, 5), "2026-10-05");
+  assert.equal(chargeDate(2026, 9, 31), "2026-09-30");
+  assert.equal(chargeDate(2026, 2, 30), "2026-02-28");
+  assert.equal(chargeDate(2028, 2, 31), "2028-02-29");
+});
+
+test("recurring: next charge", () => {
+  const sub = { day_of_month: 10, starts_on: "2026-01-01", ends_on: null, is_active: true };
+  assert.equal(nextChargeDate(sub, "2026-10-09"), "2026-10-10");
+  assert.equal(nextChargeDate(sub, "2026-10-10"), "2026-11-10");   // today's is already generated
+  assert.equal(nextChargeDate(sub, "2026-12-20"), "2027-01-10");
+  assert.equal(nextChargeDate({ ...sub, starts_on: "2026-11-15" }, "2026-10-23"), "2026-12-10");
+  assert.equal(nextChargeDate({ ...sub, ends_on: "2026-11-09" }, "2026-10-23"), null);
+  assert.equal(nextChargeDate({ ...sub, is_active: false }, "2026-10-23"), null);
+});
+
+test("recurring: monthly total counts active ones only", () => {
+  assert.equal(monthlyTotal([{ amount: 25000, is_active: true }, { amount: 1000.5, is_active: true }, { amount: 9, is_active: false }]), 26000.5);
 });

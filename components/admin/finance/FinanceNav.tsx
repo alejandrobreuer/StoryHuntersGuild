@@ -5,9 +5,10 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 const TABS = [
-  { href: "/admin/finanzas",            label: "Movimientos" },
-  { href: "/admin/finanzas/dashboard",  label: "Dashboard" },
-  { href: "/admin/finanzas/categorias", label: "Categorías" },
+  { href: "/admin/finanzas",               label: "Movimientos" },
+  { href: "/admin/finanzas/dashboard",     label: "Dashboard" },
+  { href: "/admin/finanzas/suscripciones", label: "Suscripciones" },
+  { href: "/admin/finanzas/categorias",    label: "Categorías" },
 ];
 
 /** The dark top bar from the mockups, inside the admin's own layout. */
