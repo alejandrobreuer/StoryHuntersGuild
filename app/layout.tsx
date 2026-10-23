@@ -57,15 +57,23 @@ async function getMyLiveEvent(userId: string | undefined): Promise<{ id: string;
   return booking ? liveEvent : null;
 }
 
+// For the initials in the Nav's profile button.
+async function getMyName(userId: string | undefined): Promise<string | null> {
+  if (!userId) return null;
+  const { data } = await createAdminClient().from("shg_users").select("name").eq("id", userId).maybeSingle();
+  return data?.name ?? null;
+}
+
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const [sessionUser, adminUser, features] = await Promise.all([getSessionUser(), getAdminUser(), getFeatureFlags()]);
-  const myLiveEvent = await getMyLiveEvent(sessionUser?.id);
+  const [myLiveEvent, myName] = await Promise.all([getMyLiveEvent(sessionUser?.id), getMyName(sessionUser?.id)]);
+  const navUser = sessionUser ? { ...sessionUser, name: myName } : null;
   return (
     <html lang="es" className={`${cinzel.variable} ${crimson.variable} ${oswald.variable}`}>
       <body className="antialiased">
-        <SiteChromeGuard sessionUser={sessionUser} isAdmin={!!adminUser} questsEnabled={features.quests} myLiveEvent={myLiveEvent}>
+        <SiteChromeGuard sessionUser={navUser} isAdmin={!!adminUser} questsEnabled={features.quests} myLiveEvent={myLiveEvent}>
           {children}
         </SiteChromeGuard>
         <Toaster
