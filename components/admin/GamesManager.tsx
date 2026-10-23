@@ -44,8 +44,6 @@ export function GamesManager() {
   const [form, setForm] = React.useState(EMPTY);
   const [saving, setSaving] = React.useState(false);
   const [uploading, setUploading] = React.useState(false);
-  const [newOwnerName, setNewOwnerName] = React.useState("");
-  const [addingOwner, setAddingOwner] = React.useState(false);
   const rulesRef = React.useRef<HTMLTextAreaElement>(null);
 
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -111,35 +109,6 @@ export function GamesManager() {
       owner_ids: g.owner_ids ?? [],
     });
     setModalOpen(true);
-  }
-
-  async function handleAddOwner() {
-    const name = newOwnerName.trim();
-    if (!name) return;
-    setAddingOwner(true);
-    try {
-      const res = await fetch("/api/admin/owners", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
-      });
-      const json = await res.json();
-      if (!res.ok) { toast.error(json.error ?? "No se pudo agregar el dueño."); return; }
-      setOwners((prev) => [...prev, json.data].sort((a, b) => a.name.localeCompare(b.name)));
-      setForm((f) => ({ ...f, owner_ids: [...f.owner_ids, json.data.id] }));
-      setNewOwnerName("");
-    } finally {
-      setAddingOwner(false);
-    }
-  }
-
-  async function handleDeleteOwner(owner: ShgGameOwner) {
-    if (!confirm(`¿Eliminar el dueño "${owner.name}"? Se quitará de todos los juegos donde esté asignado.`)) return;
-    const res = await fetch(`/api/admin/owners/${owner.id}`, { method: "DELETE" });
-    if (!res.ok) { toast.error("No se pudo eliminar."); return; }
-    setForm((f) => ({ ...f, owner_ids: f.owner_ids.filter((id) => id !== owner.id) }));
-    toast.success("Dueño eliminado.");
-    load();
   }
 
   async function handleImageUpload(file: File) {
@@ -394,10 +363,9 @@ export function GamesManager() {
               options={owners.map((o) => ({ ...o, label: o.name }))}
               value={form.owner_ids}
               onToggle={toggleFormOwner}
-              onDeleteOption={handleDeleteOwner}
-              deleteTitle="Eliminar este dueño de la lista"
+              placeholder="Sin dueños"
               pluralSummary={(n) => (n === 1 ? "1 dueño" : `${n} dueños seleccionados`)}
-              emptyMessage="Todavía no hay dueños — agregá uno abajo."
+              emptyMessage="Todavía no hay dueños — cargalos primero en Configuración → Dueños."
             />
             {form.owner_ids.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
@@ -419,18 +387,6 @@ export function GamesManager() {
                 ))}
               </div>
             )}
-            <div className="flex gap-2">
-              <Input
-                wrapperClassName="flex-1"
-                placeholder="Agregar nuevo dueño…"
-                value={newOwnerName}
-                onChange={(e) => setNewOwnerName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleAddOwner(); } }}
-              />
-              <Button type="button" size="sm" loading={addingOwner} disabled={!newOwnerName.trim()} onClick={handleAddOwner}>
-                <Plus size={14} className="mr-1" />Agregar
-              </Button>
-            </div>
           </div>
 
           <div className="flex flex-col gap-1.5">
