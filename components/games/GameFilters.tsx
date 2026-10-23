@@ -34,7 +34,11 @@ export function GameSearchToolbar() {
   const { searchParams, updateParam } = useGameFilterParams();
 
   return (
-    <div className="flex flex-wrap gap-3 mb-8">
+    // Pinned on lg right under the page header (see app/games/page.tsx); pb
+    // instead of mb so its opaque background hides the cards scrolling under it,
+    // widened sideways (like the header) to also cover their glow; the sidebar
+    // sits above it (z-30) so it isn't covered in turn.
+    <div className="flex flex-wrap gap-3 pb-8 lg:sticky lg:top-[195px] lg:z-20 bg-background lg:shadow-[0_0_0_100vmax_#3d3830] lg:[clip-path:inset(0_-100vmax)]">
       <div className="relative flex-1 min-w-[200px]">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-leather-light pointer-events-none" />
         <input
@@ -69,9 +73,10 @@ export function GameSearchToolbar() {
 }
 
 // Tag list, laid out as a left-hand column next to the games grid.
-// lg:top-[72px] clears the sticky nav (Nav.tsx, ~59px tall) with a small
-// gap; max-h caps the box at that same offset from both viewport edges so
-// it can never be taller than the visible area. Without that cap, a sticky
+// lg:top-[195px] pins it below the nav and the pinned page header (see
+// app/games/page.tsx), the same spot it occupies before scrolling, so it
+// never moves; max-h leaves a 24px gap at the bottom so it can never be
+// taller than the visible area. Without that cap, a sticky
 // element taller than the viewport scrolls along with the page (its
 // correct, if surprising, default behavior) until its bottom edge comes
 // into view before it actually "catches" — which reads as the sidebar
@@ -85,31 +90,30 @@ export function GameSearchToolbar() {
 // which looked like "two columns of tags" instead of one scrollable one.
 export function GameTagSidebar({ allTags }: { allTags: string[] }) {
   const { selectedTags, toggleTag } = useGameFilterParams();
-
   const asideRef = useRef<HTMLElement>(null);
 
-  // The CSS max-height only fits once the sidebar is stuck at the top; before
-  // that it sits lower (under the page title) and overflows the viewport. Size
-  // it from its actual position so it always ends 24px above the bottom.
+  // Near the bottom of the page the grid ends, and a sticky element gets pushed
+  // up by the end of its containing block — over the search bar. So the sticky
+  // sits in a wrapper stretched 100vh past the grid (never pushes), and this
+  // caps its height at the grid's content edge so it shrinks in place instead.
+  // Scroll handlers run a frame behind the compositor; during that frame the
+  // grid's overflow-y clip (see app/games/page.tsx) hides the overshoot.
   useEffect(() => {
     const el = asideRef.current;
-    if (!el) return;
+    const grid = el?.parentElement?.parentElement;
+    if (!el || !grid) return;
     const desktop = window.matchMedia("(min-width: 1024px)");
-    let frame = 0;
     function fit() {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        if (!el) return;
-        el.style.maxHeight = desktop.matches
-          ? `${window.innerHeight - el.getBoundingClientRect().top - 24}px`
-          : "";
-      });
+      if (!el || !grid) return;
+      const top = parseFloat(getComputedStyle(el).top);
+      const gridBottom = grid.getBoundingClientRect().bottom - parseFloat(getComputedStyle(grid).paddingBottom);
+      const bottom = Math.min(window.innerHeight - 24, gridBottom);
+      el.style.maxHeight = desktop.matches ? `${bottom - top}px` : "";
     }
     fit();
     window.addEventListener("scroll", fit, { passive: true });
     window.addEventListener("resize", fit);
     return () => {
-      cancelAnimationFrame(frame);
       window.removeEventListener("scroll", fit);
       window.removeEventListener("resize", fit);
     };
@@ -118,30 +122,32 @@ export function GameTagSidebar({ allTags }: { allTags: string[] }) {
   if (allTags.length === 0) return null;
 
   return (
-    <aside ref={asideRef} className="surface-parchment p-4 lg:sticky lg:top-[72px] lg:max-h-[calc(100vh-96px)] shrink-0 flex flex-col">
-      <p className="flex items-center gap-1.5 font-label text-sm font-bold uppercase tracking-widest text-ink mb-3 shrink-0">
-        <Tags size={14} /> Categorías
-      </p>
-      <div className="flex flex-wrap lg:flex-col lg:flex-nowrap gap-2 lg:overflow-y-auto lg:min-h-0 lg:pr-1">
-        {allTags.map((tag) => {
-          const active = selectedTags.includes(tag);
-          return (
-            <button
-              key={tag}
-              type="button"
-              onClick={() => toggleTag(tag)}
-              className={cn(
-                "font-label text-2xs font-semibold uppercase tracking-wide px-2.5 py-1.5 rounded-sm border transition-colors lg:text-left",
-                active
-                  ? "bg-brass text-ink border-brass"
-                  : "bg-transparent text-ink-light border-border hover:border-brass hover:text-brass-bright"
-              )}
-            >
-              {tag}
-            </button>
-          );
-        })}
-      </div>
-    </aside>
+    <div className="lg:self-stretch lg:-mb-[100vh]">
+      <aside ref={asideRef} className="surface-parchment p-4 lg:sticky lg:top-[195px] lg:z-30 lg:max-h-[calc(100vh-219px)] shrink-0 flex flex-col">
+        <p className="flex items-center gap-1.5 font-label text-sm font-bold uppercase tracking-widest text-ink mb-3 shrink-0">
+          <Tags size={14} /> Categorías
+        </p>
+        <div className="flex flex-wrap lg:flex-col lg:flex-nowrap gap-2 lg:overflow-y-auto lg:min-h-0 lg:pr-1">
+          {allTags.map((tag) => {
+            const active = selectedTags.includes(tag);
+            return (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => toggleTag(tag)}
+                className={cn(
+                  "font-label text-2xs font-semibold uppercase tracking-wide px-2.5 py-1.5 rounded-sm border transition-colors lg:text-left",
+                  active
+                    ? "bg-brass text-ink border-brass"
+                    : "bg-transparent text-ink-light border-border hover:border-brass hover:text-brass-bright"
+                )}
+              >
+                {tag}
+              </button>
+            );
+          })}
+        </div>
+      </aside>
+    </div>
   );
 }
