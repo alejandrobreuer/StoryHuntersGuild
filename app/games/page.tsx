@@ -35,7 +35,7 @@ export default async function GamesPage({
   const allTags = Array.from(new Set((allGamesTags ?? []).flatMap((g) => g.tags as string[]))).sort();
 
   return (
-    <main className="max-w-6xl mx-auto px-6 py-14">
+    <main className="max-w-6xl 2xl:max-w-[1400px] mx-auto px-6 py-14">
       <h1 className="font-display text-3xl text-parchment text-center mb-2">Ludoteca</h1>
       <p className="font-body italic text-parchment-dark/70 text-center mb-8">
         Nuestra colección de {games.length} juegos, para todos los niveles.

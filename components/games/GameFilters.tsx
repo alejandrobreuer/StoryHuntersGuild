@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Search, Tags } from "lucide-react";
 import { Select } from "@/components/ui/Select";
@@ -85,10 +86,39 @@ export function GameSearchToolbar() {
 export function GameTagSidebar({ allTags }: { allTags: string[] }) {
   const { selectedTags, toggleTag } = useGameFilterParams();
 
+  const asideRef = useRef<HTMLElement>(null);
+
+  // The CSS max-height only fits once the sidebar is stuck at the top; before
+  // that it sits lower (under the page title) and overflows the viewport. Size
+  // it from its actual position so it always ends 24px above the bottom.
+  useEffect(() => {
+    const el = asideRef.current;
+    if (!el) return;
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    let frame = 0;
+    function fit() {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        if (!el) return;
+        el.style.maxHeight = desktop.matches
+          ? `${window.innerHeight - el.getBoundingClientRect().top - 24}px`
+          : "";
+      });
+    }
+    fit();
+    window.addEventListener("scroll", fit, { passive: true });
+    window.addEventListener("resize", fit);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", fit);
+      window.removeEventListener("resize", fit);
+    };
+  }, []);
+
   if (allTags.length === 0) return null;
 
   return (
-    <aside className="surface-parchment p-4 lg:sticky lg:top-[72px] lg:max-h-[calc(100vh-96px)] shrink-0 flex flex-col">
+    <aside ref={asideRef} className="surface-parchment p-4 lg:sticky lg:top-[72px] lg:max-h-[calc(100vh-96px)] shrink-0 flex flex-col">
       <p className="flex items-center gap-1.5 font-label text-sm font-bold uppercase tracking-widest text-ink mb-3 shrink-0">
         <Tags size={14} /> Categorías
       </p>
