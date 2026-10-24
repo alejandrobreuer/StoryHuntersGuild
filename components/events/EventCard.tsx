@@ -6,6 +6,7 @@ import { EVENT_TYPE_LABELS } from "@/lib/gamification/eventTypes";
 import { CapacityBadge, AttendedBadge } from "@/components/ui/CapacityBadge";
 import { cn } from "@/lib/utils";
 import type { ShgEventListItem } from "@/types/database";
+import { EVENT_COVER_ASPECT } from "@/components/events/cover";
 
 interface EventCardProps {
   event: ShgEventListItem;
@@ -38,7 +39,7 @@ export function EventCard({ event, showRewards }: EventCardProps) {
         )}
       >
       {event.cover_image_url && (
-        <div className="relative w-full aspect-[16/9] mb-4 overflow-hidden border border-border">
+        <div className={`relative w-full ${EVENT_COVER_ASPECT} mb-4 overflow-hidden border border-border`}>
           <Image src={event.cover_image_url} alt="" fill className="object-cover" sizes="400px" />
         </div>
       )}

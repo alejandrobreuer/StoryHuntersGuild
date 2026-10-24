@@ -12,6 +12,7 @@ import { QuestBoard, type IndividualMissionItem, type GroupMissionItem, type Gro
 import { Button } from "@/components/ui/Button";
 import { formatARS, formatDateTime, formatTime, EVENT_TIME_ZONE } from "@/lib/formatting";
 import type { ShgEvent, ShgVenuePublic, ShgGame, QuestDifficulty, QuestType, QuestEventStatus, QuestGroupStatus } from "@/types/database";
+import { EVENT_COVER_ASPECT } from "@/components/events/cover";
 
 interface EventQuestRow {
   id: string; title: string; narrative: string | null; difficulty: QuestDifficulty; type: QuestType;
@@ -204,7 +205,7 @@ export default async function EventDetailPage({ params }: { params: { id: string
     <main className="bg-gradient-to-b from-parchment to-parchment-dark px-6 py-14">
       <div className="max-w-7xl mx-auto">
         {typedEvent.cover_image_url && (
-          <div className="relative w-full aspect-[21/6] mb-8 overflow-hidden border border-brass/30 rounded-md">
+          <div className={`relative w-full ${EVENT_COVER_ASPECT} mb-8 overflow-hidden border border-brass/30 rounded-md`}>
             <Image src={typedEvent.cover_image_url} alt="" fill className="object-cover" sizes="1152px" />
           </div>
         )}

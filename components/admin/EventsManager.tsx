@@ -11,6 +11,7 @@ import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { FieldStatus } from "@/components/admin/FieldStatus";
+import { EVENT_COVER_ASPECT } from "@/components/events/cover";
 import { formatARS, formatDateTime, toDateTimeLocal, fromDateTimeLocal } from "@/lib/formatting";
 import { EVENT_TYPE_LABELS } from "@/lib/gamification/eventTypes";
 import { toast } from "sonner";
@@ -275,11 +276,11 @@ export function EventsManager() {
           {events.map((e) => (
             <div key={e.id} className="surface-parchment p-4 flex flex-col gap-2.5">
               {e.cover_image_url ? (
-                <div className="relative w-full aspect-[16/9] overflow-hidden border border-border">
+                <div className={`relative w-full ${EVENT_COVER_ASPECT} overflow-hidden border border-border`}>
                   <Image src={e.cover_image_url} alt="" fill className="object-cover" sizes="360px" />
                 </div>
               ) : (
-                <div className="w-full aspect-[16/9] bg-parchment-dark/40 border border-border flex flex-col items-center justify-center gap-1">
+                <div className={`w-full ${EVENT_COVER_ASPECT} bg-parchment-dark/40 border border-border flex flex-col items-center justify-center gap-1`}>
                   <ImageOff size={18} className="text-leather-light" />
                   <FieldStatus ok={false}>Sin portada</FieldStatus>
                 </div>
@@ -478,7 +479,7 @@ export function EventsManager() {
         ) : viewingEvent && (
           <div className="flex flex-col gap-5">
             {viewingEvent.cover_image_url && (
-              <div className="relative w-full aspect-[16/7] overflow-hidden border border-brass/30">
+              <div className={`relative w-full ${EVENT_COVER_ASPECT} overflow-hidden border border-brass/30`}>
                 <Image src={viewingEvent.cover_image_url} alt="" fill className="object-cover" sizes="600px" />
               </div>
             )}
