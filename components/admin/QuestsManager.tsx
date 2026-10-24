@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { Plus, Edit2, Trash2, ChevronDown, ChevronUp, ScrollText, Dice5 } from "lucide-react";
+import { Plus, Edit2, Trash2, ChevronDown, ChevronUp, ScrollText, Dice5, Archive, ArchiveRestore, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
@@ -65,6 +65,36 @@ const EMPTY = {
   difficulty: "medium" as QuestDifficulty, reward_xp: 10, reward_rp: 0, badge_id: "", game_id: "",
   max_completions_per_event: "0", max_participants: "", required_turn_ins: "", goal_count: "", starts_at: "", ends_at: "",
 };
+
+type QuestForm = typeof EMPTY;
+
+function formFromQuest(q: QuestRow): QuestForm {
+  return {
+    title: q.title, narrative: q.narrative ?? "", type: q.type, status: q.status,
+    difficulty: q.difficulty, reward_xp: q.reward_xp, reward_rp: q.reward_rp,
+    badge_id: q.badge_id ?? "", game_id: q.game_id ?? "",
+    max_completions_per_event: String(q.max_completions_per_event),
+    max_participants: q.max_participants ? String(q.max_participants) : "",
+    required_turn_ins: q.required_turn_ins ? String(q.required_turn_ins) : "",
+    goal_count: q.goal_count ? String(q.goal_count) : "",
+    starts_at: toDateTimeLocal(q.starts_at),
+    ends_at: toDateTimeLocal(q.ends_at),
+  };
+}
+
+function questPayload(form: QuestForm) {
+  return {
+    ...form,
+    badge_id: form.badge_id || null,
+    game_id: form.game_id || null,
+    max_completions_per_event: Number(form.max_completions_per_event) || 0,
+    max_participants: form.max_participants ? Number(form.max_participants) : null,
+    required_turn_ins: form.required_turn_ins ? Number(form.required_turn_ins) : null,
+    goal_count: form.goal_count ? Number(form.goal_count) : null,
+    starts_at: fromDateTimeLocal(form.starts_at),
+    ends_at: fromDateTimeLocal(form.ends_at),
+  };
+}
 
 function userLabel(u: { email: string; name: string | null } | null): string {
   if (!u) return "—";
@@ -258,6 +288,8 @@ export function QuestsManager() {
   const [form, setForm] = React.useState(EMPTY);
   const [saving, setSaving] = React.useState(false);
   const [typeFilter, setTypeFilter] = React.useState<QuestType | "all">("all");
+  const [statusFilter, setStatusFilter] = React.useState<"all" | "active" | "draft">("all");
+  const [showArchived, setShowArchived] = React.useState(false);
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -281,17 +313,7 @@ export function QuestsManager() {
 
   function openEdit(q: QuestRow) {
     setEditing(q);
-    setForm({
-      title: q.title, narrative: q.narrative ?? "", type: q.type, status: q.status,
-      difficulty: q.difficulty, reward_xp: q.reward_xp, reward_rp: q.reward_rp,
-      badge_id: q.badge_id ?? "", game_id: q.game_id ?? "",
-      max_completions_per_event: String(q.max_completions_per_event),
-      max_participants: q.max_participants ? String(q.max_participants) : "",
-      required_turn_ins: q.required_turn_ins ? String(q.required_turn_ins) : "",
-      goal_count: q.goal_count ? String(q.goal_count) : "",
-      starts_at: toDateTimeLocal(q.starts_at),
-      ends_at: toDateTimeLocal(q.ends_at),
-    });
+    setForm(formFromQuest(q));
     setModalOpen(true);
   }
 
@@ -299,17 +321,7 @@ export function QuestsManager() {
     e.preventDefault();
     setSaving(true);
     try {
-      const payload = {
-        ...form,
-        badge_id: form.badge_id || null,
-        game_id: form.game_id || null,
-        max_completions_per_event: Number(form.max_completions_per_event) || 0,
-        max_participants: form.max_participants ? Number(form.max_participants) : null,
-        required_turn_ins: form.required_turn_ins ? Number(form.required_turn_ins) : null,
-        goal_count: form.goal_count ? Number(form.goal_count) : null,
-        starts_at: fromDateTimeLocal(form.starts_at),
-        ends_at: fromDateTimeLocal(form.ends_at),
-      };
+      const payload = questPayload(form);
       const res = await fetch(editing ? `/api/admin/quests/${editing.id}` : "/api/admin/quests", {
         method: editing ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -325,6 +337,21 @@ export function QuestsManager() {
     }
   }
 
+  // Archiving keeps the quest (and its history) but takes it off the board;
+  // un-archiving brings it back as a draft so it's reviewed before going live.
+  async function handleToggleArchive(q: QuestRow) {
+    const archived = q.status === "archived";
+    const res = await fetch(`/api/admin/quests/${q.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(questPayload({ ...formFromQuest(q), status: archived ? "draft" : "archived" })),
+    });
+    const json = await res.json();
+    if (!res.ok) { toast.error(json.error ?? "No se pudo actualizar."); return; }
+    toast.success(archived ? "Misión desarchivada (queda como borrador)." : "Misión archivada.");
+    load();
+  }
+
   async function handleDelete(q: QuestRow) {
     if (!confirm(`¿Eliminar la misión "${q.title}"?`)) return;
     const res = await fetch(`/api/admin/quests/${q.id}`, { method: "DELETE" });
@@ -332,15 +359,50 @@ export function QuestsManager() {
     else toast.error("No se pudo eliminar.");
   }
 
-  const filtered = typeFilter === "all" ? quests : quests.filter((q) => q.type === typeFilter);
+  // Archived quests live in their own view; the main one holds active + drafts.
+  const inView = quests.filter((q) => (q.status === "archived") === showArchived);
+  const archivedCount = quests.filter((q) => q.status === "archived").length;
+  const statusCount = (s: "active" | "draft") => inView.filter((q) => q.status === s).length;
+  const filtered = inView.filter((q) =>
+    (typeFilter === "all" || q.type === typeFilter) &&
+    (showArchived || statusFilter === "all" || q.status === statusFilter)
+  );
   const selectedGame = games.find((g) => g.id === form.game_id) ?? null;
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="font-display text-2xl text-parchment">Misiones</h1>
-        <Button size="sm" onClick={openNew}><Plus size={14} className="mr-1" />Nueva misión</Button>
+      <div className="flex items-center justify-between gap-2 flex-wrap mb-6">
+        <h1 className="font-display text-2xl text-parchment">{showArchived ? "Misiones archivadas" : "Misiones"}</h1>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="ghost" onClick={() => { setShowArchived((v) => !v); setExpandedId(null); }}>
+            {showArchived ? (
+              <><ArrowLeft size={14} className="mr-1" />Volver a misiones</>
+            ) : (
+              <><Archive size={14} className="mr-1" />Archivadas ({archivedCount})</>
+            )}
+          </Button>
+          {!showArchived && <Button size="sm" onClick={openNew}><Plus size={14} className="mr-1" />Nueva misión</Button>}
+        </div>
       </div>
+
+      {!showArchived && (
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {(["all", "active", "draft"] as const).map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setStatusFilter(s)}
+              className={cn(
+                "inline-flex items-center gap-1.5 font-label text-2xs font-semibold uppercase tracking-wide px-2.5 py-1 rounded-sm border transition-colors",
+                statusFilter === s ? "bg-brass text-ink border-brass" : "border-parchment-dark/40 text-parchment-dark hover:border-brass"
+              )}
+            >
+              {s !== "all" && <span className={cn("size-2 rounded-full", s === "active" ? "bg-moss-light" : "bg-brass")} />}
+              {s === "all" ? `Todas (${inView.length})` : s === "active" ? `Activas (${statusCount("active")})` : `Borradores (${statusCount("draft")})`}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="mb-4 flex flex-wrap gap-1.5">
         {(["all", "individual", "group", "event", "guild"] as const).map((t) => (
@@ -361,13 +423,32 @@ export function QuestsManager() {
       {loading ? (
         <p className="font-body italic text-parchment-dark">Cargando…</p>
       ) : filtered.length === 0 ? (
-        <p className="font-body italic text-parchment-dark">No hay misiones en esta categoría.</p>
+        <p className="font-body italic text-parchment-dark">
+          {showArchived ? "No hay misiones archivadas en esta categoría." : "No hay misiones en esta categoría."}
+        </p>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-3 items-start">
           {filtered.map((q) => (
-            <div key={q.id} className="surface-parchment p-4">
+            <div
+              key={q.id}
+              className={cn(
+                "surface-parchment p-4 border-l-4 transition-[opacity,filter]",
+                q.status === "active" ? "border-l-moss" : q.status === "draft" ? "border-l-brass" : "border-l-ink-light",
+                expandedId === q.id && "col-span-full",
+                q.status === "archived" && "opacity-60 grayscale hover:opacity-90"
+              )}
+            >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-start gap-3 min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleArchive(q)}
+                    title={q.status === "archived" ? "Desarchivar" : "Archivar"}
+                    aria-label={q.status === "archived" ? "Desarchivar" : "Archivar"}
+                    className="p-1 -ml-1 mt-1.5 shrink-0 text-leather-light hover:text-brass transition-colors"
+                  >
+                    {q.status === "archived" ? <ArchiveRestore size={15} /> : <Archive size={15} />}
+                  </button>
                   <div className="relative size-9 shrink-0 rounded-full bg-brass/15 flex items-center justify-center text-base overflow-hidden">
                     {q.badge?.icon_url ? (
                       <Image src={q.badge.icon_url} alt="" fill className="object-cover" sizes="36px" />
