@@ -49,6 +49,7 @@ export function GamesManager() {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [playerCount, setPlayerCount] = React.useState("");
   const [filterTags, setFilterTags] = React.useState<string[]>([]);
+  const [filterOwner, setFilterOwner] = React.useState("");
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -70,9 +71,12 @@ export function GamesManager() {
       const matchesSearch = !q || g.name.toLowerCase().includes(q) || g.tags.some((t) => t.toLowerCase().includes(q));
       const matchesPlayers = n === null || (n >= g.min_players && n <= g.max_players);
       const matchesTags = filterTags.length === 0 || filterTags.some((t) => g.tags.includes(t));
-      return matchesSearch && matchesPlayers && matchesTags;
+      const ownerIds = g.owner_ids ?? [];
+      const matchesOwner =
+        !filterOwner || (filterOwner === "none" ? ownerIds.length === 0 : ownerIds.includes(filterOwner));
+      return matchesSearch && matchesPlayers && matchesTags && matchesOwner;
     });
-  }, [games, searchQuery, playerCount, filterTags]);
+  }, [games, searchQuery, playerCount, filterTags, filterOwner]);
 
   function toggleFilterTag(tag: string) {
     setFilterTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
@@ -219,6 +223,18 @@ export function GamesManager() {
           value={playerCount}
           onChange={(e) => setPlayerCount(e.target.value)}
         />
+        <Select
+          wrapperClassName="w-56"
+          label="Dueño"
+          value={filterOwner}
+          onChange={(e) => setFilterOwner(e.target.value)}
+        >
+          <option value="">Todos</option>
+          {owners.map((o) => (
+            <option key={o.id} value={o.id}>{o.name}</option>
+          ))}
+          <option value="none">Sin asignar</option>
+        </Select>
       </div>
       {tags.length > 0 && (
         <div className="mb-6 flex flex-wrap gap-1.5">

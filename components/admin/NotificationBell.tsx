@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Bell, UserPlus, MessageSquare } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -28,6 +29,27 @@ export function NotificationBell() {
   const [items, setItems] = React.useState<AdminNotification[]>([]);
   const [unread, setUnread] = React.useState(0);
   const rootRef = React.useRef<HTMLDivElement>(null);
+  const panelRef = React.useRef<HTMLDivElement>(null);
+  const [anchor, setAnchor] = React.useState<{ top: number; left: number } | null>(null);
+
+  // The sidebar scrolls (overflow-y-auto) and is narrower than the panel, so the
+  // panel is portaled to <body> and fixed-positioned under the bell instead of
+  // being absolutely positioned inside it — otherwise it gets clipped and drawn
+  // beneath the page content.
+  React.useLayoutEffect(() => {
+    if (!open) return;
+    function place() {
+      const rect = rootRef.current?.getBoundingClientRect();
+      if (rect) setAnchor({ top: rect.bottom + 8, left: rect.left });
+    }
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open]);
 
   const load = React.useCallback(async () => {
     try {
@@ -50,7 +72,9 @@ export function NotificationBell() {
   React.useEffect(() => {
     if (!open) return;
     function onPointerDown(e: PointerEvent) {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (rootRef.current?.contains(target) || panelRef.current?.contains(target)) return;
+      setOpen(false);
     }
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") setOpen(false);
@@ -97,8 +121,12 @@ export function NotificationBell() {
         )}
       </button>
 
-      {open && (
-        <div className="absolute left-0 top-full mt-2 w-80 max-h-[70vh] flex flex-col bg-[#1c1810] border border-brass/30 shadow-parchment-lg z-50">
+      {open && anchor && createPortal(
+        <div
+          ref={panelRef}
+          style={{ top: anchor.top, left: anchor.left }}
+          className="fixed w-80 max-h-[70vh] flex flex-col bg-[#1c1810] border border-brass/30 shadow-parchment-lg z-50"
+        >
           <div className="flex items-center justify-between px-4 py-3 border-b border-brass/20">
             <span className="font-label text-xs uppercase tracking-wide text-brass-light">Notificaciones</span>
             {unread > 0 && (
@@ -148,7 +176,8 @@ export function NotificationBell() {
               );
             })}
           </ul>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
