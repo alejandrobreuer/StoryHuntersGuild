@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requirePermissionAny } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { questCompleteSchema } from "@/lib/validation/quests";
+import { grantQuestReward } from "@/lib/quests/rewards";
 
 // ─── POST /api/admin/quests/[id]/complete ───────────────────────────────────
 // Confirms a mission for Individual, Event, or Guild types (Group missions
@@ -47,55 +48,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return confirmEventTurnIn(admin, adminUser.id, quest, userId, eventId);
   }
 
-  if (eventId && quest.max_completions_per_event > 0) {
-    const { count } = await admin
-      .from("shg_quest_completions")
-      .select("id", { count: "exact", head: true })
-      .eq("quest_id", params.id)
-      .eq("event_id", eventId);
-    if ((count ?? 0) >= quest.max_completions_per_event) {
-      return NextResponse.json({ error: "Esta misión ya alcanzó el límite de veces para este evento." }, { status: 422 });
-    }
-  }
-
-  const { error: rewardError } = await admin.from("shg_quest_rewards").insert({
-    quest_id: params.id,
-    user_id: userId,
-    awarded_xp: quest.reward_xp,
-    awarded_rp: quest.reward_rp,
-    awarded_by: adminUser.id,
-  });
-
-  if (rewardError) {
-    if (rewardError.code === "23505") {
-      return NextResponse.json({ error: "Este usuario ya completó esta misión." }, { status: 409 });
-    }
-    return NextResponse.json({ error: "No se pudo otorgar la recompensa." }, { status: 500 });
-  }
-
-  await admin
-    .from("shg_quest_completions")
-    .insert({ quest_id: params.id, user_id: userId, contribution_amount: 1, event_id: eventId || null, logged_by: adminUser.id });
-
-  await admin.rpc("shg_award_user", { p_user_id: userId, p_xp: quest.reward_xp, p_rp: quest.reward_rp });
-
-  if (quest.badge_id) {
-    await admin
-      .from("shg_user_badges")
-      .upsert({ user_id: userId, badge_id: quest.badge_id }, { onConflict: "user_id,badge_id", ignoreDuplicates: true });
-  }
-
-  const [{ data: userRow }, { data: eventRow }] = await Promise.all([
-    admin.from("shg_users").select("name, email").eq("id", userId).maybeSingle(),
-    eventId ? admin.from("shg_events").select("title").eq("id", eventId).maybeSingle() : Promise.resolve({ data: null }),
-  ]);
-
-  await admin.from("shg_quest_history").insert({
-    quest_id: params.id, quest_title: quest.title, quest_type: quest.type,
-    event_id: eventId || null, event_title: eventRow?.title ?? null,
-    user_id: userId, user_label: userRow?.name || userRow?.email || "Aventurero",
-    outcome: "completed", awarded_xp: quest.reward_xp, awarded_rp: quest.reward_rp,
-  });
+  const granted = await grantQuestReward(admin, adminUser.id, quest, userId, eventId || null);
+  if (!granted.ok) return NextResponse.json({ error: granted.error }, { status: granted.status });
 
   if (quest.type === "guild") {
     // Clear the pending self-submission so the player can turn in again.
