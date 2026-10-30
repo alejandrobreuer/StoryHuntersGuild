@@ -368,6 +368,7 @@ export interface ShgEventAttendance {
   booking_id:    string | null;
   checked_in_at: string;
   source:        AttendanceSource;
+  rp_awarded:    number;
 }
 
 export interface ShgQuestGroupMember {

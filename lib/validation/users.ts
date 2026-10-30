@@ -6,3 +6,12 @@ export const userAdjustSchema = z.object({
   adjustRp:      z.number().int().min(-100000).max(100000).optional(),
   resetPassword: z.string().min(8, "La contraseña debe tener al menos 8 caracteres.").max(100).optional(),
 });
+
+export const userQuestGrantSchema = z.object({
+  questId: z.string().uuid(),
+  eventId: z.string().uuid().nullable().optional(),
+});
+
+export const userEventGrantSchema = z.object({
+  eventId: z.string().uuid(),
+});

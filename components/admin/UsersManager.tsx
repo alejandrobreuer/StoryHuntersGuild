@@ -1,97 +1,141 @@
 "use client";
 
 import * as React from "react";
-import { UserCircle } from "lucide-react";
+import Image from "next/image";
+import { UserCircle, ChevronDown, ChevronUp, Plus, X, Sparkles, Crown, ScrollText, CalendarCheck, Award } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import { Modal } from "@/components/ui/Modal";
 import { toast } from "sonner";
-import { levelForXp } from "@/lib/gamification/progression";
+import { cn } from "@/lib/utils";
+import { formatDate } from "@/lib/formatting";
 import { currentRank } from "@/lib/gamification/ranks";
 import type { ShgUserPublic, ShgRank } from "@/types/database";
 
-export function UsersManager() {
-  const [users, setUsers] = React.useState<ShgUserPublic[]>([]);
-  const [ranks, setRanks] = React.useState<ShgRank[]>([]);
-  const [loading, setLoading] = React.useState(true);
-  const [query, setQuery] = React.useState("");
-  const [selected, setSelected] = React.useState<ShgUserPublic | null>(null);
-  const [adjustXp, setAdjustXp] = React.useState("");
-  const [adjustRp, setAdjustRp] = React.useState("");
-  const [saving, setSaving] = React.useState(false);
+type BadgeRef = { id?: string; name: string; icon: string | null; icon_url: string | null } | null;
+
+interface UserDetails {
+  quests: {
+    id: string; awarded_xp: number; awarded_rp: number; awarded_at: string;
+    quest: { id: string; title: string; type: string; badge: BadgeRef } | null;
+  }[];
+  participations: { event: { id: string; title: string; starts_at: string }; source: string; date: string; rp: number }[];
+  badges: { awarded_at: string; badge: BadgeRef }[];
+  options: {
+    quests: { id: string; title: string; type: string; status: string; reward_xp: number; reward_rp: number }[];
+    events: { id: string; title: string; starts_at: string }[];
+  };
+}
+
+const QUEST_TYPE_LABELS: Record<string, string> = {
+  individual: "Individual", group: "Grupo", event: "Evento", guild: "Gremio",
+};
+
+const PARTICIPATION_SOURCE_LABELS: Record<string, string> = {
+  qr_checkin: "QR de entrada", mission_claim: "Misión (QR)", admin: "Agregada a mano", booking: "Asistencia en Reservas",
+};
+
+function BadgeIcon({ badge, size = 20 }: { badge: BadgeRef; size?: number }) {
+  return (
+    <span className="relative shrink-0 rounded-full bg-brass/15 flex items-center justify-center overflow-hidden text-xs" style={{ width: size, height: size }}>
+      {badge?.icon_url ? (
+        <Image src={badge.icon_url} alt="" fill className="object-cover" sizes={`${size}px`} />
+      ) : (
+        badge?.icon || <Award size={size * 0.6} className="text-brass" />
+      )}
+    </span>
+  );
+}
+
+function SectionTitle({ icon: Icon, children }: { icon: React.ElementType; children: React.ReactNode }) {
+  return (
+    <p className="flex items-center gap-1.5 font-label text-2xs font-semibold uppercase tracking-widest text-leather-light mb-2">
+      <Icon size={13} /> {children}
+    </p>
+  );
+}
+
+// ─── Expanded card: quests, participations, badges, account ─────────────────
+
+function UserDetail({ user, onUserChanged }: { user: ShgUserPublic; onUserChanged: (u?: ShgUserPublic) => void }) {
+  const [details, setDetails] = React.useState<UserDetails | null>(null);
+  const [questId, setQuestId] = React.useState("");
+  const [questEventId, setQuestEventId] = React.useState("");
+  const [eventId, setEventId] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
   const [newPassword, setNewPassword] = React.useState("");
   const [resetting, setResetting] = React.useState(false);
 
   const load = React.useCallback(async () => {
-    setLoading(true);
-    const [usersRes, ranksRes] = await Promise.all([fetch("/api/admin/users"), fetch("/api/admin/ranks")]);
-    setUsers((await usersRes.json()).data ?? []);
-    setRanks((await ranksRes.json()).data ?? []);
-    setLoading(false);
-  }, []);
+    const res = await fetch(`/api/admin/users/${user.id}/details`);
+    const json = await res.json();
+    if (!res.ok) { toast.error(json.error ?? "No se pudo cargar el detalle."); return; }
+    setDetails(json.data);
+  }, [user.id]);
 
   React.useEffect(() => { load(); }, [load]);
 
-  const filtered = React.useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return users;
-    return users.filter((u) => u.email.toLowerCase().includes(q) || (u.name ?? "").toLowerCase().includes(q));
-  }, [users, query]);
-
-  function openDetail(u: ShgUserPublic) {
-    setSelected(u);
-    setAdjustXp("");
-    setAdjustRp("");
-    setNewPassword("");
+  async function call(url: string, init: RequestInit, success: string) {
+    setBusy(true);
+    try {
+      const res = await fetch(url, { headers: { "Content-Type": "application/json" }, ...init });
+      const json = await res.json();
+      if (!res.ok) { toast.error(json.error ?? "No se pudo guardar."); return false; }
+      toast.success(success);
+      await load();
+      onUserChanged();
+      return true;
+    } finally {
+      setBusy(false);
+    }
   }
 
-  async function toggleSubscriber(u: ShgUserPublic) {
-    const res = await fetch(`/api/admin/users/${u.id}`, {
+  async function addQuest() {
+    if (!questId) return;
+    const ok = await call(`/api/admin/users/${user.id}/quests`, {
+      method: "POST", body: JSON.stringify({ questId, eventId: questEventId || null }),
+    }, "Misión agregada y recompensa otorgada.");
+    if (ok) { setQuestId(""); setQuestEventId(""); }
+  }
+
+  async function removeQuest(r: UserDetails["quests"][number]) {
+    if (!confirm(`¿Quitar "${r.quest?.title ?? "esta misión"}"? Se descuentan ${r.awarded_xp} XP y ${r.awarded_rp} RP.`)) return;
+    await call(`/api/admin/users/${user.id}/quests/${r.id}`, { method: "DELETE" }, "Misión quitada.");
+  }
+
+  async function addEvent() {
+    if (!eventId) return;
+    const ok = await call(`/api/admin/users/${user.id}/events`, {
+      method: "POST", body: JSON.stringify({ eventId }),
+    }, "Participación agregada.");
+    if (ok) setEventId("");
+  }
+
+  async function removeEvent(p: UserDetails["participations"][number]) {
+    const rpNote = p.rp > 0 ? ` Se descuentan ${p.rp} RP.` : "";
+    if (!confirm(`¿Quitar la participación en "${p.event.title}"?${rpNote}`)) return;
+    await call(`/api/admin/users/${user.id}/events/${p.event.id}`, { method: "DELETE" }, "Participación quitada.");
+  }
+
+  async function toggleSubscriber() {
+    const res = await fetch(`/api/admin/users/${user.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ is_subscriber: !u.is_subscriber }),
+      body: JSON.stringify({ is_subscriber: !user.is_subscriber }),
     });
     const json = await res.json();
     if (!res.ok) { toast.error(json.error ?? "Error al actualizar."); return; }
-    setUsers((prev) => prev.map((x) => (x.id === u.id ? json.data : x)));
-    setSelected((prev) => (prev && prev.id === u.id ? json.data : prev));
+    onUserChanged(json.data);
     toast.success(json.data.is_subscriber ? "Suscripción activada." : "Suscripción desactivada.");
-  }
-
-  async function applyAdjustment(e: React.FormEvent) {
-    e.preventDefault();
-    if (!selected) return;
-    const xp = adjustXp.trim() ? Number(adjustXp) : 0;
-    const rp = adjustRp.trim() ? Number(adjustRp) : 0;
-    if (!xp && !rp) { toast.error("Ingresá un ajuste de XP o RP."); return; }
-
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/admin/users/${selected.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ adjustXp: xp, adjustRp: rp }),
-      });
-      const json = await res.json();
-      if (!res.ok) { toast.error(json.error ?? "Error al ajustar."); return; }
-      setUsers((prev) => prev.map((x) => (x.id === selected.id ? json.data : x)));
-      setSelected(json.data);
-      setAdjustXp("");
-      setAdjustRp("");
-      toast.success("Ajuste aplicado.");
-    } finally {
-      setSaving(false);
-    }
   }
 
   async function resetPassword(e: React.FormEvent) {
     e.preventDefault();
-    if (!selected) return;
     if (newPassword.trim().length < 8) { toast.error("La contraseña debe tener al menos 8 caracteres."); return; }
-
     setResetting(true);
     try {
-      const res = await fetch(`/api/admin/users/${selected.id}`, {
+      const res = await fetch(`/api/admin/users/${user.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ resetPassword: newPassword }),
@@ -104,6 +148,213 @@ export function UsersManager() {
       setResetting(false);
     }
   }
+
+  if (!details) return <p className="font-body text-sm italic text-ink-light pt-4 mt-3 border-t border-border">Cargando…</p>;
+
+  const participatedIds = new Set(details.participations.map((p) => p.event.id));
+  const rowClass = "flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-sm bg-parchment-dark/25";
+  const removeClass = "p-1 shrink-0 text-leather-light hover:text-crimson transition-colors disabled:opacity-40";
+
+  return (
+    <div className="mt-3 pt-4 border-t border-border grid grid-cols-1 lg:grid-cols-3 gap-5">
+      {/* ── Completed quests ── */}
+      <div>
+        <SectionTitle icon={ScrollText}>Misiones completadas ({details.quests.length})</SectionTitle>
+        {details.quests.length === 0 ? (
+          <p className="font-body text-xs italic text-ink-light mb-2">Ninguna todavía.</p>
+        ) : (
+          <ul className="flex flex-col gap-1 mb-2">
+            {details.quests.map((r) => (
+              <li key={r.id} className={rowClass}>
+                <div className="flex items-center gap-2 min-w-0">
+                  {r.quest?.badge && <BadgeIcon badge={r.quest.badge} />}
+                  <div className="min-w-0">
+                    <p className="font-label text-xs font-semibold text-ink truncate">{r.quest?.title ?? "Misión eliminada"}</p>
+                    <p className="font-body text-2xs text-ink-light">
+                      {r.quest ? `${QUEST_TYPE_LABELS[r.quest.type] ?? r.quest.type} · ` : ""}+{r.awarded_xp} XP · +{r.awarded_rp} RP · {formatDate(r.awarded_at)}
+                    </p>
+                  </div>
+                </div>
+                <button type="button" onClick={() => removeQuest(r)} disabled={busy} className={removeClass} aria-label="Quitar misión" title="Quitar misión">
+                  <X size={14} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="flex flex-col gap-2">
+          <Select value={questId} onChange={(e) => setQuestId(e.target.value)} aria-label="Misión a agregar">
+            <option value="">Agregar misión…</option>
+            {details.options.quests.map((q) => (
+              <option key={q.id} value={q.id}>
+                {q.title} ({QUEST_TYPE_LABELS[q.type] ?? q.type}{q.status === "archived" ? ", archivada" : ""}) · +{q.reward_xp} XP · +{q.reward_rp} RP
+              </option>
+            ))}
+          </Select>
+          {questId && (
+            <div className="flex items-end gap-2">
+              <Select value={questEventId} onChange={(e) => setQuestEventId(e.target.value)} aria-label="Evento (opcional)" wrapperClassName="flex-1">
+                <option value="">Sin evento</option>
+                {details.options.events.map((ev) => (
+                  <option key={ev.id} value={ev.id}>{ev.title} · {formatDate(ev.starts_at)}</option>
+                ))}
+              </Select>
+              <Button type="button" size="sm" onClick={addQuest} loading={busy}><Plus size={14} className="mr-1" />Agregar</Button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Event participations ── */}
+      <div>
+        <SectionTitle icon={CalendarCheck}>Participaciones en eventos ({details.participations.length})</SectionTitle>
+        {details.participations.length === 0 ? (
+          <p className="font-body text-xs italic text-ink-light mb-2">Ninguna todavía.</p>
+        ) : (
+          <ul className="flex flex-col gap-1 mb-2">
+            {details.participations.map((p) => (
+              <li key={p.event.id} className={rowClass}>
+                <div className="min-w-0">
+                  <p className="font-label text-xs font-semibold text-ink truncate">{p.event.title}</p>
+                  <p className="font-body text-2xs text-ink-light">
+                    {formatDate(p.event.starts_at)} · {PARTICIPATION_SOURCE_LABELS[p.source] ?? p.source}{p.rp > 0 ? ` · +${p.rp} RP` : ""}
+                  </p>
+                </div>
+                <button type="button" onClick={() => removeEvent(p)} disabled={busy} className={removeClass} aria-label="Quitar participación" title="Quitar participación">
+                  <X size={14} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="flex items-end gap-2">
+          <Select value={eventId} onChange={(e) => setEventId(e.target.value)} aria-label="Evento a agregar" wrapperClassName="flex-1">
+            <option value="">Agregar participación…</option>
+            {details.options.events.filter((ev) => !participatedIds.has(ev.id)).map((ev) => (
+              <option key={ev.id} value={ev.id}>{ev.title} · {formatDate(ev.starts_at)}</option>
+            ))}
+          </Select>
+          {eventId && <Button type="button" size="sm" onClick={addEvent} loading={busy}><Plus size={14} className="mr-1" />Agregar</Button>}
+        </div>
+      </div>
+
+      {/* ── Badges + account ── */}
+      <div className="flex flex-col gap-5">
+        <div>
+          <SectionTitle icon={Award}>Insignias ({details.badges.length})</SectionTitle>
+          {details.badges.length === 0 ? (
+            <p className="font-body text-xs italic text-ink-light">Ninguna todavía.</p>
+          ) : (
+            <ul className="flex flex-wrap gap-1.5">
+              {details.badges.map((b, i) => (
+                <li key={b.badge?.id ?? i} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-sm bg-parchment-dark/25 font-label text-2xs text-ink" title={formatDate(b.awarded_at)}>
+                  <BadgeIcon badge={b.badge} size={16} /> {b.badge?.name ?? "—"}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <SectionTitle icon={UserCircle}>Cuenta</SectionTitle>
+          <p className="font-body text-xs text-ink-light -mt-1">
+            {user.phone ? `${user.phone} · ` : ""}Alta {formatDate(user.created_at)}
+            {user.last_login_at ? ` · Último ingreso ${formatDate(user.last_login_at)}` : ""}
+          </p>
+          <Button size="sm" variant={user.is_subscriber ? "danger" : "secondary"} onClick={toggleSubscriber}>
+            {user.is_subscriber ? "Desactivar suscripción" : "Activar suscripción"}
+          </Button>
+          <form onSubmit={resetPassword} className="flex items-end gap-2">
+            <Input
+              label="Restablecer contraseña"
+              type="text"
+              minLength={8}
+              placeholder="Mínimo 8 caracteres"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              wrapperClassName="flex-1"
+            />
+            <Button type="submit" size="sm" variant="secondary" loading={resetting}>Restablecer</Button>
+          </form>
+          <p className="font-body text-2xs text-ink-light">
+            No hay recuperación por email — comunicale la contraseña temporal por otro medio.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── List ───────────────────────────────────────────────────────────────────
+
+export function UsersManager() {
+  const [users, setUsers] = React.useState<ShgUserPublic[]>([]);
+  const [ranks, setRanks] = React.useState<ShgRank[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [query, setQuery] = React.useState("");
+  const [expandedId, setExpandedId] = React.useState<string | null>(null);
+  // XP or RP correction for one user.
+  const [adjusting, setAdjusting] = React.useState<{ user: ShgUserPublic; kind: "xp" | "rp" } | null>(null);
+  const [adjustValue, setAdjustValue] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
+
+  const loadUsers = React.useCallback(async () => {
+    const res = await fetch("/api/admin/users");
+    setUsers((await res.json()).data ?? []);
+  }, []);
+
+  React.useEffect(() => {
+    (async () => {
+      const ranksRes = await fetch("/api/admin/ranks");
+      setRanks((await ranksRes.json()).data ?? []);
+      await loadUsers();
+      setLoading(false);
+    })();
+  }, [loadUsers]);
+
+  const filtered = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return users;
+    return users.filter((u) => u.email.toLowerCase().includes(q) || (u.name ?? "").toLowerCase().includes(q));
+  }, [users, query]);
+
+  function replaceUser(u: ShgUserPublic) {
+    setUsers((prev) => prev.map((x) => (x.id === u.id ? u : x)));
+  }
+
+  function openAdjust(e: React.MouseEvent, user: ShgUserPublic, kind: "xp" | "rp") {
+    e.stopPropagation();
+    setAdjusting({ user, kind });
+    setAdjustValue("");
+  }
+
+  async function applyAdjustment(e: React.FormEvent) {
+    e.preventDefault();
+    if (!adjusting) return;
+    const amount = Number(adjustValue);
+    if (!adjustValue.trim() || !Number.isInteger(amount) || amount === 0) {
+      toast.error("Ingresá un número entero distinto de 0 (negativo para restar).");
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/admin/users/${adjusting.user.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(adjusting.kind === "xp" ? { adjustXp: amount } : { adjustRp: amount }),
+      });
+      const json = await res.json();
+      if (!res.ok) { toast.error(json.error ?? "Error al ajustar."); return; }
+      replaceUser(json.data);
+      setAdjusting(null);
+      toast.success("Ajuste aplicado.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const adjustLabel = adjusting?.kind === "xp" ? "XP" : "RP";
+  const pillButton = "inline-flex items-center gap-1 font-label text-2xs font-semibold uppercase tracking-wide px-2 py-1 rounded-sm border transition-colors";
 
   return (
     <div>
@@ -126,87 +377,83 @@ export function UsersManager() {
         <div className="flex flex-col gap-2">
           {filtered.map((u) => {
             const rank = currentRank(u.rp, ranks);
+            const expanded = expandedId === u.id;
             return (
-              <button
-                key={u.id}
-                type="button"
-                onClick={() => openDetail(u)}
-                className="surface-parchment p-4 flex items-center justify-between gap-3 text-left w-full"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <UserCircle size={28} className="text-leather-light shrink-0" />
-                  <div className="min-w-0">
-                    <p className="font-label text-sm font-bold text-ink truncate">{u.name || u.email}</p>
-                    <p className="font-body text-xs text-ink-light truncate">{u.email}</p>
+              <div key={u.id} className="surface-parchment p-4">
+                <div
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={expanded}
+                  onClick={() => setExpandedId(expanded ? null : u.id)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExpandedId(expanded ? null : u.id); } }}
+                  className="flex items-center justify-between gap-3 cursor-pointer"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <UserCircle size={28} className="text-leather-light shrink-0" />
+                    <div className="min-w-0">
+                      <p className="font-label text-sm font-bold text-ink truncate">{u.name || u.email}</p>
+                      <p className="font-body text-xs text-ink-light truncate">{u.email}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                    {u.is_subscriber && (
+                      <span className="font-label text-2xs uppercase tracking-wide px-2 py-0.5 rounded-sm bg-brass/15 text-brass">
+                        Suscriptor
+                      </span>
+                    )}
+                    {rank && (
+                      <span className="font-label text-2xs uppercase tracking-wide px-2 py-0.5 rounded-sm bg-moss/15 text-moss-dark">
+                        {rank.name}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => openAdjust(e, u, "xp")}
+                      title="Sumar o restar XP"
+                      className={cn(pillButton, "border-brass/40 text-brass hover:bg-brass/10")}
+                    >
+                      <Sparkles size={12} /> {u.xp} XP
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => openAdjust(e, u, "rp")}
+                      title="Sumar o restar RP"
+                      className={cn(pillButton, "border-moss/40 text-moss-dark hover:bg-moss/10")}
+                    >
+                      <Crown size={12} /> {u.rp} RP
+                    </button>
+                    {expanded ? <ChevronUp size={16} className="text-leather-light" /> : <ChevronDown size={16} className="text-leather-light" />}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {u.is_subscriber && (
-                    <span className="font-label text-2xs uppercase tracking-wide px-2 py-0.5 rounded-sm bg-brass/15 text-brass">
-                      Suscriptor
-                    </span>
-                  )}
-                  <span className="font-label text-2xs uppercase tracking-wide px-2 py-0.5 rounded-sm bg-leather/10 text-leather">
-                    Nv. {levelForXp(u.xp)}
-                  </span>
-                  {rank && (
-                    <span className="font-label text-2xs uppercase tracking-wide px-2 py-0.5 rounded-sm bg-moss/15 text-moss-dark">
-                      {rank.name}
-                    </span>
-                  )}
-                </div>
-              </button>
+                {expanded && <UserDetail user={u} onUserChanged={(updated) => (updated ? replaceUser(updated) : loadUsers())} />}
+              </div>
             );
           })}
         </div>
       )}
 
-      <Modal open={Boolean(selected)} onClose={() => setSelected(null)} title={selected?.name || selected?.email || "Usuario"}>
-        {selected && (
-          <div className="flex flex-col gap-4">
-            <div className="font-body text-sm text-ink flex flex-col gap-1">
-              <div><span className="text-ink-light">Email:</span> {selected.email}</div>
-              <div><span className="text-ink-light">Nivel:</span> {levelForXp(selected.xp)} ({selected.xp} XP)</div>
-              <div>
-                <span className="text-ink-light">Rango:</span>{" "}
-                {currentRank(selected.rp, ranks)?.name ?? "Sin rango"} ({selected.rp} RP)
-              </div>
-            </div>
-
-            <Button size="sm" variant={selected.is_subscriber ? "danger" : "secondary"} onClick={() => toggleSubscriber(selected)}>
-              {selected.is_subscriber ? "Desactivar suscripción" : "Activar suscripción"}
-            </Button>
-
-            <form onSubmit={applyAdjustment} className="flex flex-col gap-3 border-t border-border pt-4">
-              <p className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">
-                Ajuste manual (corrección)
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                <Input label="Ajustar XP" type="number" placeholder="ej: 10 o -10" value={adjustXp} onChange={(e) => setAdjustXp(e.target.value)} />
-                <Input label="Ajustar RP" type="number" placeholder="ej: 2 o -2" value={adjustRp} onChange={(e) => setAdjustRp(e.target.value)} />
-              </div>
-              <Button type="submit" size="sm" loading={saving}>Aplicar ajuste</Button>
-            </form>
-
-            <form onSubmit={resetPassword} className="flex flex-col gap-3 border-t border-border pt-4">
-              <p className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">
-                Restablecer contraseña
-              </p>
-              <p className="font-body text-xs text-ink-light -mt-1">
-                No hay recuperación por email — elegí una contraseña temporal y comunicásela al usuario
-                por otro medio.
-              </p>
-              <Input
-                label="Nueva contraseña"
-                type="text"
-                minLength={8}
-                placeholder="Mínimo 8 caracteres"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-              />
-              <Button type="submit" size="sm" variant="secondary" loading={resetting}>Restablecer</Button>
-            </form>
-          </div>
+      <Modal
+        open={Boolean(adjusting)}
+        onClose={() => setAdjusting(null)}
+        title={adjusting ? `Ajustar ${adjustLabel} — ${adjusting.user.name || adjusting.user.email}` : "Ajustar"}
+      >
+        {adjusting && (
+          <form onSubmit={applyAdjustment} className="flex flex-col gap-3">
+            <p className="font-body text-sm text-ink-light">
+              Actual: <span className="text-ink font-semibold">{adjusting.kind === "xp" ? adjusting.user.xp : adjusting.user.rp} {adjustLabel}</span>.
+              Usá un número negativo para restar.
+            </p>
+            <Input
+              label={`Sumar / restar ${adjustLabel}`}
+              type="number"
+              step={1}
+              autoFocus
+              placeholder={adjusting.kind === "xp" ? "ej: 10 o -10" : "ej: 2 o -2"}
+              value={adjustValue}
+              onChange={(e) => setAdjustValue(e.target.value)}
+            />
+            <Button type="submit" size="sm" loading={saving}>Aplicar ajuste</Button>
+          </form>
         )}
       </Modal>
     </div>
