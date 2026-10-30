@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { UserCircle, ChevronDown, ChevronUp, Plus, X, Sparkles, Crown, ScrollText, CalendarCheck, Award } from "lucide-react";
+import { UserCircle, ChevronDown, ChevronUp, Plus, X, Sparkles, Crown, ScrollText, CalendarCheck, Award, Download } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/formatting";
 import { currentRank } from "@/lib/gamification/ranks";
+import { exportUsers, PARTICIPATION_SOURCE_LABELS } from "@/components/admin/exportUsers";
 import type { ShgUserPublic, ShgRank } from "@/types/database";
 
 type BadgeRef = { id?: string; name: string; icon: string | null; icon_url: string | null } | null;
@@ -32,9 +33,6 @@ const QUEST_TYPE_LABELS: Record<string, string> = {
   individual: "Individual", group: "Grupo", event: "Evento", guild: "Gremio",
 };
 
-const PARTICIPATION_SOURCE_LABELS: Record<string, string> = {
-  qr_checkin: "QR de entrada", mission_claim: "Misión (QR)", admin: "Agregada a mano", booking: "Asistencia en Reservas",
-};
 
 function BadgeIcon({ badge, size = 20 }: { badge: BadgeRef; size?: number }) {
   return (
@@ -297,6 +295,7 @@ export function UsersManager() {
   const [adjusting, setAdjusting] = React.useState<{ user: ShgUserPublic; kind: "xp" | "rp" } | null>(null);
   const [adjustValue, setAdjustValue] = React.useState("");
   const [saving, setSaving] = React.useState(false);
+  const [exporting, setExporting] = React.useState(false);
 
   const loadUsers = React.useCallback(async () => {
     const res = await fetch("/api/admin/users");
@@ -353,13 +352,33 @@ export function UsersManager() {
     }
   }
 
+  // Exports what the list shows: every user, or the current search's matches.
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const res = await fetch("/api/admin/users/export");
+      const json = await res.json();
+      if (!res.ok) { toast.error(json.error ?? "No se pudo exportar."); return; }
+      const today = new Date().toLocaleDateString("en-CA");
+      await exportUsers(filtered, ranks, json.data, `usuarios-${today}.xlsx`);
+    } catch {
+      toast.error("No se pudo exportar.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const adjustLabel = adjusting?.kind === "xp" ? "XP" : "RP";
   const pillButton = "inline-flex items-center gap-1 font-label text-2xs font-semibold uppercase tracking-wide px-2 py-1 rounded-sm border transition-colors";
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between gap-2 mb-6">
         <h1 className="font-display text-2xl text-parchment">Usuarios</h1>
+        <Button size="sm" variant="ghost" onClick={handleExport} loading={exporting} disabled={loading || filtered.length === 0}>
+          <Download size={14} className="mr-1" />
+          {query.trim() ? `Exportar ${filtered.length} a Excel` : "Exportar a Excel"}
+        </Button>
       </div>
 
       <Input
