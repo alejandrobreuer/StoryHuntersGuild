@@ -7,12 +7,13 @@ import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { toast } from "sonner";
-import { safeNext, isQrNext } from "@/lib/auth/safeNext";
+import { safeNext, isQrNext, isBookingNext } from "@/lib/auth/safeNext";
 
 export function SignInForm() {
   const searchParams = useSearchParams();
   const next = safeNext(searchParams.get("next"));
   const fromQr = isQrNext(next);
+  const fromBooking = isBookingNext(next);
 
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -42,6 +43,12 @@ export function SignInForm() {
       <Lock size={32} className="mx-auto mb-4 text-brass" />
       <h1 className="font-display text-xl text-ink mb-6 text-center">Entrá a tu cuenta</h1>
 
+      {fromBooking && (
+        <p className="mb-5 font-body text-xs text-ink-light text-center leading-relaxed">
+          Para reservar necesitás una cuenta: así registramos tu asistencia y tus misiones.
+          Iniciá sesión y te llevamos de vuelta a la reserva.
+        </p>
+      )}
       {fromQr && (
         <p className="mb-5 font-body text-xs text-ink-light text-center leading-relaxed">
           Iniciá sesión para registrar tu escaneo — te traemos de vuelta automáticamente.
@@ -81,11 +88,6 @@ export function SignInForm() {
         <Link href="/forgot-password" className="text-brass underline">¿Olvidaste tu contraseña?</Link>
       </p>
 
-      {!fromQr && (
-        <p className="mt-6 text-2xs text-leather-light font-body text-center">
-          Reservar un evento nunca requiere iniciar sesión.
-        </p>
-      )}
     </div>
   );
 }

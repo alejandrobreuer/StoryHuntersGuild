@@ -3,7 +3,6 @@ import { z } from "zod";
 export const createBookingSchema = z.object({
   event_id:    z.string().uuid(),
   name:        z.string().min(2).max(200),
-  email:       z.string().email(),
   phone:       z.string().max(40).optional(),
   guest_count: z.coerce.number().int().min(1).max(50),
   coupon_code: z.string().trim().max(40).optional(),

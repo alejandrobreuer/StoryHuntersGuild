@@ -14,17 +14,17 @@ interface BookingFormProps {
   remaining:       number;
   bankInstructions: string;
   defaultName?:    string;
-  defaultEmail?:   string;
+  /** The signed-in account's email — bookings always go to it. */
+  accountEmail:    string;
   defaultPhone?:   string;
 }
 
 export function BookingForm({
   eventId, pricePerPerson, remaining, bankInstructions,
-  defaultName = "", defaultEmail = "", defaultPhone = "",
+  accountEmail, defaultName = "", defaultPhone = "",
 }: BookingFormProps) {
   const router = useRouter();
   const [name, setName]   = React.useState(defaultName);
-  const [email, setEmail] = React.useState(defaultEmail);
   const [phone, setPhone] = React.useState(defaultPhone);
   const [guestCount, setGuestCount] = React.useState(1);
   const [receipt, setReceipt] = React.useState<File | null>(null);
@@ -38,7 +38,7 @@ export function BookingForm({
   const subtotal = pricePerPerson * guestCount;
   const discountAmount = appliedCoupon ? Math.round(subtotal * (appliedCoupon.discountPercent / 100)) : 0;
   const cost = subtotal - discountAmount;
-  const isValid = name.trim().length > 1 && email.includes("@") && guestCount >= 1 && guestCount <= remaining && receipt != null;
+  const isValid = name.trim().length > 1 && guestCount >= 1 && guestCount <= remaining && receipt != null;
 
   async function applyCoupon() {
     const code = couponInput.trim();
@@ -77,7 +77,6 @@ export function BookingForm({
       const form = new FormData();
       form.set("event_id", eventId);
       form.set("name", name.trim());
-      form.set("email", email.trim());
       if (phone.trim()) form.set("phone", phone.trim());
       form.set("guest_count", String(guestCount));
       form.set("receipt", receipt);
@@ -116,7 +115,7 @@ export function BookingForm({
         <h2 className="font-label text-xs uppercase tracking-widest text-leather-light">Tus datos</h2>
         <Input label="Nombre completo" required value={name} onChange={(e) => setName(e.target.value)} />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Input label="Email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          <Input label="Email (el de tu cuenta)" type="email" value={accountEmail} readOnly disabled />
           <Input label="Teléfono (opcional)" value={phone} onChange={(e) => setPhone(e.target.value)} />
         </div>
         <Input

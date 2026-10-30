@@ -16,3 +16,8 @@ export function safeNext(raw: string | null | undefined, fallback = "/my-booking
 export function isQrNext(next: string): boolean {
   return next.startsWith("/m/") || next.startsWith("/checkin/");
 }
+
+/** True for an event's booking form — sign-in/sign-up explain that booking needs an account. */
+export function isBookingNext(next: string): boolean {
+  return /^\/events\/[^/]+\/book$/.test(next);
+}

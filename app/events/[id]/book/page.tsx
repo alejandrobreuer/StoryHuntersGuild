@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
 import { ArrowLeft } from "lucide-react";
@@ -12,6 +12,12 @@ export const dynamic = "force-dynamic";
 
 export default async function BookEventPage({ params }: { params: { id: string } }) {
   noStore();
+
+  // Booking needs an account (attendance, missions and XP hang off it):
+  // sign up — or sign in, linked from there — and come straight back here.
+  const sessionUser = await getSessionUser();
+  if (!sessionUser) redirect(`/sign-up?next=${encodeURIComponent(`/events/${params.id}/book`)}`);
+
   const admin = createAdminClient();
 
   const { data: event } = await admin
@@ -23,21 +29,16 @@ export default async function BookEventPage({ params }: { params: { id: string }
 
   if (!event) notFound();
 
-  const [{ data: remainingRow }, { data: setting }, sessionUser] = await Promise.all([
+  const [{ data: remainingRow }, { data: setting }, { data: profile }] = await Promise.all([
     admin.from("shg_event_remaining").select("remaining").eq("event_id", params.id).maybeSingle(),
     admin.from("shg_settings").select("value").eq("key", "bank_transfer_instructions").maybeSingle(),
-    getSessionUser(),
+    admin.from("shg_users").select("name, email, phone").eq("id", sessionUser.id).maybeSingle(),
   ]);
 
   const remaining = remainingRow?.remaining ?? 0;
-
-  let defaultName = "", defaultEmail = "", defaultPhone = "";
-  if (sessionUser) {
-    const { data: profile } = await admin.from("shg_users").select("name, email, phone").eq("id", sessionUser.id).maybeSingle();
-    defaultName  = profile?.name ?? "";
-    defaultEmail = profile?.email ?? sessionUser.email;
-    defaultPhone = profile?.phone ?? "";
-  }
+  const defaultName  = profile?.name ?? "";
+  const accountEmail = profile?.email ?? sessionUser.email;
+  const defaultPhone = profile?.phone ?? "";
 
   return (
     <main className="max-w-2xl mx-auto px-6 py-14">
@@ -63,7 +64,7 @@ export default async function BookEventPage({ params }: { params: { id: string }
           remaining={remaining}
           bankInstructions={setting?.value ?? ""}
           defaultName={defaultName}
-          defaultEmail={defaultEmail}
+          accountEmail={accountEmail}
           defaultPhone={defaultPhone}
         />
       )}

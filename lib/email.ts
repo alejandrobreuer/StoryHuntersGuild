@@ -98,20 +98,26 @@ export async function sendAdminNotificationEmail(params: {
 
 export async function sendPasswordResetEmail(params: {
   email: string; name: string | null; resetUrl: string; expiresInMinutes: number;
+  /** The account has no password yet (created from its bookings): word it as activating it. */
+  setup?: boolean;
 }): Promise<void> {
-  await send(params.email, "Restablecé tu contraseña", `
-    <p style="margin:0 0 8px;font-size:18px;font-weight:600;color:#2b1d0e;">Restablecer contraseña</p>
+  const hello = `Hola${params.name ? ` ${params.name}` : ""}`;
+  await send(params.email, params.setup ? "Activá tu cuenta de Story Hunters Guild" : "Restablecé tu contraseña", `
+    <p style="margin:0 0 8px;font-size:18px;font-weight:600;color:#2b1d0e;">${params.setup ? "Activá tu cuenta" : "Restablecer contraseña"}</p>
     <p style="margin:0 0 16px;font-size:14px;color:#4a3520;line-height:1.6;">
-      Hola${params.name ? ` ${params.name}` : ""}, recibimos un pedido para restablecer la contraseña de tu cuenta.
-      Hacé clic en el botón para elegir una nueva. El enlace vence en ${params.expiresInMinutes} minutos y sirve una sola vez.
+      ${params.setup
+        ? `${hello}, ya tenés una cuenta con nosotros: la armamos con tus reservas, así no perdés la experiencia ni las misiones que ganaste.
+           Elegí tu contraseña para empezar a usarla.`
+        : `${hello}, recibimos un pedido para restablecer la contraseña de tu cuenta. Hacé clic en el botón para elegir una nueva.`}
+      El enlace vence en ${params.expiresInMinutes} minutos y sirve una sola vez.
     </p>
     <p style="margin:0 0 16px;">
       <a href="${params.resetUrl}" style="display:inline-block;background:#2b1d0e;color:#d4a843;padding:10px 20px;text-decoration:none;font-size:14px;font-weight:600;">
-        Elegir nueva contraseña
+        ${params.setup ? "Elegir mi contraseña" : "Elegir nueva contraseña"}
       </a>
     </p>
     <p style="margin:0;font-size:12px;color:#7a7065;line-height:1.5;">
-      Si no lo pediste vos, ignorá este email: tu contraseña no cambia.
+      Si no lo pediste vos, ignorá este email${params.setup ? "." : ": tu contraseña no cambia."}
     </p>
   `);
 }

@@ -1,18 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createBookingSchema } from "@/lib/validation/bookings";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getSessionUser } from "@/lib/auth/guard";
+import { requireSessionUser } from "@/lib/auth/guard";
 import { sendBookingConfirmationEmail } from "@/lib/email";
 import { formatARS, formatDateTime } from "@/lib/formatting";
 
 const MAX_RECEIPT_BYTES = 8 * 1024 * 1024; // 8MB
 
 // ─── POST /api/bookings ─────────────────────────────────────────────────────
-// multipart/form-data: event_id, name, email, phone?, guest_count, receipt (file)
+// multipart/form-data: event_id, name, phone?, guest_count, receipt (file)
+// Requires a signed-in account: the booking is tied to it and always uses
+// its email (attendance, missions and XP all hang off the account).
 // Cost is ALWAYS recomputed server-side from the event's price_per_person —
 // never trusts a client-sent cost.
 
 export async function POST(req: NextRequest) {
+  const { user: sessionUser, error: authError } = await requireSessionUser();
+  if (authError) {
+    return NextResponse.json({ error: "Para reservar tenés que iniciar sesión." }, { status: 401 });
+  }
+
   let form: FormData;
   try { form = await req.formData(); }
   catch { return NextResponse.json({ error: "Body inválido." }, { status: 400 }); }
@@ -20,7 +27,6 @@ export async function POST(req: NextRequest) {
   const parsed = createBookingSchema.safeParse({
     event_id:    form.get("event_id"),
     name:        form.get("name"),
-    email:       form.get("email"),
     phone:       form.get("phone") || undefined,
     guest_count: form.get("guest_count"),
     coupon_code: form.get("coupon_code") || undefined,
@@ -38,7 +44,8 @@ export async function POST(req: NextRequest) {
   }
 
   const admin = createAdminClient();
-  const { event_id, name, email, phone, guest_count, coupon_code } = parsed.data;
+  const { event_id, name, phone, guest_count, coupon_code } = parsed.data;
+  const email = sessionUser.email;
 
   const { data: event, error: eventErr } = await admin
     .from("shg_events")
@@ -114,14 +121,12 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const sessionUser = await getSessionUser();
-
   const { data: booking, error: insertError } = await admin
     .from("shg_bookings")
     .insert({
       event_id, name, email, phone: phone ?? null, guest_count, cost,
       receipt_path: path,
-      user_id: sessionUser?.id ?? null,
+      user_id: sessionUser.id,
       coupon_code: coupon ? coupon_code!.toUpperCase() : null,
       discount_percent: coupon?.discount_percent ?? null,
     })
