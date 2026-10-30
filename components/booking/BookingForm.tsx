@@ -1,11 +1,13 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Upload, CheckCircle2, Ticket, X } from "lucide-react";
+import { Upload, CheckCircle2, Ticket, X, Info } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { formatARS } from "@/lib/formatting";
+import { priceWithCoupons, type CouponForPricing } from "@/lib/coupons";
 import { toast } from "sonner";
 
 interface BookingFormProps {
@@ -29,20 +31,25 @@ export function BookingForm({
   const [guestCount, setGuestCount] = React.useState(1);
   const [receipt, setReceipt] = React.useState<File | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
-  const [done, setDone] = React.useState(false);
+  const [done, setDone] = React.useState<{ unusedCoupons: string[] } | null>(null);
 
+  // Each coupon discounts one ticket; extras beyond the number of people
+  // aren't used (lib/coupons decides which, the same way the server does).
   const [couponInput, setCouponInput] = React.useState("");
   const [applyingCoupon, setApplyingCoupon] = React.useState(false);
-  const [appliedCoupon, setAppliedCoupon] = React.useState<{ code: string; discountPercent: number } | null>(null);
+  const [coupons, setCoupons] = React.useState<CouponForPricing[]>([]);
 
-  const subtotal = pricePerPerson * guestCount;
-  const discountAmount = appliedCoupon ? Math.round(subtotal * (appliedCoupon.discountPercent / 100)) : 0;
-  const cost = subtotal - discountAmount;
+  const { used, subtotal, discount, cost } = priceWithCoupons(pricePerPerson, guestCount, coupons);
+  const usedSet = new Set(used);
   const isValid = name.trim().length > 1 && guestCount >= 1 && guestCount <= remaining && receipt != null;
 
   async function applyCoupon() {
     const code = couponInput.trim();
     if (!code) return;
+    if (coupons.some((c) => c.code === code.toUpperCase())) {
+      toast.error("Ese cupón ya está cargado.");
+      return;
+    }
     setApplyingCoupon(true);
     try {
       const res = await fetch("/api/coupons/validate", {
@@ -55,8 +62,9 @@ export function BookingForm({
         toast.error(json.error ?? "No se pudo aplicar el cupón.");
         return;
       }
-      setAppliedCoupon({ code: code.toUpperCase(), discountPercent: json.data.discount_percent });
-      toast.success(`Cupón aplicado: -${json.data.discount_percent}%`);
+      setCoupons((cs) => [...cs, { code: code.toUpperCase(), discountPercent: json.data.discount_percent }]);
+      setCouponInput("");
+      toast.success(`Cupón aplicado: -${json.data.discount_percent}% en 1 lugar`);
     } catch {
       toast.error("Error de red. Intentá de nuevo.");
     } finally {
@@ -64,9 +72,8 @@ export function BookingForm({
     }
   }
 
-  function removeCoupon() {
-    setAppliedCoupon(null);
-    setCouponInput("");
+  function removeCoupon(code: string) {
+    setCoupons((cs) => cs.filter((c) => c.code !== code));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -80,7 +87,7 @@ export function BookingForm({
       if (phone.trim()) form.set("phone", phone.trim());
       form.set("guest_count", String(guestCount));
       form.set("receipt", receipt);
-      if (appliedCoupon) form.set("coupon_code", appliedCoupon.code);
+      for (const c of coupons) form.append("coupon_code", c.code);
 
       const res = await fetch("/api/bookings", { method: "POST", body: form });
       const json = await res.json();
@@ -88,7 +95,7 @@ export function BookingForm({
         toast.error(json.error ?? "No se pudo crear la reserva.");
         return;
       }
-      setDone(true);
+      setDone({ unusedCoupons: json.data?.unused_coupons ?? [] });
     } catch {
       toast.error("Error de red. Intentá de nuevo.");
     } finally {
@@ -104,6 +111,22 @@ export function BookingForm({
         <p className="font-body text-sm text-ink-light mb-6">
           Te enviamos un email de confirmación. Vamos a revisar tu comprobante y te avisamos cuando esté confirmada.
         </p>
+        {done.unusedCoupons.length > 0 && (
+          <div className="mb-6 mx-auto max-w-sm px-4 py-3 rounded-sm border border-brass/40 bg-brass/10 text-left">
+            <p className="font-body text-sm text-ink mb-1.5">
+              {done.unusedCoupons.length === 1
+                ? "Este cupón no hizo falta y sigue disponible para otra reserva:"
+                : "Estos cupones no hicieron falta y siguen disponibles para otra reserva:"}
+            </p>
+            <ul className="flex flex-col gap-1">
+              {done.unusedCoupons.map((code) => (
+                <li key={code} className="flex items-center gap-2 font-label text-sm font-semibold text-ink select-all">
+                  <Ticket size={14} className="text-brass shrink-0" /> {code}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         <Button variant="secondary" onClick={() => router.push("/events")}>Ver más eventos</Button>
       </div>
     );
@@ -118,63 +141,94 @@ export function BookingForm({
           <Input label="Email (el de tu cuenta)" type="email" value={accountEmail} readOnly disabled />
           <Input label="Teléfono (opcional)" value={phone} onChange={(e) => setPhone(e.target.value)} />
         </div>
-        <Input
-          label={`Cantidad de personas (máx. ${remaining})`}
-          type="number"
-          min={1}
-          max={remaining}
-          required
-          value={guestCount}
-          onChange={(e) => setGuestCount(Math.max(1, Math.min(remaining, Number(e.target.value) || 1)))}
-          wrapperClassName="w-40"
-        />
+        <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+          <Input
+            label={`Cantidad de personas (máx. ${remaining})`}
+            type="number"
+            min={1}
+            max={remaining}
+            required
+            value={guestCount}
+            onChange={(e) => setGuestCount(Math.max(1, Math.min(remaining, Number(e.target.value) || 1)))}
+            wrapperClassName="w-40 shrink-0"
+          />
+          <p className="flex items-start gap-2 flex-1 px-3 py-2 rounded-sm border border-brass/30 bg-brass/5 font-body text-xs text-ink-light">
+            <Info size={14} className="text-brass shrink-0 mt-0.5" />
+            <span>
+              Recomendamos que cada participante tenga su propia{" "}
+              <Link href="/sign-up" target="_blank" className="underline hover:text-brass">cuenta</Link>,
+              así registramos su asistencia y puede avanzar en sus misiones.
+            </span>
+          </p>
+        </div>
       </div>
 
       <div className="surface-parchment p-6 flex flex-col gap-4">
-        <h2 className="font-label text-xs uppercase tracking-widest text-leather-light">Cupón de descuento</h2>
-        {appliedCoupon ? (
-          <div className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-sm border border-moss bg-moss/10">
-            <span className="flex items-center gap-2 font-label text-sm font-semibold text-moss-dark">
-              <Ticket size={16} /> {appliedCoupon.code} · -{appliedCoupon.discountPercent}%
-            </span>
-            <button
-              type="button"
-              onClick={removeCoupon}
-              className="flex items-center gap-1 font-label text-2xs uppercase tracking-wide text-ink-light hover:text-crimson transition-colors"
-            >
-              <X size={13} /> Quitar
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-end gap-2">
-            <Input
-              label="Código (opcional)"
-              placeholder="Ej: GAME15-DBZC6R"
-              value={couponInput}
-              onChange={(e) => setCouponInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); applyCoupon(); } }}
-              wrapperClassName="flex-1"
-            />
-            <Button
-              type="button" variant="secondary" loading={applyingCoupon}
-              disabled={!couponInput.trim() || applyingCoupon}
-              onClick={applyCoupon}
-            >
-              Aplicar
-            </Button>
-          </div>
+        <div>
+          <h2 className="font-label text-xs uppercase tracking-widest text-leather-light">Cupones de descuento</h2>
+          <p className="font-body text-xs text-ink-light mt-1">Cada cupón descuenta 1 lugar. Podés cargar uno por persona.</p>
+        </div>
+
+        {coupons.length > 0 && (
+          <ul className="flex flex-col gap-2">
+            {coupons.map((c) => {
+              const applies = usedSet.has(c);
+              return (
+                <li
+                  key={c.code}
+                  className={
+                    applies
+                      ? "flex items-center justify-between gap-3 px-3 py-2.5 rounded-sm border border-moss bg-moss/10"
+                      : "flex items-center justify-between gap-3 px-3 py-2.5 rounded-sm border border-dashed border-border bg-parchment-dark/20"
+                  }
+                >
+                  <span className={applies ? "flex items-center gap-2 flex-wrap font-label text-sm font-semibold text-moss-dark" : "flex items-center gap-2 flex-wrap font-label text-sm text-ink-light"}>
+                    <Ticket size={16} /> {c.code} · -{c.discountPercent}%
+                    {!applies && <span className="font-body text-2xs italic">— no se usa (más cupones que personas)</span>}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeCoupon(c.code)}
+                    className="flex items-center gap-1 shrink-0 font-label text-2xs uppercase tracking-wide text-ink-light hover:text-crimson transition-colors"
+                  >
+                    <X size={13} /> Quitar
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
         )}
 
+        <div className="flex items-end gap-2">
+          <Input
+            label={coupons.length > 0 ? "Otro código (opcional)" : "Código (opcional)"}
+            placeholder="Ej: GAME15-DBZC6R"
+            value={couponInput}
+            onChange={(e) => setCouponInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); applyCoupon(); } }}
+            wrapperClassName="flex-1"
+          />
+          <Button
+            type="button" variant="secondary" loading={applyingCoupon}
+            disabled={!couponInput.trim() || applyingCoupon}
+            onClick={applyCoupon}
+          >
+            Aplicar
+          </Button>
+        </div>
+
         <div className="border-t border-border pt-4 flex flex-col gap-1.5">
-          {appliedCoupon && (
+          {used.length > 0 && (
             <>
               <div className="flex items-center justify-between">
                 <span className="font-body text-sm text-ink-light">Subtotal</span>
                 <span className="font-body text-sm text-ink-light">{formatARS(subtotal)}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="font-body text-sm text-moss-dark">Descuento ({appliedCoupon.discountPercent}%)</span>
-                <span className="font-body text-sm text-moss-dark">-{formatARS(discountAmount)}</span>
+                <span className="font-body text-sm text-moss-dark">
+                  Descuento ({used.length} {used.length === 1 ? "cupón" : "cupones"})
+                </span>
+                <span className="font-body text-sm text-moss-dark">-{formatARS(discount)}</span>
               </div>
             </>
           )}

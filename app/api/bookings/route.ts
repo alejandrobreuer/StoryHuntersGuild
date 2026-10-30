@@ -4,11 +4,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireSessionUser } from "@/lib/auth/guard";
 import { sendBookingConfirmationEmail } from "@/lib/email";
 import { formatARS, formatDateTime } from "@/lib/formatting";
+import { priceWithCoupons } from "@/lib/coupons";
 
 const MAX_RECEIPT_BYTES = 8 * 1024 * 1024; // 8MB
 
 // ─── POST /api/bookings ─────────────────────────────────────────────────────
-// multipart/form-data: event_id, name, phone?, guest_count, receipt (file)
+// multipart/form-data: event_id, name, phone?, guest_count, receipt (file),
+// coupon_code (repeatable — one per ticket)
 // Requires a signed-in account: the booking is tied to it and always uses
 // its email (attendance, missions and XP all hang off the account).
 // Cost is ALWAYS recomputed server-side from the event's price_per_person —
@@ -29,7 +31,7 @@ export async function POST(req: NextRequest) {
     name:        form.get("name"),
     phone:       form.get("phone") || undefined,
     guest_count: form.get("guest_count"),
-    coupon_code: form.get("coupon_code") || undefined,
+    coupon_codes: form.getAll("coupon_code").filter((v): v is string => typeof v === "string" && v.trim() !== ""),
   });
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Datos inválidos." }, { status: 422 });
@@ -44,8 +46,10 @@ export async function POST(req: NextRequest) {
   }
 
   const admin = createAdminClient();
-  const { event_id, name, phone, guest_count, coupon_code } = parsed.data;
+  const { event_id, name, phone, guest_count } = parsed.data;
   const email = sessionUser.email;
+  // Same code typed twice counts once (codes match case-insensitively).
+  const couponCodes = Array.from(new Map(parsed.data.coupon_codes.map((c) => [c.toUpperCase(), c])).keys());
 
   const { data: event, error: eventErr } = await admin
     .from("shg_events")
@@ -73,25 +77,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No hay suficientes lugares disponibles." }, { status: 422 });
   }
 
-  const subtotal = Number(event.price_per_person) * guest_count;
-
   // Checked (but not yet consumed — that's an atomic update right before the
   // booking insert below, to keep the race window as small as possible) here
   // so an invalid/used code fails fast, before making the user upload a
   // receipt for a booking that's about to be rejected anyway.
-  let coupon: { id: string; discount_percent: number } | null = null;
-  if (coupon_code) {
+  const coupons: { id: string; code: string; discountPercent: number }[] = [];
+  for (const code of couponCodes) {
     const { data: found } = await admin
       .from("shg_coupons")
       .select("id, discount_percent, used")
-      .ilike("code", coupon_code)
+      .ilike("code", code)
       .maybeSingle();
-    if (!found) return NextResponse.json({ error: "Ese cupón no existe." }, { status: 422 });
-    if (found.used) return NextResponse.json({ error: "Ese cupón ya fue utilizado." }, { status: 422 });
-    coupon = { id: found.id, discount_percent: found.discount_percent };
+    if (!found) return NextResponse.json({ error: `El cupón ${code} no existe.` }, { status: 422 });
+    if (found.used) return NextResponse.json({ error: `El cupón ${code} ya fue utilizado.` }, { status: 422 });
+    coupons.push({ id: found.id, code, discountPercent: found.discount_percent });
   }
 
-  const cost = coupon ? Math.round(subtotal * (1 - coupon.discount_percent / 100)) : subtotal;
+  // One coupon per ticket; extras are left unclaimed and handed back.
+  const { used, unused, cost } = priceWithCoupons(Number(event.price_per_person), guest_count, coupons);
 
   const ext = receipt.name.split(".").pop() || "jpg";
   const path = `${event_id}/${crypto.randomUUID()}.${ext}`;
@@ -107,8 +110,14 @@ export async function POST(req: NextRequest) {
   // loses a race on the same code between the check above and here (e.g. two
   // people submitting the same shared code within the same second) — one
   // update affects the row and returns it, the other affects zero rows and
-  // gets null back.
-  if (coupon) {
+  // gets null back. If any claim (or the booking insert) fails, the ones
+  // already claimed are released so they can be used again.
+  const claimedIds: string[] = [];
+  const releaseClaims = async () => {
+    if (claimedIds.length === 0) return;
+    await admin.from("shg_coupons").update({ used: false, used_at: null }).in("id", claimedIds);
+  };
+  for (const coupon of used) {
     const { data: claimed } = await admin
       .from("shg_coupons")
       .update({ used: true, used_at: new Date().toISOString() })
@@ -117,8 +126,10 @@ export async function POST(req: NextRequest) {
       .select("id")
       .maybeSingle();
     if (!claimed) {
-      return NextResponse.json({ error: "Ese cupón ya fue utilizado." }, { status: 422 });
+      await releaseClaims();
+      return NextResponse.json({ error: `El cupón ${coupon.code} ya fue utilizado.` }, { status: 422 });
     }
+    claimedIds.push(coupon.id);
   }
 
   const { data: booking, error: insertError } = await admin
@@ -127,20 +138,23 @@ export async function POST(req: NextRequest) {
       event_id, name, email, phone: phone ?? null, guest_count, cost,
       receipt_path: path,
       user_id: sessionUser.id,
-      coupon_code: coupon ? coupon_code!.toUpperCase() : null,
-      discount_percent: coupon?.discount_percent ?? null,
+      // Snapshot for the admin view: the codes used, and — with a single
+      // coupon — its per-ticket percent (several may differ, so none then).
+      coupon_code: used.length > 0 ? used.map((c) => c.code.toUpperCase()).join(", ") : null,
+      discount_percent: used.length === 1 ? used[0].discountPercent : null,
     })
     .select("id")
     .single();
 
   if (insertError) {
+    await releaseClaims();
     return NextResponse.json({ error: "No se pudo crear la reserva." }, { status: 500 });
   }
 
-  // Best-effort back-link for the admin view — the coupon is already
+  // Best-effort back-link for the admin view — the coupons are already
   // correctly consumed above regardless of whether this succeeds.
-  if (coupon) {
-    await admin.from("shg_coupons").update({ used_by_booking_id: booking.id }).eq("id", coupon.id);
+  if (claimedIds.length > 0) {
+    await admin.from("shg_coupons").update({ used_by_booking_id: booking.id }).in("id", claimedIds);
   }
 
   await sendBookingConfirmationEmail({
@@ -151,5 +165,8 @@ export async function POST(req: NextRequest) {
     cost:       formatARS(cost),
   });
 
-  return NextResponse.json({ data: { id: booking.id } }, { status: 201 });
+  return NextResponse.json(
+    { data: { id: booking.id, unused_coupons: unused.map((c) => c.code.toUpperCase()) } },
+    { status: 201 },
+  );
 }

@@ -78,7 +78,7 @@ export function BookingsTable() {
                   {b.email}{b.phone ? ` · ${b.phone}` : ""} · {b.guest_count} persona{b.guest_count !== 1 ? "s" : ""} · {formatARS(b.cost)}
                   {b.coupon_code && (
                     <span className="inline-flex items-center gap-1 ml-1.5 text-moss-dark">
-                      <Ticket size={11} /> {b.coupon_code} (-{b.discount_percent}%)
+                      <Ticket size={11} /> {b.coupon_code}{b.discount_percent != null && ` (-${b.discount_percent}%)`}
                     </span>
                   )}
                 </p>
