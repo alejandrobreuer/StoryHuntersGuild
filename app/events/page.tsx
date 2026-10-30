@@ -65,6 +65,14 @@ export default async function EventsPage({
     attended_count: e.ended_at ? (attendedMap.get(e.id) ?? 0) : undefined,
   })) as unknown as ShgEventListItem[];
 
+  // Upcoming first (soonest on top), then live, then finished (most recent
+  // first). The query's starts_at order breaks ties within each group.
+  const phase = (e: ShgEventListItem) => (e.ended_at ? 2 : e.started_at ? 1 : 0);
+  enrichedEvents.sort((a, b) =>
+    phase(a) - phase(b) ||
+    (phase(a) === 2 ? new Date(b.ended_at!).getTime() - new Date(a.ended_at!).getTime() : 0)
+  );
+
   return (
     <main className="max-w-6xl mx-auto px-6 py-14">
       <h1 className="font-display text-3xl text-parchment text-center mb-2">Eventos</h1>
