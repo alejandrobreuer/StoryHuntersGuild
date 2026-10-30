@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { UserCircle, ChevronDown, ChevronUp, Plus, X, Sparkles, Crown, ScrollText, CalendarCheck, Award } from "lucide-react";
+import { UserCircle, ChevronDown, ChevronUp, Plus, X, Sparkles, Crown, ScrollText, CalendarCheck, Award, Download, Merge } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/formatting";
 import { currentRank } from "@/lib/gamification/ranks";
+import { exportUsers, PARTICIPATION_SOURCE_LABELS } from "@/components/admin/exportUsers";
 import type { ShgUserPublic, ShgRank } from "@/types/database";
 
 type BadgeRef = { id?: string; name: string; icon: string | null; icon_url: string | null } | null;
@@ -32,9 +33,6 @@ const QUEST_TYPE_LABELS: Record<string, string> = {
   individual: "Individual", group: "Grupo", event: "Evento", guild: "Gremio",
 };
 
-const PARTICIPATION_SOURCE_LABELS: Record<string, string> = {
-  qr_checkin: "QR de entrada", mission_claim: "Misión (QR)", admin: "Agregada a mano", booking: "Asistencia en Reservas",
-};
 
 function BadgeIcon({ badge, size = 20 }: { badge: BadgeRef; size?: number }) {
   return (
@@ -58,7 +56,9 @@ function SectionTitle({ icon: Icon, children }: { icon: React.ElementType; child
 
 // ─── Expanded card: quests, participations, badges, account ─────────────────
 
-function UserDetail({ user, onUserChanged }: { user: ShgUserPublic; onUserChanged: (u?: ShgUserPublic) => void }) {
+function UserDetail({ user, onUserChanged, onMerge }: {
+  user: ShgUserPublic; onUserChanged: (u?: ShgUserPublic) => void; onMerge: () => void;
+}) {
   const [details, setDetails] = React.useState<UserDetails | null>(null);
   const [questId, setQuestId] = React.useState("");
   const [questEventId, setQuestEventId] = React.useState("");
@@ -279,6 +279,9 @@ function UserDetail({ user, onUserChanged }: { user: ShgUserPublic; onUserChange
           <p className="font-body text-2xs text-ink-light">
             No hay recuperación por email — comunicale la contraseña temporal por otro medio.
           </p>
+          <Button size="sm" variant="ghost" onClick={onMerge}>
+            <Merge size={14} className="mr-1" />Fusionar con otra cuenta…
+          </Button>
         </div>
       </div>
     </div>
@@ -297,6 +300,11 @@ export function UsersManager() {
   const [adjusting, setAdjusting] = React.useState<{ user: ShgUserPublic; kind: "xp" | "rp" } | null>(null);
   const [adjustValue, setAdjustValue] = React.useState("");
   const [saving, setSaving] = React.useState(false);
+  const [exporting, setExporting] = React.useState(false);
+  // Merging two accounts: the one whose card opened it, the other one, and which survives.
+  const [merging, setMerging] = React.useState<{ from: ShgUserPublic; otherId: string; keep: "from" | "other" } | null>(null);
+  const [mergeQuery, setMergeQuery] = React.useState("");
+  const [mergeSaving, setMergeSaving] = React.useState(false);
 
   const loadUsers = React.useCallback(async () => {
     const res = await fetch("/api/admin/users");
@@ -320,6 +328,46 @@ export function UsersManager() {
 
   function replaceUser(u: ShgUserPublic) {
     setUsers((prev) => prev.map((x) => (x.id === u.id ? u : x)));
+  }
+
+  function openMerge(u: ShgUserPublic) {
+    setMerging({ from: u, otherId: "", keep: "from" });
+    setMergeQuery("");
+  }
+
+  const mergeOther = merging ? users.find((x) => x.id === merging.otherId) ?? null : null;
+  const mergeCandidates = React.useMemo(() => {
+    if (!merging) return [];
+    const q = mergeQuery.trim().toLowerCase();
+    if (!q) return [];
+    return users
+      .filter((x) => x.id !== merging.from.id)
+      .filter((x) => x.email.toLowerCase().includes(q) || (x.name ?? "").toLowerCase().includes(q))
+      .slice(0, 8);
+  }, [users, merging, mergeQuery]);
+
+  async function applyMerge() {
+    if (!merging || !mergeOther) return;
+    const keep = merging.keep === "from" ? merging.from : mergeOther;
+    const drop = merging.keep === "from" ? mergeOther : merging.from;
+    setMergeSaving(true);
+    try {
+      const res = await fetch("/api/admin/users/merge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keepId: keep.id, dropId: drop.id }),
+      });
+      const json = await res.json();
+      if (!res.ok) { toast.error(json.error ?? "No se pudieron fusionar las cuentas."); return; }
+      const s = json.data as { duplicate_quests: number; duplicate_events: number };
+      const dups = s.duplicate_quests + s.duplicate_events;
+      toast.success(`Cuentas fusionadas en ${keep.email}.${dups > 0 ? ` ${dups} duplicado${dups !== 1 ? "s" : ""} contado${dups !== 1 ? "s" : ""} una sola vez.` : ""}`);
+      setMerging(null);
+      await loadUsers();
+      setExpandedId(keep.id);
+    } finally {
+      setMergeSaving(false);
+    }
   }
 
   function openAdjust(e: React.MouseEvent, user: ShgUserPublic, kind: "xp" | "rp") {
@@ -353,13 +401,33 @@ export function UsersManager() {
     }
   }
 
+  // Exports what the list shows: every user, or the current search's matches.
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const res = await fetch("/api/admin/users/export");
+      const json = await res.json();
+      if (!res.ok) { toast.error(json.error ?? "No se pudo exportar."); return; }
+      const today = new Date().toLocaleDateString("en-CA");
+      await exportUsers(filtered, ranks, json.data, `usuarios-${today}.xlsx`);
+    } catch {
+      toast.error("No se pudo exportar.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const adjustLabel = adjusting?.kind === "xp" ? "XP" : "RP";
   const pillButton = "inline-flex items-center gap-1 font-label text-2xs font-semibold uppercase tracking-wide px-2 py-1 rounded-sm border transition-colors";
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between gap-2 mb-6">
         <h1 className="font-display text-2xl text-parchment">Usuarios</h1>
+        <Button size="sm" variant="ghost" onClick={handleExport} loading={exporting} disabled={loading || filtered.length === 0}>
+          <Download size={14} className="mr-1" />
+          {query.trim() ? `Exportar ${filtered.length} a Excel` : "Exportar a Excel"}
+        </Button>
       </div>
 
       <Input
@@ -425,7 +493,13 @@ export function UsersManager() {
                     {expanded ? <ChevronUp size={16} className="text-leather-light" /> : <ChevronDown size={16} className="text-leather-light" />}
                   </div>
                 </div>
-                {expanded && <UserDetail user={u} onUserChanged={(updated) => (updated ? replaceUser(updated) : loadUsers())} />}
+                {expanded && (
+                  <UserDetail
+                    user={u}
+                    onUserChanged={(updated) => (updated ? replaceUser(updated) : loadUsers())}
+                    onMerge={() => openMerge(u)}
+                  />
+                )}
               </div>
             );
           })}
@@ -454,6 +528,90 @@ export function UsersManager() {
             />
             <Button type="submit" size="sm" loading={saving}>Aplicar ajuste</Button>
           </form>
+        )}
+      </Modal>
+
+      <Modal
+        open={Boolean(merging)}
+        onClose={() => setMerging(null)}
+        title="Fusionar cuentas"
+        className="max-w-xl"
+        closeOnBackdropClick={false}
+      >
+        {merging && (
+          <div className="flex flex-col gap-4">
+            {!mergeOther ? (
+              <>
+                <p className="font-body text-sm text-ink-light">
+                  ¿Con qué cuenta se fusiona <strong className="text-ink">{merging.from.name || merging.from.email}</strong>?
+                </p>
+                <Input
+                  placeholder="Buscar por nombre o email…"
+                  autoFocus
+                  value={mergeQuery}
+                  onChange={(e) => setMergeQuery(e.target.value)}
+                />
+                {mergeQuery.trim() && (mergeCandidates.length === 0 ? (
+                  <p className="font-body text-xs italic text-ink-light">Ninguna cuenta coincide.</p>
+                ) : (
+                  <ul className="flex flex-col gap-1">
+                    {mergeCandidates.map((x) => (
+                      <li key={x.id}>
+                        <button
+                          type="button"
+                          onClick={() => setMerging({ ...merging, otherId: x.id })}
+                          className="w-full text-left px-3 py-2 rounded-sm border border-border hover:border-brass transition-colors"
+                        >
+                          <p className="font-label text-sm font-semibold text-ink">{x.name || x.email}</p>
+                          <p className="font-body text-xs text-ink-light">{x.email} · {x.xp} XP · {x.rp} RP</p>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ))}
+              </>
+            ) : (
+              <>
+                <p className="font-body text-sm text-ink-light">Elegí la cuenta que queda (su email es con el que se va a entrar):</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {([["from", merging.from], ["other", mergeOther]] as const).map(([side, x]) => {
+                    const chosen = merging.keep === side;
+                    return (
+                      <button
+                        key={side}
+                        type="button"
+                        onClick={() => setMerging({ ...merging, keep: side })}
+                        className={cn(
+                          "text-left p-3 rounded-sm border-2 transition-colors",
+                          chosen ? "border-moss bg-moss/10" : "border-border border-dashed opacity-70 hover:opacity-100"
+                        )}
+                      >
+                        <p className={cn("font-label text-2xs font-semibold uppercase tracking-widest mb-1", chosen ? "text-moss-dark" : "text-crimson")}>
+                          {chosen ? "Queda" : "Se elimina"}
+                        </p>
+                        <p className="font-label text-sm font-bold text-ink truncate">{x.name || "—"}</p>
+                        <p className="font-body text-xs text-ink-light truncate">{x.email}</p>
+                        <p className="font-body text-xs text-ink-light mt-1">{x.xp} XP · {x.rp} RP · alta {formatDate(x.created_at)}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="font-body text-xs text-ink-light leading-relaxed px-3 py-2 rounded-sm bg-parchment-dark/25">
+                  Todo lo de la cuenta que se elimina — misiones, participaciones en eventos, reservas, insignias, personajes,
+                  XP y RP — pasa a la que queda. Lo que esté en las dos (la misma misión o el mismo evento) se cuenta
+                  una sola vez y se descuenta su XP/RP repetido. <strong className="text-crimson">No se puede deshacer.</strong>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setMerging({ ...merging, otherId: "" })}>
+                    Elegir otra cuenta
+                  </Button>
+                  <Button type="button" size="sm" variant="danger" loading={mergeSaving} onClick={applyMerge}>
+                    <Merge size={14} className="mr-1" />Fusionar
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
         )}
       </Modal>
     </div>
