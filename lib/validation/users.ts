@@ -15,3 +15,8 @@ export const userQuestGrantSchema = z.object({
 export const userEventGrantSchema = z.object({
   eventId: z.string().uuid(),
 });
+
+export const userMergeSchema = z.object({
+  keepId: z.string().uuid(),
+  dropId: z.string().uuid(),
+}).refine((d) => d.keepId !== d.dropId, { message: "Elegí dos cuentas distintas." });
