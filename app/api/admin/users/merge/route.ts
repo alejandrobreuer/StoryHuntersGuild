@@ -23,6 +23,17 @@ export async function POST(req: NextRequest) {
   }
 
   const admin = createAdminClient();
+
+  // Staff notes (059_shg_user_admin_notes.sql) aren't part of shg_merge_users():
+  // read both before the merge, and keep both on the surviving account.
+  const { data: noted } = await admin
+    .from("shg_users")
+    .select("id, email, admin_notes")
+    .in("id", [parsed.data.keepId, parsed.data.dropId]);
+  const keepNote = noted?.find((u) => u.id === parsed.data.keepId)?.admin_notes?.trim();
+  const drop = noted?.find((u) => u.id === parsed.data.dropId);
+  const dropNote = drop?.admin_notes?.trim();
+
   const { data, error: rpcError } = await admin.rpc("shg_merge_users", {
     p_keep: parsed.data.keepId,
     p_drop: parsed.data.dropId,
@@ -33,6 +44,11 @@ export async function POST(req: NextRequest) {
     // Our own raise messages (P0001) are written for the admin; anything else isn't.
     const message = rpcError.code === "P0001" ? rpcError.message : "No se pudieron fusionar las cuentas.";
     return NextResponse.json({ error: message }, { status: rpcError.code === "P0001" ? 422 : 500 });
+  }
+
+  if (dropNote) {
+    const merged = keepNote ? `${keepNote}\n\n[de ${drop!.email}]\n${dropNote}` : dropNote;
+    await admin.from("shg_users").update({ admin_notes: merged }).eq("id", parsed.data.keepId);
   }
 
   return NextResponse.json({ data });

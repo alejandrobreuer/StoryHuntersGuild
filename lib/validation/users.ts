@@ -5,6 +5,7 @@ export const userAdjustSchema = z.object({
   adjustXp:      z.number().int().min(-100000).max(100000).optional(),
   adjustRp:      z.number().int().min(-100000).max(100000).optional(),
   resetPassword: z.string().min(8, "La contraseña debe tener al menos 8 caracteres.").max(100).optional(),
+  admin_notes:   z.string().max(2000, "La nota puede tener hasta 2000 caracteres.").nullable().optional(),
 });
 
 export const userQuestGrantSchema = z.object({

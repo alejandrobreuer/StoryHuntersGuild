@@ -2,10 +2,11 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { UserCircle, ChevronDown, ChevronUp, Plus, X, Sparkles, Crown, ScrollText, CalendarCheck, Award, Download, Merge } from "lucide-react";
+import { UserCircle, ChevronDown, ChevronUp, Plus, X, Sparkles, Crown, ScrollText, CalendarCheck, Award, Download, Merge, StickyNote } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { Textarea } from "@/components/ui/Textarea";
 import { Modal } from "@/components/ui/Modal";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -13,6 +14,9 @@ import { formatDate } from "@/lib/formatting";
 import { currentRank } from "@/lib/gamification/ranks";
 import { exportUsers, PARTICIPATION_SOURCE_LABELS } from "@/components/admin/exportUsers";
 import type { ShgUserPublic, ShgRank } from "@/types/database";
+
+// Admin › Usuarios also gets the staff-only notes (never sent to players).
+type AdminUser = ShgUserPublic & { admin_notes: string | null };
 
 type BadgeRef = { id?: string; name: string; icon: string | null; icon_url: string | null } | null;
 
@@ -57,7 +61,7 @@ function SectionTitle({ icon: Icon, children }: { icon: React.ElementType; child
 // ─── Expanded card: quests, participations, badges, account ─────────────────
 
 function UserDetail({ user, onUserChanged, onMerge }: {
-  user: ShgUserPublic; onUserChanged: (u?: ShgUserPublic) => void; onMerge: () => void;
+  user: AdminUser; onUserChanged: (u?: AdminUser) => void; onMerge: () => void;
 }) {
   const [details, setDetails] = React.useState<UserDetails | null>(null);
   const [questId, setQuestId] = React.useState("");
@@ -291,20 +295,24 @@ function UserDetail({ user, onUserChanged, onMerge }: {
 // ─── List ───────────────────────────────────────────────────────────────────
 
 export function UsersManager() {
-  const [users, setUsers] = React.useState<ShgUserPublic[]>([]);
+  const [users, setUsers] = React.useState<AdminUser[]>([]);
   const [ranks, setRanks] = React.useState<ShgRank[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [query, setQuery] = React.useState("");
   const [expandedId, setExpandedId] = React.useState<string | null>(null);
   // XP or RP correction for one user.
-  const [adjusting, setAdjusting] = React.useState<{ user: ShgUserPublic; kind: "xp" | "rp" } | null>(null);
+  const [adjusting, setAdjusting] = React.useState<{ user: AdminUser; kind: "xp" | "rp" } | null>(null);
   const [adjustValue, setAdjustValue] = React.useState("");
   const [saving, setSaving] = React.useState(false);
   const [exporting, setExporting] = React.useState(false);
   // Merging two accounts: the one whose card opened it, the other one, and which survives.
-  const [merging, setMerging] = React.useState<{ from: ShgUserPublic; otherId: string; keep: "from" | "other" } | null>(null);
+  const [merging, setMerging] = React.useState<{ from: AdminUser; otherId: string; keep: "from" | "other" } | null>(null);
   const [mergeQuery, setMergeQuery] = React.useState("");
   const [mergeSaving, setMergeSaving] = React.useState(false);
+  // Staff-only note being edited.
+  const [noting, setNoting] = React.useState<AdminUser | null>(null);
+  const [noteValue, setNoteValue] = React.useState("");
+  const [noteSaving, setNoteSaving] = React.useState(false);
 
   const loadUsers = React.useCallback(async () => {
     const res = await fetch("/api/admin/users");
@@ -326,11 +334,11 @@ export function UsersManager() {
     return users.filter((u) => u.email.toLowerCase().includes(q) || (u.name ?? "").toLowerCase().includes(q));
   }, [users, query]);
 
-  function replaceUser(u: ShgUserPublic) {
+  function replaceUser(u: AdminUser) {
     setUsers((prev) => prev.map((x) => (x.id === u.id ? u : x)));
   }
 
-  function openMerge(u: ShgUserPublic) {
+  function openMerge(u: AdminUser) {
     setMerging({ from: u, otherId: "", keep: "from" });
     setMergeQuery("");
   }
@@ -370,7 +378,7 @@ export function UsersManager() {
     }
   }
 
-  function openAdjust(e: React.MouseEvent, user: ShgUserPublic, kind: "xp" | "rp") {
+  function openAdjust(e: React.MouseEvent, user: AdminUser, kind: "xp" | "rp") {
     e.stopPropagation();
     setAdjusting({ user, kind });
     setAdjustValue("");
@@ -414,6 +422,32 @@ export function UsersManager() {
       toast.error("No se pudo exportar.");
     } finally {
       setExporting(false);
+    }
+  }
+
+  function openNote(e: React.MouseEvent, user: AdminUser) {
+    e.stopPropagation();
+    setNoting(user);
+    setNoteValue(user.admin_notes ?? "");
+  }
+
+  async function saveNote(e: React.FormEvent) {
+    e.preventDefault();
+    if (!noting) return;
+    setNoteSaving(true);
+    try {
+      const res = await fetch(`/api/admin/users/${noting.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ admin_notes: noteValue.trim() || null }),
+      });
+      const json = await res.json();
+      if (!res.ok) { toast.error(json.error ?? "No se pudo guardar la nota."); return; }
+      replaceUser(json.data);
+      setNoting(null);
+      toast.success("Nota guardada.");
+    } finally {
+      setNoteSaving(false);
     }
   }
 
@@ -461,9 +495,26 @@ export function UsersManager() {
                     <div className="min-w-0">
                       <p className="font-label text-sm font-bold text-ink truncate">{u.name || u.email}</p>
                       <p className="font-body text-xs text-ink-light truncate">{u.email}</p>
+                      {u.admin_notes && (
+                        <p
+                          title={u.admin_notes}
+                          className="mt-1 flex items-start gap-1 font-body text-xs italic text-leather"
+                        >
+                          <StickyNote size={12} className="mt-0.5 shrink-0 text-brass" />
+                          <span className="min-w-0 whitespace-pre-line line-clamp-2">{u.admin_notes}</span>
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                    <button
+                      type="button"
+                      onClick={(e) => openNote(e, u)}
+                      title={u.admin_notes ? "Editar nota" : "Agregar nota (sólo la ven los administradores)"}
+                      className={cn(pillButton, "border-leather/30 text-leather-light hover:bg-leather/10", u.admin_notes && "text-leather")}
+                    >
+                      <StickyNote size={12} /> Nota
+                    </button>
                     {u.is_subscriber && (
                       <span className="font-label text-2xs uppercase tracking-wide px-2 py-0.5 rounded-sm bg-brass/15 text-brass">
                         Suscriptor
@@ -527,6 +578,30 @@ export function UsersManager() {
               onChange={(e) => setAdjustValue(e.target.value)}
             />
             <Button type="submit" size="sm" loading={saving}>Aplicar ajuste</Button>
+          </form>
+        )}
+      </Modal>
+
+      <Modal
+        open={Boolean(noting)}
+        onClose={() => setNoting(null)}
+        title={noting ? `Nota — ${noting.name || noting.email}` : "Nota"}
+      >
+        {noting && (
+          <form onSubmit={saveNote} className="flex flex-col gap-3">
+            <p className="font-body text-sm text-ink-light">
+              Sólo la ven los administradores; el usuario nunca la ve. Dejala vacía para borrarla.
+            </p>
+            <Textarea
+              label="Nota"
+              rows={5}
+              autoFocus
+              maxLength={2000}
+              placeholder="ej: tiene otra cuenta con su email del trabajo"
+              value={noteValue}
+              onChange={(e) => setNoteValue(e.target.value)}
+            />
+            <Button type="submit" size="sm" loading={noteSaving}>Guardar nota</Button>
           </form>
         )}
       </Modal>

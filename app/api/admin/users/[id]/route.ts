@@ -4,13 +4,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { hashPassword } from "@/lib/auth/password";
 import { userAdjustSchema } from "@/lib/validation/users";
 
-const SAFE_COLUMNS = "id, email, name, phone, xp, rp, is_subscriber, subscriber_since, created_at, last_login_at";
+const SAFE_COLUMNS = "id, email, name, phone, xp, rp, is_subscriber, subscriber_since, created_at, last_login_at, admin_notes";
 
 // ─── PATCH /api/admin/users/[id] ────────────────────────────────────────────
 // Toggle subscriber status, apply a manual XP/RP correction (e.g. to fix a
 // mis-recorded quest completion), and/or reset a user's password — there's
 // no self-serve "forgot password" flow, so this is how staff gets someone
-// back into their account. XP/RP adjustments go through the same atomic
+// back into their account. Also saves the staff-only notes (admin_notes). XP/RP adjustments go through the same atomic
 // shg_award_user() function quest/event awards use, so a manual correction
 // and an automatic grant can never race each other.
 
@@ -28,7 +28,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 
   const admin = createAdminClient();
-  const { adjustXp, adjustRp, is_subscriber, resetPassword } = parsed.data;
+  const { adjustXp, adjustRp, is_subscriber, resetPassword, admin_notes } = parsed.data;
 
   if (resetPassword) {
     const password_hash = await hashPassword(resetPassword);
@@ -46,6 +46,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       p_rp: adjustRp ?? 0,
     });
     if (rpcError) return NextResponse.json({ error: "No se pudo ajustar XP/RP." }, { status: 500 });
+  }
+
+  if (admin_notes !== undefined) {
+    const { error: notesError } = await admin
+      .from("shg_users")
+      .update({ admin_notes: admin_notes?.trim() || null })
+      .eq("id", params.id);
+    if (notesError) return NextResponse.json({ error: "No se pudo guardar la nota." }, { status: 500 });
   }
 
   if (is_subscriber !== undefined) {

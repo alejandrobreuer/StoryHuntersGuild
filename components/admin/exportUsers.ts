@@ -15,7 +15,7 @@ export const PARTICIPATION_SOURCE_LABELS: Record<string, string> = {
  * Insignias (one row per item, with the user's name and email so each sheet
  * can be filtered on its own). Dates are real dates. xlsx is loaded on demand,
  * same as the Finanzas export. */
-export async function exportUsers(users: ShgUserPublic[], ranks: ShgRank[], activity: UserActivity, fileName: string) {
+export async function exportUsers(users: (ShgUserPublic & { admin_notes?: string | null })[], ranks: ShgRank[], activity: UserActivity, fileName: string) {
   const XLSX = await import("xlsx");
   const byId = new Map(users.map((u) => [u.id, u]));
   const date = (iso: string | null) => (iso ? new Date(iso) : "");
@@ -53,8 +53,9 @@ export async function exportUsers(users: ShgUserPublic[], ranks: ShgRank[], acti
         Insignias: badgeCount.get(u.id) ?? 0,
         Alta: date(u.created_at),
         "Último ingreso": date(u.last_login_at),
+        Notas: u.admin_notes ?? "",
       })),
-      widths: [24, 30, 16, 8, 8, 16, 11, 16, 9, 9, 10, 11, 14],
+      widths: [24, 30, 16, 8, 8, 16, 11, 16, 9, 9, 10, 11, 14, 40],
     },
     {
       name: "Misiones",
