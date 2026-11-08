@@ -6,6 +6,7 @@ import { AtSign, ExternalLink, Ticket, ScrollText, Radio } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSessionUser } from "@/lib/auth/guard";
 import { getFeatureFlags } from "@/lib/features";
+import { getLowAvailabilityThreshold } from "@/lib/availability-server";
 import { EVENT_TYPE_LABELS } from "@/lib/gamification/eventTypes";
 import { EventMissionBanner, type EventMissionData, type EventMissionViewerState } from "@/components/events/EventMissionBanner";
 import { QuestBoard, type IndividualMissionItem, type GroupMissionItem, type GroupInstance } from "@/components/events/QuestBoard";
@@ -41,8 +42,11 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
 export default async function EventDetailPage({ params }: { params: { id: string } }) {
   noStore();
   const admin = createAdminClient();
-  const features = await getFeatureFlags();
-  const sessionUser = await getSessionUser();
+  const [features, sessionUser, lowAvailabilityThreshold] = await Promise.all([
+    getFeatureFlags(),
+    getSessionUser(),
+    getLowAvailabilityThreshold(),
+  ]);
 
   const { data: event } = await admin
     .from("shg_events")
@@ -239,8 +243,17 @@ export default async function EventDetailPage({ params }: { params: { id: string
               )}
             </div>
 
+            <div className="flex flex-col gap-0.5">
+              <span className="font-label text-2xs uppercase tracking-wide text-ink-light">Sede</span>
+              <span className="font-body text-sm font-semibold text-ink">{venue.name}</span>
+              {(venue.address || venue.city) && (
+                <span className="font-body text-sm text-ink-light">
+                  {[venue.address, venue.city].filter(Boolean).join(", ")}
+                </span>
+              )}
+            </div>
+
             <div className="flex flex-col gap-1 font-label text-2xs uppercase tracking-wide text-ink-light">
-              <span>Sede: <b className="text-ink font-semibold">{venue.name}{venue.city ? `, ${venue.city}` : ""}</b></span>
               <span>Horario: <b className="text-ink font-semibold">{schedule}</b></span>
               {games.length > 0 && (
                 <span>Juegos: <b className="text-ink font-semibold">{games.map((g) => g.name).join(", ")}</b></span>
@@ -277,9 +290,9 @@ export default async function EventDetailPage({ params }: { params: { id: string
               </div>
             )}
 
-            {notStarted && (
+            {notStarted && remaining > 0 && remaining <= lowAvailabilityThreshold && (
               <div className="inline-flex items-center gap-2 self-start border border-brass rounded-full px-3 py-1 font-label text-2xs uppercase tracking-wide text-crimson bg-white/50">
-                <Ticket size={12} /> {remaining} / {typedEvent.capacity} cupos
+                <Ticket size={12} /> Disponibilidad baja
               </div>
             )}
 
