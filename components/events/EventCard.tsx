@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { MapPin, Radio, ArrowRight } from "lucide-react";
+import { MapPin, Radio, ArrowRight, Ticket } from "lucide-react";
 import { formatARS, formatDateTime } from "@/lib/formatting";
 import { EVENT_TYPE_LABELS } from "@/lib/gamification/eventTypes";
 import { CapacityBadge, AttendedBadge } from "@/components/ui/CapacityBadge";
@@ -12,13 +12,18 @@ interface EventCardProps {
   event: ShgEventListItem;
   /** Show the event-type label and RP reward — gated by the event_rewards feature flag. */
   showRewards?: boolean;
+  /** Remaining spots at or below this show "Disponibilidad baja" (admin setting). */
+  lowAvailabilityThreshold: number;
 }
 
 /** "Bounty posting" event card — the signature UI motif: torn-parchment
  * edges + a pinned-notice feel, capacity shown as a crosshair-seal badge. */
-export function EventCard({ event, showRewards }: EventCardProps) {
+export function EventCard({ event, showRewards, lowAvailabilityThreshold }: EventCardProps) {
   const isLive = Boolean(event.started_at) && !event.ended_at;
   const isFinished = Boolean(event.ended_at);
+  const isUpcoming = !isLive && !isFinished;
+  const isFull = event.remaining <= 0;
+  const isLow = !isFull && event.remaining <= lowAvailabilityThreshold;
 
   return (
     // The badge lives in this outer, unclipped wrapper — torn-edge's
@@ -56,6 +61,11 @@ export function EventCard({ event, showRewards }: EventCardProps) {
             <MapPin size={13} className="shrink-0 text-leather-light" />
             {event.venue.name}{event.venue.city ? `, ${event.venue.city}` : ""}
           </p>
+          {isUpcoming && isLow && (
+            <span className="inline-flex items-center gap-1.5 mt-2 border border-brass rounded-full px-2.5 py-0.5 font-label text-2xs uppercase tracking-wide text-crimson bg-white/50">
+              <Ticket size={11} /> Disponibilidad baja
+            </span>
+          )}
           {showRewards && (event.event_type || event.reward_rp > 0) && (
             <div className="flex flex-wrap gap-1.5 mt-2">
               {event.event_type && (
@@ -74,7 +84,7 @@ export function EventCard({ event, showRewards }: EventCardProps) {
         {isFinished ? (
           <AttendedBadge count={event.attended_count ?? 0} />
         ) : (
-          !isLive && <CapacityBadge remaining={event.remaining} />
+          isUpcoming && isFull && <CapacityBadge remaining={0} />
         )}
       </div>
 

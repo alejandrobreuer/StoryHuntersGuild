@@ -5,6 +5,7 @@ import { Dice5, Users, Clock } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSessionUser } from "@/lib/auth/guard";
 import { getFeatureFlags } from "@/lib/features";
+import { getLowAvailabilityThreshold } from "@/lib/availability-server";
 import { Button } from "@/components/ui/Button";
 import { EventCard } from "@/components/events/EventCard";
 import { GuildMissionSection, type GuildMissionData } from "@/components/home/GuildMissionSection";
@@ -66,7 +67,7 @@ export default async function HomePage() {
     }
   }
 
-  const [eventsResult, gamesResult] = await Promise.all([
+  const [eventsResult, gamesResult, lowAvailabilityThreshold] = await Promise.all([
     admin
       .from("shg_events")
       .select("*, venue:shg_venues(id, name, city)")
@@ -80,6 +81,7 @@ export default async function HomePage() {
       .eq("beginner_friendly", true)
       .order("name")
       .limit(6),
+    getLowAvailabilityThreshold(),
   ]);
 
   const rawEvents = eventsResult.data ?? [];
@@ -136,7 +138,7 @@ export default async function HomePage() {
             </p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {events.map((e) => <EventCard key={e.id} event={e} />)}
+              {events.map((e) => <EventCard key={e.id} event={e} lowAvailabilityThreshold={lowAvailabilityThreshold} />)}
             </div>
           )}
 
