@@ -3,7 +3,7 @@
 import * as React from "react";
 import Image from "next/image";
 import { Plus, Edit2, Trash2, Upload, Dice5, ExternalLink, X, FileSpreadsheet, FileText } from "lucide-react";
-import { createBrowserClient } from "@/lib/supabase/browser";
+import { uploadRulesPdf, rulesPdfFileError } from "@/lib/rules-pdf-upload";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
@@ -24,25 +24,6 @@ const EMPTY = {
   tags: [] as string[], image_url: "", description: "", bgg_link: "", status: "available" as GameStatus, rules: "",
   owner_ids: [] as string[],
 };
-
-const MAX_RULES_PDF_BYTES = 50 * 1024 * 1024;
-
-/** Uploads a rulebook PDF straight to Supabase Storage via a signed URL from our API
- * (the file never passes through a serverless route, so its size limit doesn't apply). */
-async function uploadRulesPdf(gameId: string, file: File): Promise<string | null> {
-  const res = await fetch(`/api/admin/games/${gameId}/rules-pdf`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ size: file.size, type: "application/pdf" }),
-  });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) return json.error ?? "No se pudo preparar la subida del PDF.";
-  const { bucket, path, token } = json.data as { bucket: string; path: string; token: string };
-  const { error } = await createBrowserClient().storage
-    .from(bucket)
-    .uploadToSignedUrl(path, token, file, { contentType: "application/pdf", upsert: true });
-  return error ? "No se pudo subir el PDF." : null;
-}
 
 const RULES_TOOLBAR:{ label: string; kind: "line" | "wrap"; value: string; after?: string; placeholder: string }[] = [
   { label: "Título",     kind: "line", value: "# ",       placeholder: "Título de sección" },
@@ -570,8 +551,8 @@ export function GamesManager() {
                         const file = e.target.files?.[0];
                         e.target.value = "";
                         if (!file) return;
-                        if (!file.name.toLowerCase().endsWith(".pdf")) { toast.error("El reglamento tiene que ser un PDF."); return; }
-                        if (file.size > MAX_RULES_PDF_BYTES) { toast.error("El PDF supera los 50 MB."); return; }
+                        const fileError = rulesPdfFileError(file);
+                        if (fileError) { toast.error(fileError); return; }
                         setPendingPdf(file);
                         setRemovePdf(false);
                       }}
