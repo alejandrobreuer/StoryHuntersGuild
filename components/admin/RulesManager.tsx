@@ -18,6 +18,19 @@ export function RulesManager() {
   const [loading, setLoading] = React.useState(true);
   const [query, setQuery] = React.useState("");
   const [viewing, setViewing] = React.useState<RuleGame | null>(null);
+  const [viewUrl, setViewUrl] = React.useState<string | null>(null);
+
+  // Uploaded PDFs are in a private bucket, so the viewer needs a signed URL.
+  React.useEffect(() => {
+    setViewUrl(null);
+    if (!viewing) return;
+    let cancelled = false;
+    fetch(`/api/admin/games/${viewing.id}/rules-pdf`)
+      .then((r) => r.json())
+      .then((json) => { if (!cancelled) setViewUrl(json.data?.url ?? "error"); })
+      .catch(() => { if (!cancelled) setViewUrl("error"); });
+    return () => { cancelled = true; };
+  }, [viewing]);
 
   React.useEffect(() => {
     (async () => {
@@ -41,7 +54,8 @@ export function RulesManager() {
 
       <p className="font-body text-sm text-parchment-dark mb-4">
         Reglamentos completos en PDF, para consultar sin tener que buscarlos por fuera. No es el
-        resumen corto que ven los jugadores en la Ludoteca — es el manual original del juego.
+        resumen corto que ven los jugadores en la Ludoteca — es el manual original del juego. Para
+        subir o cambiar un PDF, editá el juego en Juegos → «Reglamento completo (PDF)».
       </p>
 
       <Input
@@ -98,9 +112,11 @@ export function RulesManager() {
         bodyClassName="p-3 flex flex-col"
         titleClassName="text-sm"
       >
-        {viewing && (
+        {viewing && !viewUrl && <p className="font-body italic text-ink-light">Cargando…</p>}
+        {viewing && viewUrl === "error" && <p className="font-body italic text-crimson">No se pudo abrir el PDF.</p>}
+        {viewing && viewUrl && viewUrl !== "error" && (
           <iframe
-            src={`/rules/${viewing.id}.pdf`}
+            src={viewUrl}
             title={`Reglas de ${viewing.name}`}
             className="flex-1 w-full border border-border"
           />
