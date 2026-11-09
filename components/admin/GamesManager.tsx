@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { Plus, Edit2, Trash2, Upload, Dice5, ExternalLink, X, FileSpreadsheet } from "lucide-react";
+import { Plus, Edit2, Trash2, Upload, Dice5, ExternalLink, X, FileSpreadsheet, FileText } from "lucide-react";
+import { createBrowserClient } from "@/lib/supabase/browser";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
@@ -24,7 +25,26 @@ const EMPTY = {
   owner_ids: [] as string[],
 };
 
-const RULES_TOOLBAR: { label: string; kind: "line" | "wrap"; value: string; after?: string; placeholder: string }[] = [
+const MAX_RULES_PDF_BYTES = 50 * 1024 * 1024;
+
+/** Uploads a rulebook PDF straight to Supabase Storage via a signed URL from our API
+ * (the file never passes through a serverless route, so its size limit doesn't apply). */
+async function uploadRulesPdf(gameId: string, file: File): Promise<string | null> {
+  const res = await fetch(`/api/admin/games/${gameId}/rules-pdf`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ size: file.size, type: "application/pdf" }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) return json.error ?? "No se pudo preparar la subida del PDF.";
+  const { bucket, path, token } = json.data as { bucket: string; path: string; token: string };
+  const { error } = await createBrowserClient().storage
+    .from(bucket)
+    .uploadToSignedUrl(path, token, file, { contentType: "application/pdf", upsert: true });
+  return error ? "No se pudo subir el PDF." : null;
+}
+
+const RULES_TOOLBAR:{ label: string; kind: "line" | "wrap"; value: string; after?: string; placeholder: string }[] = [
   { label: "Título",     kind: "line", value: "# ",       placeholder: "Título de sección" },
   { label: "Subtítulo",  kind: "line", value: "## ",      placeholder: "Subtítulo" },
   { label: "Viñeta",     kind: "line", value: "- ",       placeholder: "Punto de la lista" },
@@ -45,6 +65,12 @@ export function GamesManager() {
   const [saving, setSaving] = React.useState(false);
   const [uploading, setUploading] = React.useState(false);
   const rulesRef = React.useRef<HTMLTextAreaElement>(null);
+  // Rulebook PDF: which games have one, plus the pending change for the open
+  // form. Applied on Guardar, after the game is saved (new games need an id).
+  const [pdfGameIds, setPdfGameIds] = React.useState<Set<string>>(new Set());
+  const [pendingPdf, setPendingPdf] = React.useState<File | null>(null);
+  const [removePdf, setRemovePdf] = React.useState(false);
+  const [viewingPdf, setViewingPdf] = React.useState(false);
 
   const [searchQuery, setSearchQuery] = React.useState("");
   const [playerCount, setPlayerCount] = React.useState("");
@@ -53,12 +79,14 @@ export function GamesManager() {
 
   const load = React.useCallback(async () => {
     setLoading(true);
-    const [gamesRes, tagsRes, ownersRes] = await Promise.all([
-      fetch("/api/admin/games"), fetch("/api/admin/tags"), fetch("/api/admin/owners"),
+    const [gamesRes, tagsRes, ownersRes, rulesRes] = await Promise.all([
+      fetch("/api/admin/games"), fetch("/api/admin/tags"), fetch("/api/admin/owners"), fetch("/api/admin/rules"),
     ]);
     setGames((await gamesRes.json()).data ?? []);
     setTags((await tagsRes.json()).data ?? []);
     setOwners((await ownersRes.json()).data ?? []);
+    const ruleRows = ((await rulesRes.json().catch(() => ({}))).data ?? []) as { id: string; hasPdf: boolean }[];
+    setPdfGameIds(new Set(ruleRows.filter((r) => r.hasPdf).map((r) => r.id)));
     setLoading(false);
   }, []);
 
@@ -99,6 +127,8 @@ export function GamesManager() {
   function openNew() {
     setEditing(null);
     setForm(EMPTY);
+    setPendingPdf(null);
+    setRemovePdf(false);
     setModalOpen(true);
   }
 
@@ -112,6 +142,8 @@ export function GamesManager() {
       bgg_link: g.bgg_link ?? "", status: g.status, rules: g.rules ?? "",
       owner_ids: g.owner_ids ?? [],
     });
+    setPendingPdf(null);
+    setRemovePdf(false);
     setModalOpen(true);
   }
 
@@ -162,6 +194,25 @@ export function GamesManager() {
       });
       const json = await res.json();
       if (!res.ok) { toast.error(json.error ?? "Error al guardar."); return; }
+
+      const gameId = (json.data?.id as string | undefined) ?? editing?.id;
+      if (gameId && pendingPdf) {
+        const pdfError = await uploadRulesPdf(gameId, pendingPdf);
+        if (pdfError) {
+          toast.error(`Juego guardado, pero ${pdfError.charAt(0).toLowerCase()}${pdfError.slice(1)}`);
+          if (!editing) setEditing(json.data as ShgGame); // retrying Guardar now updates instead of duplicating
+          load();
+          return;
+        }
+      } else if (gameId && removePdf) {
+        const delRes = await fetch(`/api/admin/games/${gameId}/rules-pdf`, { method: "DELETE" });
+        const delJson = await delRes.json().catch(() => ({}));
+        if (!delRes.ok) toast.error("Juego guardado, pero no se pudo quitar el PDF.");
+        else if (delJson.data?.stillHasStaticPdf) {
+          toast.info("Este PDF viene incluido en el código (public/rules/), así que no se puede quitar desde acá.");
+        }
+      }
+
       toast.success("Juego guardado.");
       setModalOpen(false);
       load();
@@ -321,8 +372,9 @@ export function GamesManager() {
                   <FieldStatus ok={Boolean(g.description)}>Descripción</FieldStatus>
                   {g.description && <p className="font-body text-xs text-ink-light line-clamp-2 mt-0.5">{g.description}</p>}
                 </div>
-                <div>
+                <div className="flex items-center gap-3">
                   <FieldStatus ok={Boolean(g.rules)}>Reglas</FieldStatus>
+                  <FieldStatus ok={pdfGameIds.has(g.id)}>PDF de reglas</FieldStatus>
                 </div>
               </div>
             </div>
@@ -493,6 +545,73 @@ export function GamesManager() {
                 <RulesContent blocks={parseRulesMarkup(form.rules)} />
               </div>
             )}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">
+              Reglamento completo (PDF) <span className="normal-case font-body text-ink-light/70">(interno — se consulta en Admin → Reglas)</span>
+            </label>
+            {(() => {
+              const hasCurrent = Boolean(editing && pdfGameIds.has(editing.id)) && !removePdf;
+              return (
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="flex items-center gap-2 border border-dashed border-border px-3 py-2.5 cursor-pointer hover:border-brass transition-colors text-sm font-body text-ink-light flex-1 min-w-0">
+                    <Upload size={15} className="shrink-0" />
+                    <span className="truncate">
+                      {pendingPdf
+                        ? `${pendingPdf.name} — se sube al guardar`
+                        : hasCurrent ? "Reemplazar PDF" : "Subir PDF"}
+                    </span>
+                    <input
+                      type="file"
+                      accept="application/pdf,.pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = "";
+                        if (!file) return;
+                        if (!file.name.toLowerCase().endsWith(".pdf")) { toast.error("El reglamento tiene que ser un PDF."); return; }
+                        if (file.size > MAX_RULES_PDF_BYTES) { toast.error("El PDF supera los 50 MB."); return; }
+                        setPendingPdf(file);
+                        setRemovePdf(false);
+                      }}
+                    />
+                  </label>
+                  {pendingPdf && (
+                    <Button type="button" variant="ghost" size="sm" onClick={() => setPendingPdf(null)}>Cancelar</Button>
+                  )}
+                  {!pendingPdf && hasCurrent && editing && (
+                    <>
+                      <Button
+                        type="button" variant="ghost" size="sm" loading={viewingPdf}
+                        onClick={async () => {
+                          const win = window.open("", "_blank");
+                          setViewingPdf(true);
+                          try {
+                            const res = await fetch(`/api/admin/games/${editing.id}/rules-pdf`);
+                            const json = await res.json().catch(() => ({}));
+                            if (res.ok && json.data?.url && win) win.location.href = json.data.url;
+                            else { win?.close(); toast.error("No se pudo abrir el PDF."); }
+                          } finally {
+                            setViewingPdf(false);
+                          }
+                        }}
+                      >
+                        <FileText size={13} /> Ver
+                      </Button>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => setRemovePdf(true)}>Quitar</Button>
+                    </>
+                  )}
+                  {removePdf && (
+                    <span className="font-body text-xs text-crimson">
+                      Se quita al guardar.{" "}
+                      <button type="button" className="underline" onClick={() => setRemovePdf(false)}>Deshacer</button>
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
+            <p className="font-body text-2xs text-ink-light/70">Solo PDF, hasta 50 MB. Reemplaza el reglamento anterior de este juego.</p>
           </div>
         </form>
       </Modal>
