@@ -7,6 +7,7 @@ import { RanksManager } from "@/components/admin/RanksManager";
 import { BadgesManager } from "@/components/admin/BadgesManager";
 import { TagsManager } from "@/components/admin/TagsManager";
 import { OwnersManager } from "@/components/admin/OwnersManager";
+import { LanguagesManager } from "@/components/admin/LanguagesManager";
 import { CouponsManager } from "@/components/admin/CouponsManager";
 import { FeatureFlagsManager } from "@/components/admin/FeatureFlagsManager";
 import { RolesManager } from "@/components/admin/RolesManager";
@@ -21,6 +22,7 @@ const TABS = [
   { key: "tags",          label: "Tags",        perm: "tags" as PermissionKey,           Component: TagsManager },
   // Same "games" permission the /api/admin/owners routes already check.
   { key: "owners",        label: "Dueños",      perm: "games" as PermissionKey,          Component: OwnersManager },
+  { key: "languages",     label: "Idiomas",     perm: "games" as PermissionKey,          Component: LanguagesManager },
   // Reuses the "bookings" permission (rather than introducing a new
   // PermissionKey + shg_security_roles column just for this) since coupons
   // only ever matter in the context of booking discounts.
