@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { GameGrid } from "@/components/games/GameGrid";
 import { GameSearchToolbar, GameFilterSidebar } from "@/components/games/GameFilters";
 import { parseListParam, playersCondition, playtimeCondition } from "@/lib/games/filters";
-import type { ShgGamePublic, GameComplexity, GameStatus } from "@/types/database";
+import type { ShgGamePublic, ShgGameListing, ShgLanguage, GameComplexity, GameStatus } from "@/types/database";
 
 export const metadata: Metadata = { title: "Ludoteca — Story Hunters Guild" };
 export const dynamic = "force-dynamic";
@@ -12,12 +12,12 @@ export const dynamic = "force-dynamic";
 // straight into GameGrid, a client component, so whatever's selected here
 // gets serialized into the page for every visitor. `owner_ids` is admin-only
 // and must never end up in that payload.
-const PUBLIC_GAME_COLUMNS = "id, name, slug, min_players, max_players, playtime_minutes, complexity, beginner_friendly, tags, image_url, description, bgg_link, rules, status, created_at, updated_at";
+const PUBLIC_GAME_COLUMNS = "id, name, slug, min_players, max_players, playtime_minutes, complexity, beginner_friendly, tags, image_url, description, bgg_link, rules, status, language_ids, created_at, updated_at";
 
 export default async function GamesPage({
   searchParams,
 }: {
-  searchParams: { q?: string; tags?: string; players?: string; time?: string; complexity?: string; beginner?: string; status?: string };
+  searchParams: { q?: string; tags?: string; players?: string; time?: string; complexity?: string; beginner?: string; status?: string; sort?: string };
 }) {
   const admin = createAdminClient();
   const selectedTags = parseListParam(searchParams.tags);
@@ -35,11 +35,29 @@ export default async function GamesPage({
   if (players) query = query.or(players);
   if (playtime) query = query.or(playtime);
 
-  const [{ data }, { data: allGamesTags }] = await Promise.all([
+  const [{ data }, { data: allGamesTags }, { data: languageRows }] = await Promise.all([
     query,
     admin.from("shg_games").select("tags"),
+    admin.from("shg_languages").select("id, code, name").order("code"),
   ]);
-  const games = (data ?? []) as ShgGamePublic[];
+  // Sorted here rather than by the query's .order("name"): the database's
+  // collation can put capitals or accented names out of place, while
+  // localeCompare("es") sorts them the way a reader expects. ?sort=desc is Z→A.
+  const descending = searchParams.sort === "desc";
+  // language_ids → { code, name }, in the Configuración → Idiomas order (by
+  // code); ids of languages that no longer exist are dropped.
+  const languageList = (languageRows ?? []) as Pick<ShgLanguage, "id" | "code" | "name">[];
+  const games: ShgGameListing[] = ((data ?? []) as ShgGamePublic[])
+    .sort((a, b) => {
+      const cmp = a.name.localeCompare(b.name, "es", { sensitivity: "base", numeric: true });
+      return descending ? -cmp : cmp;
+    })
+    .map((g) => ({
+      ...g,
+      languages: languageList
+        .filter((l) => (g.language_ids ?? []).includes(l.id))
+        .map(({ code, name }) => ({ code, name })),
+    }));
   const allTags = Array.from(new Set((allGamesTags ?? []).flatMap((g) => g.tags as string[]))).sort();
 
   return (

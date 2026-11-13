@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { ChevronDown, Clock, Gauge, PackageCheck, Search, SlidersHorizontal, Sprout, Tags, Users, X, type LucideIcon } from "lucide-react";
+import { ArrowDownAZ, ArrowDownZA, ChevronDown, Clock, Gauge, PackageCheck, Search, SlidersHorizontal, Sprout, Tags, Users, X, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   COMPLEXITY_OPTIONS,
@@ -46,9 +46,11 @@ function useGameFilterParams() {
   return { searchParams, updateParam, getList, toggleInList, clearParams };
 }
 
-// Search box — the toolbar above the grid.
+// Search box and A→Z / Z→A sort toggle — the toolbar above the grid.
 export function GameSearchToolbar() {
   const { searchParams, updateParam } = useGameFilterParams();
+  const descending = searchParams.get("sort") === "desc";
+  const SortIcon = descending ? ArrowDownZA : ArrowDownAZ;
 
   return (
     // Pinned on lg right under the page header (see app/games/page.tsx); pb
@@ -66,6 +68,16 @@ export function GameSearchToolbar() {
           className="w-full h-11 pl-9 pr-3 font-body text-sm text-ink bg-parchment/90 border border-border focus:border-brass focus:ring-1 focus:ring-brass/40 outline-none"
         />
       </div>
+      <button
+        type="button"
+        onClick={() => updateParam("sort", descending ? "" : "desc")}
+        aria-label={descending ? "Ordenado de Z a A. Cambiar a A a Z" : "Ordenado de A a Z. Cambiar a Z a A"}
+        title={descending ? "Z → A" : "A → Z"}
+        className="flex h-11 items-center gap-2 px-3 font-label text-xs font-semibold uppercase tracking-wide text-ink bg-parchment/90 border border-border hover:border-brass hover:text-brass-bright transition-colors"
+      >
+        <SortIcon size={16} />
+        {descending ? "Z → A" : "A → Z"}
+      </button>
     </div>
   );
 }
