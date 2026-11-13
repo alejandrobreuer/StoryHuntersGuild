@@ -1,10 +1,10 @@
 import Image from "next/image";
-import { Users, Clock, Dice5 } from "lucide-react";
+import { Users, Clock, Dice5, Languages } from "lucide-react";
 import { formatPlayers, formatPlaytime } from "@/lib/formatting";
 import { cn } from "@/lib/utils";
 import { GAME_STATUS_LABEL, GAME_STATUS_BANNER_CLASS } from "@/lib/gamification/gameStatusInfo";
 import { GameStatusInfoButton } from "@/components/games/GameStatusInfoButton";
-import type { ShgGamePublic } from "@/types/database";
+import type { ShgGameListing } from "@/types/database";
 
 export const COMPLEXITY_LABEL: Record<string, string> = { light: "Fácil", medium: "Intermedio", heavy: "Avanzado" };
 
@@ -12,7 +12,7 @@ export function complexityBadgeClass(complexity: string): string {
   return complexity === "light" ? "bg-moss/15 text-moss-dark" : complexity === "heavy" ? "bg-crimson/15 text-crimson" : "bg-brass/15 text-brass";
 }
 
-export function GameCard({ game, onClick }: { game: ShgGamePublic; onClick?: () => void }) {
+export function GameCard({ game, onClick }: { game: ShgGameListing; onClick?: () => void }) {
   return (
     <div
       role="button"
@@ -41,6 +41,13 @@ export function GameCard({ game, onClick }: { game: ShgGamePublic; onClick?: () 
       <div className="flex flex-wrap gap-x-3 gap-y-1 text-2xs text-leather-light mb-2">
         <span className="flex items-center gap-1"><Users size={11} />{formatPlayers(game.min_players, game.max_players)}</span>
         <span className="flex items-center gap-1"><Clock size={11} />{formatPlaytime(game.playtime_minutes)}</span>
+        {game.languages.length > 0 && (
+          <span className="flex items-center gap-1" title={game.languages.map((l) => l.name).join(", ")}>
+            <Languages size={11} />
+            <span className="font-label font-bold tracking-wide">{game.languages.map((l) => l.code).join(" · ")}</span>
+            <span className="sr-only">Idiomas: {game.languages.map((l) => l.name).join(", ")}</span>
+          </span>
+        )}
       </div>
       <div className="flex flex-wrap gap-1.5">
         <span className={cn(

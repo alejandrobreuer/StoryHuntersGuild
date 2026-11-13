@@ -16,13 +16,13 @@ import { parseRulesMarkup } from "@/lib/rules-markup";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { GAME_STATUS_LABEL, GAME_STATUS_BADGE_CLASS } from "@/lib/gamification/gameStatusInfo";
-import type { ShgGame, ShgTag, ShgGameOwner, GameComplexity, GameStatus } from "@/types/database";
+import type { ShgGame, ShgTag, ShgGameOwner, ShgLanguage, GameComplexity, GameStatus } from "@/types/database";
 
 const EMPTY = {
   name: "", min_players: 2, max_players: 4, playtime_minutes: 60,
   complexity: "light" as GameComplexity, beginner_friendly: false,
   tags: [] as string[], image_url: "", description: "", bgg_link: "", status: "available" as GameStatus, rules: "",
-  owner_ids: [] as string[],
+  owner_ids: [] as string[], language_ids: [] as string[],
 };
 
 const RULES_TOOLBAR:{ label: string; kind: "line" | "wrap"; value: string; after?: string; placeholder: string }[] = [
@@ -39,6 +39,7 @@ export function GamesManager() {
   const [games, setGames] = React.useState<ShgGame[]>([]);
   const [tags, setTags] = React.useState<ShgTag[]>([]);
   const [owners, setOwners] = React.useState<ShgGameOwner[]>([]);
+  const [languages, setLanguages] = React.useState<ShgLanguage[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [editing, setEditing] = React.useState<ShgGame | null>(null);
   const [modalOpen, setModalOpen] = React.useState(false);
@@ -60,12 +61,14 @@ export function GamesManager() {
 
   const load = React.useCallback(async () => {
     setLoading(true);
-    const [gamesRes, tagsRes, ownersRes, rulesRes] = await Promise.all([
+    const [gamesRes, tagsRes, ownersRes, rulesRes, languagesRes] = await Promise.all([
       fetch("/api/admin/games"), fetch("/api/admin/tags"), fetch("/api/admin/owners"), fetch("/api/admin/rules"),
+      fetch("/api/admin/languages"),
     ]);
     setGames((await gamesRes.json()).data ?? []);
     setTags((await tagsRes.json()).data ?? []);
     setOwners((await ownersRes.json()).data ?? []);
+    setLanguages((await languagesRes.json().catch(() => ({}))).data ?? []);
     const ruleRows = ((await rulesRes.json().catch(() => ({}))).data ?? []) as { id: string; hasPdf: boolean }[];
     setPdfGameIds(new Set(ruleRows.filter((r) => r.hasPdf).map((r) => r.id)));
     setLoading(false);
@@ -105,6 +108,13 @@ export function GamesManager() {
     }));
   }
 
+  function toggleFormLanguage(id: string) {
+    setForm((f) => ({
+      ...f,
+      language_ids: f.language_ids.includes(id) ? f.language_ids.filter((l) => l !== id) : [...f.language_ids, id],
+    }));
+  }
+
   function openNew() {
     setEditing(null);
     setForm(EMPTY);
@@ -122,6 +132,7 @@ export function GamesManager() {
       image_url: g.image_url ?? "", description: g.description ?? "",
       bgg_link: g.bgg_link ?? "", status: g.status, rules: g.rules ?? "",
       owner_ids: g.owner_ids ?? [],
+      language_ids: g.language_ids ?? [],
     });
     setPendingPdf(null);
     setRemovePdf(false);
@@ -403,6 +414,38 @@ export function GamesManager() {
               El juego sigue apareciendo en la Ludoteca, marcado con esta etiqueta.
             </p>
           )}
+
+          <div className="flex flex-col gap-1.5">
+            <label className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">Idiomas</label>
+            <MultiSelect
+              options={languages.map((l) => ({ id: l.id, label: `${l.code} — ${l.name}` }))}
+              value={form.language_ids}
+              onToggle={toggleFormLanguage}
+              placeholder="Sin idioma"
+              pluralSummary={(n) => (n === 1 ? "1 idioma" : `${n} idiomas seleccionados`)}
+              emptyMessage="Todavía no hay idiomas — cargalos primero en Configuración → Idiomas."
+            />
+            {form.language_ids.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {languages.filter((l) => form.language_ids.includes(l.id)).map((l) => (
+                  <span
+                    key={l.id}
+                    className="inline-flex items-center gap-1 font-label text-2xs pl-2.5 pr-1 py-1 border rounded-sm bg-moss text-parchment border-moss"
+                  >
+                    {l.code}
+                    <button
+                      type="button"
+                      onClick={() => toggleFormLanguage(l.id)}
+                      title="Quitar de este juego"
+                      className="p-0.5 opacity-70 hover:opacity-100 transition-opacity"
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
 
           <div className="flex flex-col gap-1.5">
             <label className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">

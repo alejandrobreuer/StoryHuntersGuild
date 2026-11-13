@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { Users, Clock, Dice5, ExternalLink, BookOpen, ArrowLeft } from "lucide-react";
+import { Users, Clock, Dice5, ExternalLink, BookOpen, ArrowLeft, Languages } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { GameCard, COMPLEXITY_LABEL, complexityBadgeClass } from "@/components/games/GameCard";
 import { RulesContent } from "@/components/games/RulesContent";
@@ -11,14 +11,14 @@ import { formatPlayers, formatPlaytime } from "@/lib/formatting";
 import { cn } from "@/lib/utils";
 import { GAME_STATUS_LABEL, GAME_STATUS_BADGE_CLASS } from "@/lib/gamification/gameStatusInfo";
 import { GameStatusInfoButton } from "@/components/games/GameStatusInfoButton";
-import type { ShgGamePublic } from "@/types/database";
+import type { ShgGameListing } from "@/types/database";
 
-export function GameGrid({ games }: { games: ShgGamePublic[] }) {
-  const [selected, setSelected] = React.useState<ShgGamePublic | null>(null);
+export function GameGrid({ games }: { games: ShgGameListing[] }) {
+  const [selected, setSelected] = React.useState<ShgGameListing | null>(null);
   const [showRules, setShowRules] = React.useState(false);
   const hasRules = !!selected?.rules && selected.rules.trim().length > 0;
 
-  function openGame(g: ShgGamePublic) {
+  function openGame(g: ShgGameListing) {
     setSelected(g);
     setShowRules(false);
   }
@@ -73,6 +73,11 @@ export function GameGrid({ games }: { games: ShgGamePublic[] }) {
                 <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-leather-light">
                   <span className="flex items-center gap-1.5"><Users size={16} />{formatPlayers(selected.min_players, selected.max_players)}</span>
                   <span className="flex items-center gap-1.5"><Clock size={16} />{formatPlaytime(selected.playtime_minutes)}</span>
+                  {selected.languages.length > 0 && (
+                    <span className="flex items-center gap-1.5">
+                      <Languages size={16} />{selected.languages.map((l) => l.name).join(", ")}
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap gap-2">

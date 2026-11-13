@@ -148,6 +148,8 @@ export interface ShgGame {
   status:            GameStatus;
   /** Internal only — never present in public-facing query results. */
   owner_ids:         string[];
+  /** shg_languages ids — public, shown as codes in the Ludoteca. */
+  language_ids:      string[];
   created_at:        string;
   updated_at:        string;
 }
@@ -156,6 +158,18 @@ export interface ShgGame {
  * selected for those, since GameCard/GameGrid cross into a client component
  * and whatever's in the query result gets serialized into the page. */
 export type ShgGamePublic = Omit<ShgGame, "owner_ids">;
+
+/** A language a game can be in (Configuración → Idiomas). */
+export interface ShgLanguage {
+  id:         string;
+  /** Short code shown on Ludoteca cards, e.g. "EN". Stored uppercase. */
+  code:       string;
+  name:       string;
+  created_at: string;
+}
+
+/** A public game with its language_ids resolved, for the Ludoteca. */
+export type ShgGameListing = ShgGamePublic & { languages: Pick<ShgLanguage, "code" | "name">[] };
 
 export interface ShgEvent {
   id:                string;
