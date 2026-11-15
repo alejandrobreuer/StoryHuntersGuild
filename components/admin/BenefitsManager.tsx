@@ -10,7 +10,7 @@ import { Modal } from "@/components/ui/Modal";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { BENEFIT_KIND_LABEL, describeBenefit } from "@/lib/benefitLabels";
-import type { BenefitKind, ShgBenefit, ShgRank } from "@/types/database";
+import type { BenefitKind, RewardTarget, ShgBenefit, ShgRank } from "@/types/database";
 
 type BenefitRow = ShgBenefit & { rank: Pick<ShgRank, "id" | "name" | "rp_required"> | null };
 type Pending = { user_id: string; user_label: string; email: string; benefit_id: string; benefit_name: string };
@@ -21,7 +21,7 @@ const KIND_HELP: Record<BenefitKind, string> = {
   monthly_invites: "Cada mes el jugador recibe códigos para compartir. Solo los puede usar alguien que nunca reservó. Vencen al terminar el mes siguiente.",
   monthly_2x1:     "Algunas veces por mes, en una reserva de 2 o más personas, una entrada es gratis.",
   free_tickets:    "Entradas gratis que el jugador usa cuando quiera, una sola vez cada una.",
-  bonus_rewards:   "Más XP y RP al asistir a eventos y completar misiones. Si tiene varios, se aplica el más alto.",
+  bonus_rewards:   "Más XP o RP al asistir a eventos y completar misiones. Si tiene varios, se aplica el más alto.",
 };
 
 const USES_PERCENT: BenefitKind[] = ["event_discount", "monthly_invites", "bonus_rewards"];
@@ -29,7 +29,7 @@ const USES_QUANTITY: BenefitKind[] = ["monthly_invites", "monthly_2x1", "free_ti
 
 const EMPTY = {
   name: "", description: "", kind: "custom" as BenefitKind, unlock_type: "rank" as "rank" | "level",
-  rank_id: "", min_level: 5, percent: 10, quantity: 1, active: true,
+  rank_id: "", min_level: 5, percent: 10, quantity: 1, applies_to: "xp" as RewardTarget, active: true,
 };
 
 export function BenefitsManager() {
@@ -80,7 +80,7 @@ export function BenefitsManager() {
     setForm({
       name: b.name, description: b.description ?? "", kind: b.kind, unlock_type: b.unlock_type,
       rank_id: b.rank_id ?? ranks[0]?.id ?? "", min_level: b.min_level ?? 5,
-      percent: b.percent ?? 10, quantity: b.quantity ?? 1, active: b.active,
+      percent: b.percent ?? 10, quantity: b.quantity ?? 1, applies_to: b.applies_to ?? "xp", active: b.active,
     });
     setModalOpen(true);
   }
@@ -236,7 +236,7 @@ export function BenefitsManager() {
             <div className="grid grid-cols-2 gap-3">
               {USES_PERCENT.includes(kind) && (
                 <Input
-                  label={kind === "monthly_invites" ? "Descuento del invitado (%)" : kind === "bonus_rewards" ? "XP/RP extra (%)" : "Descuento (%)"}
+                  label={kind === "monthly_invites" ? "Descuento del invitado (%)" : kind === "bonus_rewards" ? "Extra (%)" : "Descuento (%)"}
                   type="number" min={1} max={100} required
                   value={form.percent} onChange={(e) => setForm({ ...form, percent: Number(e.target.value) })}
                 />
@@ -247,6 +247,16 @@ export function BenefitsManager() {
                   type="number" min={1} max={50} required
                   value={form.quantity} onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })}
                 />
+              )}
+              {kind === "bonus_rewards" && (
+                <Select
+                  label="Aplica a" value={form.applies_to}
+                  onChange={(e) => setForm({ ...form, applies_to: e.target.value as RewardTarget })}
+                >
+                  <option value="xp">XP</option>
+                  <option value="rp">RP</option>
+                  <option value="both">XP y RP</option>
+                </Select>
               )}
             </div>
           )}

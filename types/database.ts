@@ -266,6 +266,8 @@ export interface ShgRank {
 export type BenefitKind =
   | "custom" | "event_discount" | "monthly_invites" | "monthly_2x1" | "free_tickets" | "bonus_rewards";
 
+export type RewardTarget = "xp" | "rp" | "both";
+
 export interface ShgBenefit {
   id:          string;
   name:        string;
@@ -278,6 +280,8 @@ export interface ShgBenefit {
   percent:     number | null;
   /** monthly_invites and monthly_2x1 per month; free_tickets in total. */
   quantity:    number | null;
+  /** bonus_rewards only: which award it boosts. */
+  applies_to:  RewardTarget | null;
   active:      boolean;
   created_at:  string;
   updated_at:  string;

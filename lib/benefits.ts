@@ -170,15 +170,16 @@ export async function benefitStatuses(admin: Admin, userId: string, unlocked: Be
 // ─── Bonus XP/RP ────────────────────────────────────────────────────────────
 
 /** Adds the player's best bonus_rewards percent to positive XP/RP awards
- * (attendance and missions). Manual corrections by staff don't go through
- * this. */
+ * (attendance and missions), XP and RP each taking the best benefit that
+ * applies to them. Manual corrections by staff don't go through this. */
 export async function withRewardBonus(admin: Admin, userId: string, xp: number, rp: number): Promise<{ xp: number; rp: number }> {
   if (xp <= 0 && rp <= 0) return { xp, rp };
   const { unlocked } = await playerBenefits(admin, userId);
-  const pct = Math.max(0, ...unlocked.filter((b) => b.kind === "bonus_rewards").map((b) => b.percent ?? 0));
-  if (pct === 0) return { xp, rp };
-  const boost = (n: number) => (n > 0 ? Math.round(n * (1 + pct / 100)) : n);
-  return { xp: boost(xp), rp: boost(rp) };
+  const bonuses = unlocked.filter((b) => b.kind === "bonus_rewards");
+  const best = (target: "xp" | "rp") =>
+    Math.max(0, ...bonuses.filter((b) => b.applies_to === target || b.applies_to === "both").map((b) => b.percent ?? 0));
+  const boost = (n: number, pct: number) => (n > 0 && pct > 0 ? Math.round(n * (1 + pct / 100)) : n);
+  return { xp: boost(xp, best("xp")), rp: boost(rp, best("rp")) };
 }
 
 // ─── Invite codes ───────────────────────────────────────────────────────────
