@@ -5,6 +5,11 @@
 
 const XP_PER_LEVEL = 100;
 
+/** XP needed to reach `level` (level 1 starts at 0). */
+export function xpForLevel(level: number): number {
+  return Math.max(0, level - 1) * XP_PER_LEVEL;
+}
+
 export function levelForXp(xp: number): number {
   return Math.floor(Math.max(0, xp) / XP_PER_LEVEL) + 1;
 }

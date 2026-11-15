@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getFeatureFlags } from "@/lib/features";
 import { recordAttendance } from "@/lib/qr/attendance";
 import type { GrantResult } from "@/lib/quests/rewards";
+import { withRewardBonus } from "@/lib/benefits";
 
 type Admin = ReturnType<typeof createAdminClient>;
 
@@ -25,7 +26,8 @@ export async function addParticipation(
   await recordAttendance(admin, eventId, user, "admin");
 
   const flags = await getFeatureFlags();
-  const reward = flags.event_rewards ? event.reward_rp : 0;
+  // With the player's bonus (lib/benefits.ts); recorded below, so removing takes back exactly this.
+  const reward = flags.event_rewards && event.reward_rp > 0 ? (await withRewardBonus(admin, user.id, 0, event.reward_rp)).rp : 0;
   if (reward <= 0) return { ok: true };
 
   const { data: row } = await admin

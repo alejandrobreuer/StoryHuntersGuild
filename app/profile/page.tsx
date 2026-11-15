@@ -10,6 +10,9 @@ import { PasswordSection } from "@/components/profile/PasswordSection";
 import { DisplayNameEditor } from "@/components/profile/DisplayNameEditor";
 import { QuestLedger, type LedgerQuest } from "@/components/profile/QuestLedger";
 import { RankTrack } from "@/components/profile/RankTrack";
+import { BenefitsSection, type ProfileBenefit } from "@/components/profile/BenefitsSection";
+import { playerBenefits, ensureInviteCodes, benefitStatuses } from "@/lib/benefits";
+import { describeBenefit } from "@/lib/benefitLabels";
 import { formatDate } from "@/lib/formatting";
 import { cn } from "@/lib/utils";
 import type { ShgRank, QuestType } from "@/types/database";
@@ -123,6 +126,27 @@ export default async function ProfilePage() {
       guild: q.type === "guild" ? { mine, guildTotal: guildTotals.get(q.id) ?? 0, goal: q.goal_count } : null,
     };
   });
+
+  // ─── Benefits unlocked by rank / level ─────────────────────────────────────
+  const benefitInfo = await playerBenefits(admin, sessionUser.id);
+  const unlockedIds = new Set(benefitInfo.unlocked.map((b) => b.id));
+  const [inviteCodes, statuses] = await Promise.all([
+    ensureInviteCodes(admin, sessionUser.id, benefitInfo.unlocked),
+    benefitStatuses(admin, sessionUser.id, benefitInfo.unlocked),
+  ]);
+  const benefitOrder = (b: (typeof benefitInfo.all)[number]) =>
+    b.unlock_type === "rank" ? b.rank?.rp_required ?? 0 : 1_000_000 + (b.min_level ?? 0);
+  const profileBenefits: ProfileBenefit[] = [...benefitInfo.all]
+    .sort((a, b) => benefitOrder(a) - benefitOrder(b))
+    .map((b) => ({
+      id: b.id,
+      name: b.name,
+      summary: describeBenefit(b),
+      description: b.description,
+      unlocked: unlockedIds.has(b.id),
+      unlockLabel: b.unlock_type === "rank" ? `Rango ${b.rank?.name ?? ""}` : `Nivel ${b.min_level}`,
+      status: statuses.get(b.id) ?? null,
+    }));
 
   const eventsAttended = attendedBookings?.length ?? 0;
   const questsCompleted = rewards?.length ?? 0;
@@ -244,6 +268,14 @@ export default async function ProfilePage() {
             <h2 className="font-display text-xl text-ink mb-3">Registro de Misiones</h2>
             <QuestLedger quests={ledger} />
           </section>
+        )}
+
+        {/* ————— Benefits ————— */}
+        {profileBenefits.length > 0 && (
+          <BenefitsSection
+            benefits={profileBenefits}
+            invites={inviteCodes.map((c) => ({ code: c.code, discount: c.discount_percent, expiresAt: c.expires_at, used: Boolean(c.used_at) }))}
+          />
         )}
 
         {/* ————— Badges & Tokens ————— */}

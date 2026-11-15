@@ -23,6 +23,7 @@ interface EventRow {
   price_per_person: number; currency: string; status: EventStatus;
   cover_image_url: string | null; venue: { id: string; name: string } | null;
   game_ids: string[]; quest_ids: string[]; event_type: EventType | null; reward_rp: number;
+  min_rank_id: string | null;
   started_at: string | null; ended_at: string | null;
 }
 
@@ -58,7 +59,7 @@ const EMPTY = {
   title: "", description: "", venue_id: "", starts_at: "", ends_at: "",
   capacity: 10, price_per_person: 0, status: "draft" as EventStatus,
   cover_image_url: "", game_ids: [] as string[], quest_ids: [] as string[],
-  event_type: "" as EventType | "", reward_rp: 0,
+  event_type: "" as EventType | "", reward_rp: 0, min_rank_id: "",
 };
 
 export function EventsManager() {
@@ -66,6 +67,7 @@ export function EventsManager() {
   const [venues, setVenues] = React.useState<VenueOption[]>([]);
   const [games, setGames]   = React.useState<ShgGame[]>([]);
   const [quests, setQuests] = React.useState<QuestOption[]>([]);
+  const [ranks, setRanks] = React.useState<{ id: string; name: string; rp_required: number }[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [modalOpen, setModalOpen] = React.useState(false);
@@ -89,6 +91,8 @@ export function EventsManager() {
     setVenues((await venuesRes.json()).data ?? []);
     setGames((await gamesRes.json()).data ?? []);
     setQuests((await questsRes.json()).data ?? []);
+    // Only for the "rank-only" option; needs the ranks permission, so a 403 just hides it.
+    fetch("/api/admin/ranks").then((r) => (r.ok ? r.json() : { data: [] })).then((j) => setRanks(j.data ?? [])).catch(() => {});
     setLoading(false);
   }, []);
 
@@ -111,7 +115,7 @@ export function EventsManager() {
       ends_at: toDateTimeLocal(e.ends_at),
       capacity: e.capacity, price_per_person: e.price_per_person, status: e.status,
       cover_image_url: e.cover_image_url ?? "", game_ids: e.game_ids ?? [], quest_ids: e.quest_ids ?? [],
-      event_type: e.event_type ?? "", reward_rp: e.reward_rp ?? 0,
+      event_type: e.event_type ?? "", reward_rp: e.reward_rp ?? 0, min_rank_id: e.min_rank_id ?? "",
     });
     setModalOpen(true);
   }
@@ -205,6 +209,7 @@ export function EventsManager() {
         price_per_person: Number(form.price_per_person),
         event_type: form.event_type || null,
         reward_rp: Number(form.reward_rp),
+        min_rank_id: form.min_rank_id || null,
       };
       const res = await fetch(editingId ? `/api/admin/events/${editingId}` : "/api/admin/events", {
         method: editingId ? "PATCH" : "POST",
@@ -406,6 +411,19 @@ export function EventsManager() {
               helperText="Guía: partida corta (<30min) 1 RP, media (30-60min) 2 RP, larga (>60min) 3 RP."
             />
           </div>
+
+          {ranks.length > 0 && (
+            <Select
+              label="¿Quién puede reservar?"
+              value={form.min_rank_id}
+              onChange={(e) => setForm({ ...form, min_rank_id: e.target.value })}
+            >
+              <option value="">Todos</option>
+              {ranks.map((r) => (
+                <option key={r.id} value={r.id}>Solo rango {r.name} o superior ({r.rp_required} RP)</option>
+              ))}
+            </Select>
+          )}
 
           <div className="flex flex-col gap-1.5">
             <label className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light">Imagen de portada</label>

@@ -3,6 +3,7 @@ import { requirePermissionAny } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { questCompleteSchema } from "@/lib/validation/quests";
 import { grantQuestReward } from "@/lib/quests/rewards";
+import { withRewardBonus } from "@/lib/benefits";
 
 // ─── POST /api/admin/quests/[id]/complete ───────────────────────────────────
 // Confirms a mission for Individual, Event, or Guild types (Group missions
@@ -122,12 +123,13 @@ async function confirmEventTurnIn(
 
   for (const p of participants ?? []) {
     const userRow = Array.isArray(p.user) ? p.user[0] : p.user;
+    const award = await withRewardBonus(admin, p.user_id, quest.reward_xp, quest.reward_rp);
     const { error: rewardError } = await admin.from("shg_quest_rewards").insert({
-      quest_id: quest.id, user_id: p.user_id, awarded_xp: quest.reward_xp, awarded_rp: quest.reward_rp, awarded_by: adminId,
+      quest_id: quest.id, user_id: p.user_id, awarded_xp: award.xp, awarded_rp: award.rp, awarded_by: adminId,
     });
     if (rewardError) continue; // already rewarded somehow — skip, don't double-grant
 
-    await admin.rpc("shg_award_user", { p_user_id: p.user_id, p_xp: quest.reward_xp, p_rp: quest.reward_rp });
+    await admin.rpc("shg_award_user", { p_user_id: p.user_id, p_xp: award.xp, p_rp: award.rp });
     if (quest.badge_id) {
       await admin.from("shg_user_badges").upsert(
         { user_id: p.user_id, badge_id: quest.badge_id },
@@ -138,7 +140,7 @@ async function confirmEventTurnIn(
       quest_id: quest.id, quest_title: quest.title, quest_type: "event",
       event_id: eventId, event_title: event?.title ?? null,
       user_id: p.user_id, user_label: userRow?.name || userRow?.email || "Aventurero",
-      outcome: "completed", awarded_xp: quest.reward_xp, awarded_rp: quest.reward_rp,
+      outcome: "completed", awarded_xp: award.xp, awarded_rp: award.rp,
     });
   }
 

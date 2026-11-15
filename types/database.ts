@@ -189,6 +189,8 @@ export interface ShgEvent {
   cover_image_url:   string | null;
   event_type:        EventType | null;
   reward_rp:         number;
+  /** Only this rank and up can book (062_shg_benefits.sql); null = everyone. */
+  min_rank_id:       string | null;
   /** Entrance check-in QR token (/checkin/{token}) — generated lazily, see lib/qr/codes.ts. */
   checkin_token:     string | null;
   checkin_active:    boolean;
@@ -258,6 +260,41 @@ export interface ShgRank {
   icon_url:    string | null;
   created_at:  string;
   updated_at:  string;
+}
+
+/** What a benefit does — see 062_shg_benefits.sql and lib/benefits.ts. */
+export type BenefitKind =
+  | "custom" | "event_discount" | "monthly_invites" | "monthly_2x1" | "free_tickets" | "bonus_rewards";
+
+export interface ShgBenefit {
+  id:          string;
+  name:        string;
+  description: string | null;
+  kind:        BenefitKind;
+  unlock_type: "rank" | "level";
+  rank_id:     string | null;
+  min_level:   number | null;
+  /** event_discount / bonus_rewards / monthly_invites (the guest's discount). */
+  percent:     number | null;
+  /** monthly_invites and monthly_2x1 per month; free_tickets in total. */
+  quantity:    number | null;
+  active:      boolean;
+  created_at:  string;
+  updated_at:  string;
+}
+
+export interface ShgInviteCode {
+  id:                 string;
+  code:               string;
+  owner_id:           string;
+  benefit_id:         string;
+  period:             string;
+  discount_percent:   number;
+  expires_at:         string;
+  used_by_user_id:    string | null;
+  used_by_booking_id: string | null;
+  used_at:            string | null;
+  created_at:         string;
 }
 
 export interface ShgBadge {

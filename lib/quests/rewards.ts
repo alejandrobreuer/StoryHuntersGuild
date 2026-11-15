@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { withRewardBonus } from "@/lib/benefits";
 
 type Admin = ReturnType<typeof createAdminClient>;
 
@@ -30,11 +31,15 @@ export async function grantQuestReward(
     }
   }
 
+  // With the player's bonus (lib/benefits.ts), recorded as awarded so a
+  // revoke takes back exactly what was given.
+  const award = await withRewardBonus(admin, userId, quest.reward_xp, quest.reward_rp);
+
   const { error: rewardError } = await admin.from("shg_quest_rewards").insert({
     quest_id: quest.id,
     user_id: userId,
-    awarded_xp: quest.reward_xp,
-    awarded_rp: quest.reward_rp,
+    awarded_xp: award.xp,
+    awarded_rp: award.rp,
     awarded_by: adminId,
   });
 
@@ -49,7 +54,7 @@ export async function grantQuestReward(
     .from("shg_quest_completions")
     .insert({ quest_id: quest.id, user_id: userId, contribution_amount: 1, event_id: eventId || null, logged_by: adminId });
 
-  await admin.rpc("shg_award_user", { p_user_id: userId, p_xp: quest.reward_xp, p_rp: quest.reward_rp });
+  await admin.rpc("shg_award_user", { p_user_id: userId, p_xp: award.xp, p_rp: award.rp });
 
   if (quest.badge_id) {
     await admin
@@ -66,7 +71,7 @@ export async function grantQuestReward(
     quest_id: quest.id, quest_title: quest.title, quest_type: quest.type,
     event_id: eventId || null, event_title: eventRow?.title ?? null,
     user_id: userId, user_label: userRow?.name || userRow?.email || "Aventurero",
-    outcome: "completed", awarded_xp: quest.reward_xp, awarded_rp: quest.reward_rp,
+    outcome: "completed", awarded_xp: award.xp, awarded_rp: award.rp,
   });
 
   return { ok: true };
