@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
-import Image from "next/image";
-import { Shield, Sparkles, Crown, Gem, Calendar, Award, ScrollText } from "lucide-react";
+import { Sparkles, Crown, Gem, Calendar, Award, ScrollText } from "lucide-react";
 import { getSessionUser } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getFeatureFlags } from "@/lib/features";
@@ -17,6 +16,7 @@ import { RankLadder } from "@/components/profile/sheet/RankLadder";
 import { BenefitCard, type SheetBenefit } from "@/components/profile/sheet/BenefitCard";
 import { InviteCodes, type ProfileInviteCode } from "@/components/profile/sheet/InviteCodes";
 import { BadgeSlot, type SheetBadge } from "@/components/profile/sheet/BadgeSlot";
+import { ProfileEmblem } from "@/components/profile/sheet/ProfileEmblem";
 import { playerBenefits, ensureInviteCodes, benefitStatuses, type BenefitWithRank } from "@/lib/benefits";
 import { describeBenefit } from "@/lib/benefitLabels";
 import { formatDate } from "@/lib/formatting";
@@ -61,7 +61,7 @@ export default async function ProfilePage() {
   ] = await Promise.all([
     admin
       .from("shg_users")
-      .select("email, name, password_hash, xp, rp, is_subscriber, subscriber_since, created_at")
+      .select("email, name, avatar_url, password_hash, xp, rp, is_subscriber, subscriber_since, created_at")
       .eq("id", sessionUser.id)
       .maybeSingle(),
     features.ranks
@@ -211,15 +211,11 @@ export default async function ProfilePage() {
           <div className="flex flex-col md:flex-row md:flex-wrap items-center md:items-center gap-7 md:gap-x-9 px-6 py-8 sm:px-10">
             {/* Emblem */}
             <div className="shrink-0 flex flex-col items-center gap-3.5 md:w-[150px]">
-              <div className="mt-3 mb-1.5 size-24 sm:size-28 rotate-45 border-2 border-brass bg-gradient-to-br from-parchment-dark to-parchment-deep shadow-[inset_0_0_0_4px_rgba(239,228,204,0.6)] flex items-center justify-center">
-                <div className="-rotate-45 relative size-16 sm:size-[72px] flex items-center justify-center">
-                  {showRanks && rank?.icon_url ? (
-                    <Image src={rank.icon_url} alt={`Emblema de rango ${rank.name}`} fill className="object-contain" sizes="72px" />
-                  ) : (
-                    <Shield size={48} className="text-crimson" strokeWidth={1.25} aria-hidden />
-                  )}
-                </div>
-              </div>
+              <ProfileEmblem
+                avatarUrl={user?.avatar_url ?? null}
+                emblemUrl={showRanks ? rank?.icon_url ?? null : null}
+                emblemAlt={rank ? `Emblema de rango ${rank.name}` : "Emblema del gremio"}
+              />
               {showProgress && (
                 <span className="bg-crimson text-parchment border border-crimson font-display font-semibold text-xs tracking-[0.16em] px-4 py-1">
                   NIVEL {progress.level}

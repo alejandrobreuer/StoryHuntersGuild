@@ -19,6 +19,8 @@ export interface ShgUser {
   id:                    string;
   email:                 string;
   name:                  string | null;
+  /** Profile picture (064_shg_user_avatar.sql); null = rank emblem. */
+  avatar_url:            string | null;
   phone:                 string | null;
   /** "saltHex:hashHex" from lib/auth/password.ts, or null for magic-link-only accounts. */
   password_hash:         string | null;
