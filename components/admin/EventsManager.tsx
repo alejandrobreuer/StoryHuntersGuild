@@ -3,7 +3,7 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Plus, Edit2, Trash2, Upload, Eye, Receipt, ImageOff, PlayCircle, StopCircle, Radio, QrCode } from "lucide-react";
+import { Plus, Edit2, Trash2, Upload, Eye, Receipt, ImageOff, PlayCircle, StopCircle, Radio, QrCode, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
@@ -79,6 +79,10 @@ export function EventsManager() {
   const [eventBookings, setEventBookings] = React.useState<ShgBookingWithEvent[]>([]);
   const [attendanceBusyId, setAttendanceBusyId] = React.useState<string | null>(null);
   const [lifecycleBusyId, setLifecycleBusyId] = React.useState<string | null>(null);
+  const [addEmail, setAddEmail] = React.useState("");
+  const [addName, setAddName] = React.useState("");
+  const [addGuests, setAddGuests] = React.useState(1);
+  const [addingAttendee, setAddingAttendee] = React.useState(false);
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -132,6 +136,36 @@ export function EventsManager() {
       setEventBookings(bookingsJson.data ?? []);
     } finally {
       setLoadingView(false);
+    }
+  }
+
+  // Adds someone by email: creates their account if needed (they're emailed a
+  // link to pick a password) and a free, confirmed booking.
+  async function addAttendee(e: React.FormEvent) {
+    e.preventDefault();
+    if (!viewingEvent) return;
+    const eventId = viewingEvent.id;
+    setAddingAttendee(true);
+    try {
+      const res = await fetch(`/api/admin/events/${eventId}/attendees`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: addEmail, name: addName || undefined, guest_count: addGuests }),
+      });
+      const json = await res.json();
+      if (!res.ok) { toast.error(json.error ?? "No se pudo agregar."); return; }
+      toast.success(
+        json.data?.accountCreated
+          ? "Agregado. Creamos su cuenta y le mandamos un email para que elija su contraseña."
+          : "Agregado y confirmado. Le avisamos por email.",
+      );
+      setAddEmail("");
+      setAddName("");
+      setAddGuests(1);
+      const bookingsRes = await fetch(`/api/admin/bookings?eventId=${eventId}`);
+      setEventBookings((await bookingsRes.json()).data ?? []);
+    } finally {
+      setAddingAttendee(false);
     }
   }
 
@@ -553,6 +587,33 @@ export function EventsManager() {
               <h3 className="font-label text-xs font-semibold uppercase tracking-widest text-leather-light mb-2">
                 Registros ({eventBookings.length})
               </h3>
+              {viewingEvent.status !== "cancelled" && (
+                <form onSubmit={addAttendee} className="border border-dashed border-brass/40 p-3 mb-3 flex flex-col gap-2">
+                  <p className="font-label text-2xs font-semibold uppercase tracking-widest text-leather-light flex items-center gap-1.5">
+                    <UserPlus size={13} /> Agregar persona
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_80px] gap-2">
+                    <Input
+                      type="email" required placeholder="email@ejemplo.com" aria-label="Email"
+                      value={addEmail} onChange={(e) => setAddEmail(e.target.value)}
+                    />
+                    <Input
+                      placeholder="Nombre (opcional)" aria-label="Nombre" maxLength={40}
+                      value={addName} onChange={(e) => setAddName(e.target.value)}
+                    />
+                    <Input
+                      type="number" min={1} max={20} aria-label="Personas" title="Personas"
+                      value={addGuests} onChange={(e) => setAddGuests(Math.max(1, Number(e.target.value) || 1))}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <p className="font-body text-xs text-ink-light">
+                      Queda confirmada y sin costo. Si no tiene cuenta, se la creamos y le mandamos un email para elegir su contraseña.
+                    </p>
+                    <Button type="submit" size="sm" loading={addingAttendee}>Agregar</Button>
+                  </div>
+                </form>
+              )}
               {eventBookings.length === 0 ? (
                 <p className="font-body italic text-sm text-ink-light">Todavía no hay reservas.</p>
               ) : (

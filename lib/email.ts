@@ -100,8 +100,35 @@ export async function sendPasswordResetEmail(params: {
   email: string; name: string | null; resetUrl: string; expiresInMinutes: number;
   /** The account has no password yet (created from its bookings): word it as activating it. */
   setup?: boolean;
+  /** Staff added this person to an event: say so (implies setup). */
+  invite?: { eventTitle: string; eventDate: string };
 }): Promise<void> {
   const hello = `Hola${params.name ? ` ${params.name}` : ""}`;
+  const days = params.expiresInMinutes / (24 * 60);
+  const expiresIn = days >= 1
+    ? `${Math.round(days)} día${Math.round(days) === 1 ? "" : "s"}`
+    : `${params.expiresInMinutes} minutos`;
+  if (params.invite) {
+    await send(params.email, `Te anotamos en ${params.invite.eventTitle} — activá tu cuenta`, `
+    <p style="margin:0 0 8px;font-size:18px;font-weight:600;color:#2b1d0e;">¡Tenés tu lugar!</p>
+    <p style="margin:0 0 16px;font-size:14px;color:#4a3520;line-height:1.6;">
+      ${escapeHtml(hello)}, te anotamos en <strong>${escapeHtml(params.invite.eventTitle)}</strong>
+      (${escapeHtml(params.invite.eventDate)}) y tu lugar ya está confirmado.
+      También te creamos una cuenta en Story Hunters Guild con este email, para que sumes experiencia y misiones
+      cada vez que vengas. Elegí tu contraseña para empezar a usarla.
+      El enlace vence en ${expiresIn} y sirve una sola vez.
+    </p>
+    <p style="margin:0 0 16px;">
+      <a href="${params.resetUrl}" style="display:inline-block;background:#2b1d0e;color:#d4a843;padding:10px 20px;text-decoration:none;font-size:14px;font-weight:600;">
+        Elegir mi contraseña
+      </a>
+    </p>
+    <p style="margin:0;font-size:12px;color:#7a7065;line-height:1.5;">
+      Si el enlace vence, iniciá sesión con este email y te mandamos uno nuevo.
+    </p>
+  `);
+    return;
+  }
   await send(params.email, params.setup ? "Activá tu cuenta de Story Hunters Guild" : "Restablecé tu contraseña", `
     <p style="margin:0 0 8px;font-size:18px;font-weight:600;color:#2b1d0e;">${params.setup ? "Activá tu cuenta" : "Restablecer contraseña"}</p>
     <p style="margin:0 0 16px;font-size:14px;color:#4a3520;line-height:1.6;">
@@ -109,7 +136,7 @@ export async function sendPasswordResetEmail(params: {
         ? `${hello}, ya tenés una cuenta con nosotros: la armamos con tus reservas, así no perdés la experiencia ni las misiones que ganaste.
            Elegí tu contraseña para empezar a usarla.`
         : `${hello}, recibimos un pedido para restablecer la contraseña de tu cuenta. Hacé clic en el botón para elegir una nueva.`}
-      El enlace vence en ${params.expiresInMinutes} minutos y sirve una sola vez.
+      El enlace vence en ${expiresIn} y sirve una sola vez.
     </p>
     <p style="margin:0 0 16px;">
       <a href="${params.resetUrl}" style="display:inline-block;background:#2b1d0e;color:#d4a843;padding:10px 20px;text-decoration:none;font-size:14px;font-weight:600;">
