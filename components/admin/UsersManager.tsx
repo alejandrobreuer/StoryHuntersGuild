@@ -58,6 +58,77 @@ function SectionTitle({ icon: Icon, children }: { icon: React.ElementType; child
   );
 }
 
+function UserAvatar({ url, size = 28 }: { url: string | null; size?: number }) {
+  if (!url) return <UserCircle size={size} className="text-leather-light shrink-0" />;
+  return (
+    <span className="relative shrink-0 rounded-full overflow-hidden border border-brass/60 bg-parchment-dark" style={{ width: size, height: size }}>
+      <Image src={url} alt="" fill className="object-cover" sizes={`${size}px`} />
+    </span>
+  );
+}
+
+/** View, replace or remove a player's profile picture. */
+function AvatarControl({ user, onChanged }: { user: AdminUser; onChanged: (url: string | null) => void }) {
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = React.useState<"upload" | "remove" | null>(null);
+
+  async function upload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { toast.error("La imagen no puede superar los 2MB."); return; }
+    setBusy("upload");
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const res = await fetch(`/api/admin/users/${user.id}/avatar`, { method: "POST", body });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) { toast.error(json.error ?? "No se pudo subir la foto."); return; }
+      onChanged(json.data.avatar_url);
+      toast.success("Foto actualizada.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function remove() {
+    if (!confirm(`¿Quitar la foto de perfil de ${user.name || user.email}? Vuelve a verse el emblema de su rango.`)) return;
+    setBusy("remove");
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}/avatar`, { method: "DELETE" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) { toast.error(json.error ?? "No se pudo quitar la foto."); return; }
+      onChanged(null);
+      toast.success("Foto quitada.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-3">
+      {user.avatar_url ? (
+        <a href={user.avatar_url} target="_blank" rel="noopener noreferrer" title="Ver en tamaño completo">
+          <UserAvatar url={user.avatar_url} size={56} />
+        </a>
+      ) : (
+        <UserAvatar url={null} size={56} />
+      )}
+      <div className="flex flex-col gap-1.5 items-start">
+        <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={upload} className="hidden" />
+        <Button size="sm" variant="ghost" onClick={() => inputRef.current?.click()} loading={busy === "upload"} disabled={busy !== null}>
+          {user.avatar_url ? "Cambiar foto" : "Subir foto"}
+        </Button>
+        {user.avatar_url && (
+          <Button size="sm" variant="danger" onClick={remove} loading={busy === "remove"} disabled={busy !== null}>
+            Quitar foto
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Expanded card: quests, participations, badges, account ─────────────────
 
 function UserDetail({ user, onUserChanged, onMerge }: {
@@ -257,6 +328,12 @@ function UserDetail({ user, onUserChanged, onMerge }: {
               ))}
             </ul>
           )}
+        </div>
+
+        <div>
+          <SectionTitle icon={UserCircle}>Foto de perfil</SectionTitle>
+          <AvatarControl user={user} onChanged={(avatar_url) => onUserChanged({ ...user, avatar_url })} />
+          <p className="font-body text-2xs text-ink-light mt-1.5">JPG, PNG o WebP, hasta 2MB. Se ve en su perfil.</p>
         </div>
 
         <div className="flex flex-col gap-2">
@@ -491,7 +568,7 @@ export function UsersManager() {
                   className="flex items-center justify-between gap-3 cursor-pointer"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <UserCircle size={28} className="text-leather-light shrink-0" />
+                    <UserAvatar url={u.avatar_url} />
                     <div className="min-w-0">
                       <p className="font-label text-sm font-bold text-ink truncate">{u.name || u.email}</p>
                       <p className="font-body text-xs text-ink-light truncate">{u.email}</p>

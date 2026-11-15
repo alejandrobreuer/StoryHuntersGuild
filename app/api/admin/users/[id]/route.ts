@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { hashPassword } from "@/lib/auth/password";
 import { userAdjustSchema } from "@/lib/validation/users";
 
-const SAFE_COLUMNS = "id, email, name, phone, xp, rp, is_subscriber, subscriber_since, created_at, last_login_at, admin_notes";
+const SAFE_COLUMNS = "id, email, name, phone, xp, rp, is_subscriber, subscriber_since, created_at, last_login_at, admin_notes, avatar_url";
 
 // ─── PATCH /api/admin/users/[id] ────────────────────────────────────────────
 // Toggle subscriber status, apply a manual XP/RP correction (e.g. to fix a
