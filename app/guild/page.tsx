@@ -147,7 +147,7 @@ function MemberCard({ member: m, show }: { member: Member; show: { level: boolea
   return (
     <li>
       <SheetPanel className="h-full px-4 py-4">
-        <div className="flex gap-3.5 items-center">
+        <div className="flex gap-4 items-center">
           <Portrait member={m} showRank={show.rank} />
           <div className="min-w-0">
             <p className="font-display font-semibold text-lg leading-tight text-ink-heading break-words">{m.name}</p>
@@ -209,19 +209,19 @@ function Portrait({ member: m, showRank }: { member: Member; showRank: boolean }
   const emblem = showRank ? m.rank?.icon_url ?? null : null;
   return (
     <div className={cn(
-      "relative size-16 shrink-0 rounded-full overflow-hidden border-2 border-brass flex items-center justify-center",
-      "bg-gradient-to-br from-parchment-dark to-parchment-deep shadow-[inset_0_0_0_3px_rgba(239,228,204,0.6)]"
+      "relative size-24 sm:size-28 shrink-0 rounded-full overflow-hidden border-2 border-brass flex items-center justify-center",
+      "bg-gradient-to-br from-parchment-dark to-parchment-deep shadow-[inset_0_0_0_4px_rgba(239,228,204,0.6)]"
     )}>
       {m.avatarUrl ? (
-        <Image src={m.avatarUrl} alt={`Foto de ${m.name}`} fill className="object-cover" sizes="64px" />
+        <Image src={m.avatarUrl} alt={`Foto de ${m.name}`} fill className="object-cover" sizes="112px" />
       ) : emblem ? (
-        <div className="relative size-10">
-          <Image src={emblem} alt="" fill className="object-contain" sizes="40px" />
+        <div className="relative size-14 sm:size-16">
+          <Image src={emblem} alt="" fill className="object-contain" sizes="64px" />
         </div>
       ) : m.name ? (
-        <span className="font-display font-bold text-2xl text-crimson" aria-hidden>{m.name.charAt(0).toUpperCase()}</span>
+        <span className="font-display font-bold text-4xl text-crimson" aria-hidden>{m.name.charAt(0).toUpperCase()}</span>
       ) : (
-        <Shield size={28} className="text-crimson" aria-hidden />
+        <Shield size={40} className="text-crimson" aria-hidden />
       )}
     </div>
   );
