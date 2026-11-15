@@ -6,8 +6,15 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
-export function DisplayNameEditor({ currentName, fallback }: { currentName: string | null; fallback: string }) {
+export function DisplayNameEditor({ currentName, fallback, className, titleClassName }: {
+  currentName: string | null;
+  fallback: string;
+  /** Wrapper alignment (default: centered). */
+  className?: string;
+  titleClassName?: string;
+}) {
   const [name, setName] = React.useState(currentName);
   const [open, setOpen] = React.useState(false);
   const [value, setValue] = React.useState(currentName ?? "");
@@ -39,8 +46,8 @@ export function DisplayNameEditor({ currentName, fallback }: { currentName: stri
 
   return (
     <>
-      <div className="flex items-center justify-center gap-2">
-        <h1 className="font-display font-semibold text-2xl sm:text-[32px] text-[#3B2A1E] leading-snug">
+      <div className={cn("flex items-center gap-2", className ?? "justify-center")}>
+        <h1 className={cn("font-display font-semibold text-[#3B2A1E] leading-snug", titleClassName ?? "text-2xl sm:text-[32px]")}>
           {name || fallback}
         </h1>
         <button

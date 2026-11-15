@@ -12,6 +12,10 @@ interface ModalProps {
   children:  React.ReactNode;
   className?: string;
   titleClassName?: string;
+  /** Overrides the header bar's background/border (default: light parchment). */
+  headerClassName?: string;
+  /** Overrides the close (X) button's colors. */
+  closeClassName?: string;
   bodyClassName?: string;
   footer?: React.ReactNode;
   /** false disables closing by clicking the backdrop — only the X button
@@ -22,7 +26,7 @@ interface ModalProps {
 }
 
 export function Modal({
-  open, onClose, title, children, className, titleClassName, bodyClassName, footer, closeOnBackdropClick = true,
+  open, onClose, title, children, className, titleClassName, headerClassName, closeClassName, bodyClassName, footer, closeOnBackdropClick = true,
 }: ModalProps) {
   // Portal straight to <body>. Some callers render the trigger inside a
   // transformed ancestor (e.g. a rotated quest card) — a CSS transform on
@@ -50,13 +54,13 @@ export function Modal({
         "relative w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden surface-parchment animate-fade-in shadow-parchment-lg",
         className
       )}>
-        <div className="shrink-0 flex items-center justify-between gap-4 px-7 py-3 bg-parchment border-b-2 border-border">
+        <div className={cn("shrink-0 flex items-center justify-between gap-4 px-7 py-3", headerClassName ?? "bg-parchment border-b-2 border-border")}>
           <h2 className={cn("font-label font-semibold text-ink", titleClassName ?? "text-lg")}>
             {title}
           </h2>
           <button
             onClick={onClose}
-            className="shrink-0 ml-auto text-leather-light hover:text-ink transition-colors"
+            className={cn("shrink-0 ml-auto transition-colors", closeClassName ?? "text-leather-light hover:text-ink")}
             aria-label="Cerrar"
           >
             <X size={20} />
