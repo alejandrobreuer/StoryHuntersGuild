@@ -4,7 +4,7 @@ import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X, Radio, CalendarCheck, User, Swords, ScrollText, Shield, LogOut } from "lucide-react";
+import { Menu, X, Radio, CalendarCheck, User, Users, Swords, ScrollText, Shield, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const MAIN_LINKS = [
@@ -93,6 +93,7 @@ function ProfileMenu({ user, isAdmin, questsEnabled }: { user: NavUser; isAdmin:
   const items = [
     { href: "/my-bookings", label: "Reservas", icon: CalendarCheck },
     { href: "/profile",     label: "Mi perfil", icon: User },
+    { href: "/guild",       label: "Guild",     icon: Users },
     { href: "/rol",         label: "RPG",       icon: Swords },
     ...(questsEnabled ? [{ href: "/quests", label: "Historial", icon: ScrollText }] : []),
     ...(isAdmin ? [{ href: "/admin", label: "Panel de Admin", icon: Shield }] : []),
