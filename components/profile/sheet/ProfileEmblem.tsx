@@ -11,17 +11,16 @@ import { cn } from "@/lib/utils";
 const ACCEPT = "image/jpeg,image/png,image/webp";
 const MAX_BYTES = 2 * 1024 * 1024;
 
-/** What fills the diamond: the player's photo, else the rank emblem, else a shield. */
+/** What fills the circle: the player's photo, else the rank emblem, else a shield. */
 function DiamondContent({ src, emblemUrl, emblemAlt, size }: {
   src: string | null; emblemUrl: string | null; emblemAlt: string; size: string;
 }) {
   if (src) {
-    // Counter-rotated and scaled by √2 so the square photo covers the whole diamond.
     // eslint-disable-next-line @next/next/no-img-element -- blob: previews and storage URLs alike
-    return <img src={src} alt="Tu foto de perfil" className="absolute inset-0 size-full object-cover -rotate-45 scale-[1.42]" />;
+    return <img src={src} alt="Tu foto de perfil" className="absolute inset-0 size-full object-cover" />;
   }
   return (
-    <div className={cn("-rotate-45 relative flex items-center justify-center", size)}>
+    <div className={cn("relative flex items-center justify-center", size)}>
       {emblemUrl ? (
         <Image src={emblemUrl} alt={emblemAlt} fill className="object-contain" sizes="72px" />
       ) : (
@@ -31,9 +30,9 @@ function DiamondContent({ src, emblemUrl, emblemAlt, size }: {
   );
 }
 
-const DIAMOND = "relative overflow-hidden rotate-45 border-2 border-brass bg-gradient-to-br from-parchment-dark to-parchment-deep shadow-[inset_0_0_0_4px_rgba(239,228,204,0.6)] flex items-center justify-center";
+const FRAME = "relative overflow-hidden rounded-full border-2 border-brass bg-gradient-to-br from-parchment-dark to-parchment-deep shadow-[inset_0_0_0_4px_rgba(239,228,204,0.6)] flex items-center justify-center";
 
-/** The diamond on the character card, with a button to upload/change/remove
+/** The round frame on the character card, with a button to upload/change/remove
  * the player's profile picture. */
 export function ProfileEmblem({ avatarUrl, emblemUrl, emblemAlt }: {
   avatarUrl: string | null;
@@ -101,15 +100,15 @@ export function ProfileEmblem({ avatarUrl, emblemUrl, emblemAlt }: {
 
   return (
     <>
-      <div className="relative mt-3 mb-1.5">
-        <div className={cn(DIAMOND, "size-24 sm:size-28")}>
+      <div className="relative">
+        <div className={cn(FRAME, "size-28 sm:size-32")}>
           <DiamondContent src={current} emblemUrl={emblemUrl} emblemAlt={emblemAlt} size="size-16 sm:size-[72px]" />
         </div>
         <button
           type="button"
           onClick={() => setOpen(true)}
           aria-label={current ? "Cambiar foto de perfil" : "Subir foto de perfil"}
-          className="absolute -bottom-3 -right-3 size-9 rounded-full border-[1.5px] border-brass bg-parchment text-brass-dark shadow-parchment flex items-center justify-center hover:bg-parchment-dark transition-colors"
+          className="absolute bottom-0 right-0 size-9 rounded-full border-[1.5px] border-brass bg-parchment text-brass-dark shadow-parchment flex items-center justify-center hover:bg-parchment-dark transition-colors"
         >
           <Camera size={16} aria-hidden />
         </button>
@@ -134,7 +133,7 @@ export function ProfileEmblem({ avatarUrl, emblemUrl, emblemAlt }: {
         }
       >
         <div className="flex flex-col items-center gap-5">
-          <div className={cn(DIAMOND, "size-32 my-4")}>
+          <div className={cn(FRAME, "size-36 my-2")}>
             <DiamondContent src={shown} emblemUrl={emblemUrl} emblemAlt={emblemAlt} size="size-20" />
           </div>
           <input ref={inputRef} type="file" accept={ACCEPT} onChange={pick} className="hidden" />
