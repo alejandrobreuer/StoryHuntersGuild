@@ -1,17 +1,23 @@
 import { redirect } from "next/navigation";
 import Image from "next/image";
-import { Shield, Sparkles, Crown, Gem, Calendar } from "lucide-react";
+import { Shield, Sparkles, Crown, Gem, Calendar, Award, ScrollText } from "lucide-react";
 import { getSessionUser } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getFeatureFlags } from "@/lib/features";
-import { levelProgress } from "@/lib/gamification/progression";
+import { levelProgress, xpForLevel } from "@/lib/gamification/progression";
 import { currentRank, nextRank } from "@/lib/gamification/ranks";
+import { sheetStats } from "@/lib/profile/sheetStats";
 import { PasswordSection } from "@/components/profile/PasswordSection";
 import { DisplayNameEditor } from "@/components/profile/DisplayNameEditor";
 import { QuestLedger, type LedgerQuest } from "@/components/profile/QuestLedger";
-import { RankTrack } from "@/components/profile/RankTrack";
-import { BenefitsSection, type ProfileBenefit } from "@/components/profile/BenefitsSection";
-import { playerBenefits, ensureInviteCodes, benefitStatuses } from "@/lib/benefits";
+import { SheetPanel, SheetHeading, SheetLabel } from "@/components/profile/sheet/SheetPanel";
+import { SegmentBar } from "@/components/profile/sheet/SegmentBar";
+import { InfoDialog } from "@/components/profile/sheet/InfoDialog";
+import { RankLadder } from "@/components/profile/sheet/RankLadder";
+import { BenefitCard, type SheetBenefit } from "@/components/profile/sheet/BenefitCard";
+import { InviteCodes, type ProfileInviteCode } from "@/components/profile/sheet/InviteCodes";
+import { BadgeSlot, type SheetBadge } from "@/components/profile/sheet/BadgeSlot";
+import { playerBenefits, ensureInviteCodes, benefitStatuses, type BenefitWithRank } from "@/lib/benefits";
 import { describeBenefit } from "@/lib/benefitLabels";
 import { formatDate } from "@/lib/formatting";
 import { cn } from "@/lib/utils";
@@ -27,6 +33,10 @@ const SUBSCRIBER_PERKS = [
   "Insignia cosmética especial en tu Ficha de Aventurero",
   "Acceso prioritario para anotarte a eventos populares",
 ];
+
+/** Badge grid: 6 per row, at least two rows, padded with empty slots. */
+const BADGE_COLUMNS = 6;
+const MIN_BADGE_SLOTS = 12;
 
 function one<T>(v: T | T[] | null | undefined): T | null {
   return Array.isArray(v) ? (v[0] ?? null) : (v ?? null);
@@ -134,238 +144,340 @@ export default async function ProfilePage() {
     ensureInviteCodes(admin, sessionUser.id, benefitInfo.unlocked),
     benefitStatuses(admin, sessionUser.id, benefitInfo.unlocked),
   ]);
-  const benefitOrder = (b: (typeof benefitInfo.all)[number]) =>
-    b.unlock_type === "rank" ? b.rank?.rp_required ?? 0 : 1_000_000 + (b.min_level ?? 0);
-  const profileBenefits: ProfileBenefit[] = [...benefitInfo.all]
-    .sort((a, b) => benefitOrder(a) - benefitOrder(b))
-    .map((b) => ({
+
+  // What's still missing for a locked benefit ("Nivel 8 · te faltan 2 niveles (175 XP)").
+  function missing(b: BenefitWithRank): string {
+    if (b.unlock_type === "rank") {
+      return `Rango ${b.rank?.name ?? ""} · te faltan ${Math.max(0, (b.rank?.rp_required ?? 0) - rp)} RP`;
+    }
+    const target = b.min_level ?? 0;
+    const levels = Math.max(0, target - progress.level);
+    return `Nivel ${target} · te faltan ${levels} ${levels === 1 ? "nivel" : "niveles"} (${Math.max(0, xpForLevel(target) - xp)} XP)`;
+  }
+  const benefitOrder = (b: BenefitWithRank) => (b.unlock_type === "rank" ? b.rank?.rp_required ?? 0 : b.min_level ?? 0);
+  function benefitsOf(type: "level" | "rank") {
+    const list = benefitInfo.all.filter((b) => b.unlock_type === type).sort((a, b) => benefitOrder(a) - benefitOrder(b));
+    const toCard = (b: BenefitWithRank, locked: boolean): SheetBenefit => ({
       id: b.id,
       name: b.name,
       summary: describeBenefit(b),
       description: b.description,
-      unlocked: unlockedIds.has(b.id),
-      unlockLabel: b.unlock_type === "rank" ? `Rango ${b.rank?.name ?? ""}` : `Nivel ${b.min_level}`,
-      status: statuses.get(b.id) ?? null,
-    }));
+      status: locked ? missing(b) : statuses.get(b.id) ?? null,
+    });
+    const ids = new Set(list.map((b) => b.id));
+    const invites: ProfileInviteCode[] = inviteCodes
+      .filter((c) => ids.has(c.benefit_id))
+      .map((c) => ({ code: c.code, discount: c.discount_percent, expiresAt: c.expires_at, used: Boolean(c.used_at) }));
+    return {
+      exists:   list.length > 0,
+      unlocked: list.filter((b) => unlockedIds.has(b.id)).map((b) => toCard(b, false)),
+      locked:   list.filter((b) => !unlockedIds.has(b.id)).map((b) => toCard(b, true)),
+      invites,
+    };
+  }
+  const levelBenefits = benefitsOf("level");
+  const rankBenefits = benefitsOf("rank");
+
+  // ─── Badges ───────────────────────────────────────────────────────────────
+  const earnedBadges: SheetBadge[] = (badges ?? []).flatMap((b) => {
+    const badge = one(b.badge);
+    return badge ? [{ id: badge.id, name: badge.name, description: badge.description, iconUrl: badge.icon_url, icon: badge.icon }] : [];
+  });
+  const badgeSlots = Math.max(MIN_BADGE_SLOTS, Math.ceil(earnedBadges.length / BADGE_COLUMNS) * BADGE_COLUMNS);
 
   const eventsAttended = attendedBookings?.length ?? 0;
   const questsCompleted = rewards?.length ?? 0;
 
   const showProgress = features.progression;
-  const showRankTrack = features.ranks;
-  const showBothTracks = showProgress && showRankTrack;
+  const showRanks = features.ranks;
   const showPatron = features.subscriptions;
+  const stats = sheetStats(progress.level);
+  const xpToNext = progress.xpForLevel - progress.xpIntoLevel;
+  const hasRanks = (ranks?.length ?? 0) > 0;
+
+  const rankIntro = (
+    <>
+      {rank ? `Sos ${rank.name} con ${rp} RP.` : `Todavía no tenés rango: llevás ${rp} RP.`}{" "}
+      Cada rango se gana con RP de Misiones de Gremio y de Evento.
+    </>
+  );
 
   return (
-    <main className="bg-gradient-to-b from-parchment to-parchment-dark px-6 py-14">
-      <div className="max-w-4xl mx-auto">
-      {/* ————— Adventurer Card header ————— */}
-      <div className="relative bg-gradient-to-br from-parchment-dark to-parchment-deep border border-brass rounded-md shadow-[0_1px_0_#EFE4CC,0_12px_28px_-14px_rgba(59,42,30,0.45),inset_0_0_0_6px_#EFE4CC] px-7 py-8 flex flex-col md:flex-row items-center text-center gap-6">
-          <div className="pointer-events-none absolute top-[10px] left-[18px] right-[18px] h-px bg-brass/60" />
-          <div className="pointer-events-none absolute bottom-[10px] left-[18px] right-[18px] h-px bg-brass/60" />
+    <main className="bg-gradient-to-b from-parchment to-parchment-dark px-4 sm:px-6 py-10 sm:py-14 font-body text-ink">
+      <div className="max-w-5xl mx-auto flex flex-col gap-5 sm:gap-6">
 
-          <div className="shrink-0 relative size-24 md:size-28 flex items-center justify-center">
-            {rank?.icon_url ? (
-              <Image src={rank.icon_url} alt="" fill className="object-contain" sizes="112px" />
-            ) : (
-              <Shield size={64} className="text-crimson" strokeWidth={1.25} />
-            )}
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <p className="font-label text-[12px] uppercase tracking-[0.14em] text-[#A6772F] mb-1">
-              {showRankTrack && rank ? `Aventurero Rango ${rank.name}` : "Aventurero del Gremio"}
-            </p>
-            <DisplayNameEditor currentName={user?.name ?? null} fallback={user?.email ?? sessionUser.email} />
-            {user?.created_at && (
-              <p className="font-body italic text-[#7A5433] text-[15px] mt-0.5">
-                Miembro del Gremio desde {formatDate(user.created_at)}
-              </p>
-            )}
-            {staffRole && (
-              <p className="mt-1.5">
-                <span className="font-label text-2xs uppercase tracking-wide px-2 py-0.5 rounded-sm bg-brass/15 text-brass">
-                  Personal del gremio · {staffRole}
+        {/* ————— 1. Character card ————— */}
+        <SheetPanel framed aria-label="Ficha del aventurero">
+          <div className="flex flex-col md:flex-row md:flex-wrap items-center md:items-center gap-7 md:gap-x-9 px-6 py-8 sm:px-10">
+            {/* Emblem */}
+            <div className="shrink-0 flex flex-col items-center gap-3.5 md:w-[150px]">
+              <div className="mt-3 mb-1.5 size-24 sm:size-28 rotate-45 border-2 border-brass bg-gradient-to-br from-parchment-dark to-parchment-deep shadow-[inset_0_0_0_4px_rgba(239,228,204,0.6)] flex items-center justify-center">
+                <div className="-rotate-45 relative size-16 sm:size-[72px] flex items-center justify-center">
+                  {showRanks && rank?.icon_url ? (
+                    <Image src={rank.icon_url} alt={`Emblema de rango ${rank.name}`} fill className="object-contain" sizes="72px" />
+                  ) : (
+                    <Shield size={48} className="text-crimson" strokeWidth={1.25} aria-hidden />
+                  )}
+                </div>
+              </div>
+              {showProgress && (
+                <span className="bg-crimson text-parchment border border-crimson font-display font-semibold text-xs tracking-[0.16em] px-4 py-1">
+                  NIVEL {progress.level}
                 </span>
-              </p>
-            )}
-          </div>
-
-          {showProgress && (
-            <div className="text-center shrink-0">
-              <p className="font-display text-4xl text-crimson leading-none">{progress.level}</p>
-              <p className="font-label text-xs tracking-widest text-leather-light uppercase mt-1.5">Nivel</p>
+              )}
             </div>
-          )}
-      </div>
 
-      {/* ————— Dual progression: Level (personal) | Rank (community) ————— */}
-      {(showProgress || showRankTrack) && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-0 mt-6">
-          {showProgress && (
-            <div className={cn(
-              "bg-white/35 border border-brass/50 px-5 pt-4 pb-5",
-              showBothTracks ? "rounded-t-md md:rounded-tr-none" : "rounded-t-md md:col-span-2"
-            )}>
-              <div className="flex items-center gap-2 mb-1">
-                <Sparkles size={15} className="text-crimson" />
-                <h2 className="font-display text-sm text-ink">Crecimiento personal</h2>
-              </div>
-              <p className="font-body text-xs text-leather-light mb-3">Se gana jugando y completando misiones.</p>
-              <div className="flex justify-between items-baseline mb-1">
-                <span className="font-label text-2xs text-ink">Nivel {progress.level} → {progress.level + 1}</span>
-                <span className="font-label text-2xs text-leather-light">{progress.xpIntoLevel} / {progress.xpForLevel} XP</span>
-              </div>
-              <div className="h-2.5 bg-parchment-deep rounded-full border border-brass/40 overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-brass-light to-crimson" style={{ width: `${(progress.xpIntoLevel / progress.xpForLevel) * 100}%` }} />
-              </div>
-            </div>
-          )}
-
-          {showRankTrack && (
-            <div className={cn(
-              "bg-white/50 border border-brass/50 px-5 pt-4 pb-5",
-              showBothTracks ? "rounded-t-md md:border-l-0" : "rounded-t-md md:col-span-2"
-            )}>
-              <div className="flex items-center gap-2 mb-1">
-                <Crown size={15} className="text-crimson" />
-                <h2 className="font-display text-sm text-ink">Posición en el Gremio</h2>
-              </div>
-              <p className="font-body text-xs text-leather-light mb-3">Se gana en Misiones de Gremio y de Evento.</p>
-              <div className="flex justify-between items-baseline mb-1">
-                <span className="font-label text-2xs text-ink">
-                  {rank ? rank.name : "Sin rango"}{upcoming ? ` → ${upcoming.name}` : ""}
-                </span>
-                <span className="font-label text-2xs text-leather-light">
-                  {rp}{upcoming ? ` / ${upcoming.rp_required} RP` : " RP"}
-                </span>
-              </div>
-              <div className="h-2.5 bg-parchment-deep rounded-full border border-brass/40 overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-leather to-crimson"
-                  style={{
-                    width: upcoming
-                      ? `${Math.min(100, ((rp - (rank?.rp_required ?? 0)) / (upcoming.rp_required - (rank?.rp_required ?? 0))) * 100)}%`
-                      : "100%",
-                  }}
-                />
-              </div>
-            </div>
-          )}
-
-          {showRankTrack && (ranks?.length ?? 0) > 0 && (
-            <div className="col-span-1 md:col-span-2 bg-parchment-dark border border-brass/50 border-t-0 rounded-b-md px-4 py-3">
-              <RankTrack ranks={ranks ?? []} rp={rp} />
-            </div>
-          )}
-        </div>
-      )}
-
-      <div className="flex flex-col gap-4 mt-8">
-        {/* ————— Quest Ledger ————— */}
-        {features.quests && (
-          <section>
-            <h2 className="font-display text-xl text-ink mb-3">Registro de Misiones</h2>
-            <QuestLedger quests={ledger} />
-          </section>
-        )}
-
-        {/* ————— Benefits ————— */}
-        {profileBenefits.length > 0 && (
-          <BenefitsSection
-            benefits={profileBenefits}
-            invites={inviteCodes.map((c) => ({ code: c.code, discount: c.discount_percent, expiresAt: c.expires_at, used: Boolean(c.used_at) }))}
-          />
-        )}
-
-        {/* ————— Badges & Tokens ————— */}
-        {features.quests && (
-          <section>
-            <h2 className="font-display text-xl text-ink mb-3">Insignias y Tokens</h2>
-            {(badges?.length ?? 0) === 0 ? (
-              <p className="font-body italic text-sm text-ink-light">Todavía no ganaste ninguna insignia.</p>
-            ) : (
-              <div className="flex gap-5 overflow-x-auto pb-1">
-                {(badges ?? []).map((b, i) => {
-                  const badge = one(b.badge);
-                  if (!badge) return null;
-                  return (
-                    <div key={i} className="flex flex-col items-center shrink-0 text-center" style={{ minWidth: 84 }}>
-                      <div className="relative size-14 rounded-full bg-gradient-to-br from-brass to-ink border-2 border-brass flex items-center justify-center shadow-parchment overflow-hidden text-xl">
-                        {badge.icon_url ? (
-                          <Image src={badge.icon_url} alt="" fill className="object-cover" sizes="56px" />
-                        ) : (
-                          <span className="text-parchment">{badge.icon || "🏅"}</span>
-                        )}
-                      </div>
-                      <p className="font-label text-2xs text-ink mt-1.5 leading-tight">{badge.name}</p>
-                      {badge.description && (
-                        <p className="font-body text-2xs text-ink-light italic leading-tight">{badge.description}</p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* ————— Patron status + Guild Record ————— */}
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {showPatron && (
-            <div className="bg-leather rounded-md px-5 py-4 shadow-[inset_0_0_0_1px_rgba(169,121,58,0.5)]">
-              <div className="flex items-center gap-2 mb-1.5">
-                <Gem size={15} className="text-brass-light" />
-                <h3 className="font-display text-sm text-parchment">Patrón del Gremio</h3>
-              </div>
-              {user?.is_subscriber ? (
-                <>
-                  <p className="font-body text-sm text-parchment-dark">
-                    Apoyando al gremio{user.subscriber_since ? ` desde ${formatDate(user.subscriber_since)}` : ""}.
-                  </p>
-                  <ul className="font-body text-xs text-parchment-dark/80 mt-2 flex flex-col gap-0.5 list-disc list-inside">
-                    {SUBSCRIBER_PERKS.map((perk) => <li key={perk}>{perk}</li>)}
-                  </ul>
-                </>
-              ) : (
-                <p className="font-body text-sm text-parchment-dark">
-                  Todavía no sos Patrón del Gremio. Consultá con un Asistente del Gremio en tu próxima
-                  visita para sumarte.
+            {/* Identity */}
+            <div className="flex-1 basis-[280px] min-w-0 text-center md:text-left">
+              <SheetLabel className="text-[11px] tracking-[0.2em]">
+                {showRanks && rank ? `Aventurero Rango ${rank.name}` : "Aventurero del Gremio"}
+              </SheetLabel>
+              <DisplayNameEditor
+                currentName={user?.name ?? null}
+                fallback={user?.email ?? sessionUser.email}
+                className="justify-center md:justify-start mt-1.5 mb-1"
+                titleClassName="text-3xl sm:text-[40px] leading-tight break-words"
+              />
+              {user?.created_at && (
+                <p className="font-body italic text-ink-light text-[17px]">
+                  Miembro del Gremio desde {formatDate(user.created_at)}
+                </p>
+              )}
+              {staffRole && (
+                <p className="mt-3.5">
+                  <span className="inline-block font-display text-[11px] uppercase tracking-[0.12em] text-brass-dark border border-brass bg-brass/15 px-2.5 py-1">
+                    Personal del gremio · {staffRole}
+                  </span>
                 </p>
               )}
             </div>
-          )}
 
-          <div className={cn("surface-parchment px-5 py-4", !showPatron && "md:col-span-2")}>
-            <div className="flex items-center gap-2 mb-1.5">
-              <Calendar size={15} className="text-crimson" />
-              <h3 className="font-display text-sm text-ink">Historial del Gremio</h3>
-            </div>
-            <div className="flex justify-between font-body text-sm text-ink-light">
-              <span>Eventos asistidos</span>
-              <span className="font-label text-ink">{eventsAttended}</span>
-            </div>
-            {features.quests && (
-              <div className="flex justify-between font-body text-sm text-ink-light mt-1">
-                <span>Misiones completadas</span>
-                <span className="font-label text-ink">{questsCompleted}</span>
+            {/* Cosmetic stats — grow with level, no data behind them */}
+            {showProgress && (
+              <div className="w-full md:flex-1 md:basis-[300px] md:min-w-[260px] flex flex-col gap-3.5">
+                {stats.map((s) => (
+                  <div key={s.key}>
+                    <div className="flex justify-between items-baseline font-display font-semibold text-xs uppercase tracking-[0.12em] text-ink-heading mb-1.5">
+                      <span>{s.label}</span>
+                      <span className="text-ink-light">{s.max} / {s.max}</span>
+                    </div>
+                    <SegmentBar value={1} tone={s.tone} label={`${s.label}: ${s.max} de ${s.max}`} />
+                  </div>
+                ))}
+                <p className="font-body italic text-sm text-ink-light">Vida, Inspiración y Aguante crecen con cada nivel.</p>
               </div>
             )}
           </div>
-        </section>
+        </SheetPanel>
 
-        {/* ————— Cuenta ————— */}
-        <section className="surface-parchment p-6">
-          <h2 className="font-label text-xs font-semibold uppercase tracking-widest text-leather-light mb-3">
-            Cuenta
-          </h2>
-          <p className="font-body text-sm text-ink mb-4">
-            <span className="text-ink-light">Email:</span> {user?.email ?? sessionUser.email}
-          </p>
+        {/* ————— 2. Progress: level (personal) | rank (community) ————— */}
+        {(showProgress || showRanks) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
+            {showProgress && (
+              <SheetPanel className={cn("px-5 py-5 sm:px-6", !showRanks && "md:col-span-2")}>
+                <SheetHeading icon={<Sparkles size={20} strokeWidth={1.8} className="text-crimson" aria-hidden />}>
+                  Crecimiento personal
+                </SheetHeading>
+                <p className="font-body italic text-[15px] text-ink-light mt-0.5 mb-4">Se gana jugando y completando misiones.</p>
+                <div className="flex justify-between font-display text-xs uppercase tracking-[0.08em] text-brass-dark mb-1.5">
+                  <span>Nivel {progress.level} → {progress.level + 1}</span>
+                  <span>{progress.xpIntoLevel} / {progress.xpForLevel} XP</span>
+                </div>
+                <SegmentBar
+                  value={progress.xpIntoLevel / progress.xpForLevel}
+                  tone="gold"
+                  label={`${progress.xpIntoLevel} de ${progress.xpForLevel} XP para el nivel ${progress.level + 1}`}
+                  className="h-4"
+                />
+                <p className="font-body text-base mt-2.5">
+                  Te faltan <strong>{xpToNext} XP</strong> para el Nivel {progress.level + 1}.
+                </p>
+              </SheetPanel>
+            )}
+
+            {showRanks && (
+              <SheetPanel className={cn("px-5 py-5 sm:px-6", !showProgress && "md:col-span-2")}>
+                <SheetHeading
+                  icon={<Crown size={20} strokeWidth={1.8} className="text-crimson" aria-hidden />}
+                  action={hasRanks && (
+                    <InfoDialog label="Ver todos los rangos y el próximo" title="Posición en el Gremio" intro={rankIntro} wide>
+                      <RankLadder ranks={ranks ?? []} rp={rp} />
+                      {upcoming ? (
+                        <div className="flex justify-between flex-wrap gap-1.5 font-body text-base">
+                          <span>
+                            Próximo rango: <strong>{upcoming.name}</strong>
+                            {rank && ` (+${upcoming.rp_required - rank.rp_required} RP desde ${rank.name})`}
+                          </span>
+                          <span>Te faltan <strong>{upcoming.rp_required - rp} RP</strong></span>
+                        </div>
+                      ) : (
+                        <p className="font-body text-base">Llegaste al rango más alto del gremio.</p>
+                      )}
+                    </InfoDialog>
+                  )}
+                >
+                  Posición en el Gremio
+                </SheetHeading>
+                <p className="font-body italic text-[15px] text-ink-light mt-0.5 mb-4">Se gana en Misiones de Gremio y de Evento.</p>
+                <SheetLabel className="mb-1">Rango actual</SheetLabel>
+                <div className="flex items-baseline flex-wrap gap-x-3.5 gap-y-1">
+                  <span className="font-display font-semibold text-3xl leading-tight text-crimson">{rank ? rank.name : "Sin rango"}</span>
+                  <span className="font-body text-base text-ink-light">{rp} RP acumulados</span>
+                </div>
+                {hasRanks && (
+                  <p className="font-body text-base mt-2.5">
+                    Tocá <strong>(i)</strong> para ver todos los rangos y los RP que faltan para el próximo.
+                  </p>
+                )}
+              </SheetPanel>
+            )}
+          </div>
+        )}
+
+        {/* ————— 3. Benefits: by level | by rank ————— */}
+        {(levelBenefits.exists || rankBenefits.exists) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6 items-stretch">
+            {levelBenefits.exists && (
+              <BenefitsPanel
+                title="Beneficios de Nivel"
+                kind="nivel"
+                data={levelBenefits}
+                wide={!rankBenefits.exists}
+              />
+            )}
+            {rankBenefits.exists && (
+              <BenefitsPanel
+                title="Beneficios de Rango"
+                kind="rango"
+                data={rankBenefits}
+                wide={!levelBenefits.exists}
+              />
+            )}
+          </div>
+        )}
+
+        {/* ————— 4. Badges + Patron / Record ————— */}
+        <div className={cn("grid grid-cols-1 gap-5 sm:gap-6 items-stretch", features.quests && "lg:grid-cols-[2fr_1fr]")}>
+          {features.quests && (
+            <SheetPanel className="px-5 py-5 sm:px-6">
+              <div className="flex items-baseline justify-between gap-3">
+                <SheetHeading icon={<Award size={20} strokeWidth={1.8} className="text-crimson" aria-hidden />}>Insignias</SheetHeading>
+                <SheetLabel>{earnedBadges.length} {earnedBadges.length === 1 ? "obtenida" : "obtenidas"}</SheetLabel>
+              </div>
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-x-2.5 gap-y-4 mt-4">
+                {Array.from({ length: badgeSlots }, (_, i) => (
+                  <BadgeSlot key={earnedBadges[i]?.id ?? `empty-${i}`} badge={earnedBadges[i] ?? null} />
+                ))}
+              </div>
+              <p className="font-body italic text-sm text-ink-light mt-4">
+                {earnedBadges.length === 0 && "Todavía no ganaste ninguna insignia. "}
+                Las insignias se ganan completando misiones.
+              </p>
+            </SheetPanel>
+          )}
+
+          <div className={cn("grid grid-cols-1 gap-5 sm:gap-6 content-start", !features.quests && showPatron && "md:grid-cols-2")}>
+            {showPatron && (
+              <SheetPanel className="px-5 py-5">
+                <SheetHeading icon={<Gem size={18} strokeWidth={1.8} className="text-crimson" aria-hidden />} className="mb-1.5">
+                  Patrón del Gremio
+                </SheetHeading>
+                {user?.is_subscriber ? (
+                  <>
+                    <p className="font-body text-base">
+                      Apoyando al gremio{user.subscriber_since ? ` desde ${formatDate(user.subscriber_since)}` : ""}.
+                    </p>
+                    <ul className="font-body text-sm text-ink-light mt-2 flex flex-col gap-0.5 list-disc list-inside">
+                      {SUBSCRIBER_PERKS.map((perk) => <li key={perk}>{perk}</li>)}
+                    </ul>
+                  </>
+                ) : (
+                  <p className="font-body text-base">
+                    Todavía no sos Patrón del Gremio. Consultá con un Asistente del Gremio en tu próxima
+                    visita para sumarte.
+                  </p>
+                )}
+              </SheetPanel>
+            )}
+
+            <SheetPanel className="px-5 py-5">
+              <SheetHeading icon={<Calendar size={18} strokeWidth={1.8} className="text-crimson" aria-hidden />} className="mb-2">
+                Historial del Gremio
+              </SheetHeading>
+              <div className="flex justify-between py-1 font-body text-base">
+                <span>Eventos asistidos</span>
+                <strong className="text-ink-heading">{eventsAttended}</strong>
+              </div>
+              {features.quests && (
+                <div className="flex justify-between py-1 border-t border-dashed border-parchment-deep font-body text-base">
+                  <span>Misiones completadas</span>
+                  <strong className="text-ink-heading">{questsCompleted}</strong>
+                </div>
+              )}
+            </SheetPanel>
+          </div>
+        </div>
+
+        {/* ————— 5. Quest Ledger ————— */}
+        {features.quests && (
+          <SheetPanel className="px-5 py-5 sm:px-6">
+            <SheetHeading icon={<ScrollText size={20} strokeWidth={1.8} className="text-crimson" aria-hidden />} className="mb-3.5">
+              Registro de Misiones
+            </SheetHeading>
+            <QuestLedger quests={ledger} />
+          </SheetPanel>
+        )}
+
+        {/* ————— 6. Account ————— */}
+        <section className="border border-parchment-deep bg-white/30 px-5 py-4 sm:px-6 flex items-center justify-between flex-wrap gap-3">
+          <div className="min-w-0">
+            <SheetLabel className="text-ink-light text-[11px] tracking-[0.16em]">Cuenta</SheetLabel>
+            <p className="font-body text-[15px] break-all">{user?.email ?? sessionUser.email}</p>
+          </div>
           <PasswordSection hasPassword={Boolean(user?.password_hash)} email={user?.email ?? sessionUser.email} />
         </section>
       </div>
-      </div>
     </main>
+  );
+}
+
+function BenefitsPanel({ title, kind, data, wide }: {
+  title: string;
+  kind: "nivel" | "rango";
+  data: { unlocked: SheetBenefit[]; locked: SheetBenefit[]; invites: ProfileInviteCode[] };
+  wide: boolean;
+}) {
+  return (
+    <SheetPanel className={cn("px-5 py-5 sm:px-6", wide && "md:col-span-2")}>
+      <div className="flex flex-col gap-3">
+        <SheetHeading
+          action={
+            <InfoDialog
+              label={`Ver próximos beneficios de ${kind}`}
+              title={`Próximos beneficios de ${kind}`}
+              intro={`Lo que desbloqueás al subir de ${kind}.`}
+            >
+              {data.locked.length === 0 ? (
+                <p className="font-body text-base">Ya desbloqueaste todos los beneficios de {kind}.</p>
+              ) : (
+                data.locked.map((b) => <BenefitCard key={b.id} benefit={b} locked />)
+              )}
+            </InfoDialog>
+          }
+        >
+          {title}
+        </SheetHeading>
+
+        {data.unlocked.length === 0 ? (
+          <p className="font-body italic text-[15px] text-ink-light">
+            Todavía no desbloqueaste beneficios de {kind}. Tocá (i) para ver qué viene.
+          </p>
+        ) : (
+          data.unlocked.map((b) => <BenefitCard key={b.id} benefit={b} />)
+        )}
+
+        {data.invites.length > 0 && <InviteCodes invites={data.invites} />}
+      </div>
+    </SheetPanel>
   );
 }

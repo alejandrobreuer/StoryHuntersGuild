@@ -24,6 +24,8 @@ const config: Config = {
         ink: {
           DEFAULT: "#4A3423", // headline/body text on light surfaces — deep leather-brown, not near-black
           light:   "#6B5D4F", // "ink-muted" — secondary text on light surfaces
+          heading: "#3B2A1E", // headings on parchment
+          night:   "#2A2015", // small dark accents only (bar tracks, modal headers)
         },
         moss: {
           DEFAULT: "#4a6741",
@@ -40,6 +42,9 @@ const config: Config = {
           DEFAULT: "#A9793A",
           light:   "#d4a843",
           bright:  "#f0c040",
+          // Readable gold-brown for small labels on parchment (brass itself is
+          // too light for small text).
+          dark:    "#7A5433",
         },
         wood: {
           // Quest Board plank surface — distinct from `leather` (UI chrome),
@@ -110,10 +115,16 @@ const config: Config = {
           from: { transform: "translateX(-100%)" },
           to:   { transform: "translateX(100%)" },
         },
+        // Profile sheet bars: each filled segment pops in, staggered.
+        "seg-in": {
+          from: { opacity: "0", transform: "scaleY(0.4)" },
+          to:   { opacity: "1", transform: "scaleY(1)" },
+        },
       },
       animation: {
         "fade-in": "fade-in 0.2s ease-out both",
         shimmer:   "shimmer 1.6s ease-in-out infinite",
+        "seg-in":  "seg-in 0.18s ease-out both",
       },
     },
   },
