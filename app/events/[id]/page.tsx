@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/Button";
 import { formatARS, formatDateTime, formatTime, EVENT_TIME_ZONE } from "@/lib/formatting";
 import type { ShgEvent, ShgVenuePublic, ShgGame, QuestDifficulty, QuestType, QuestEventStatus, QuestGroupStatus } from "@/types/database";
 import { EVENT_COVER_ASPECT } from "@/components/events/cover";
+import { missingEventRank } from "@/lib/benefits";
 
 interface EventQuestRow {
   id: string; title: string; narrative: string | null; difficulty: QuestDifficulty; type: QuestType;
@@ -78,6 +79,8 @@ export default async function EventDetailPage({ params }: { params: { id: string
   const isLive = Boolean(typedEvent.started_at) && !typedEvent.ended_at;
   const hasEnded = Boolean(typedEvent.ended_at);
   const notStarted = !typedEvent.started_at;
+  // Rank-only event: the rank this visitor still lacks (any rank, if signed out).
+  const lockedRank = await missingEventRank(admin, typedEvent.min_rank_id ?? null, sessionUser?.id ?? null);
 
   const allMissions = ((eventQuests ?? []) as EventQuestLinkRow[])
     .map((r) => {
@@ -302,7 +305,14 @@ export default async function EventDetailPage({ params }: { params: { id: string
                   <p className="font-label text-2xs uppercase tracking-widest text-leather-light">Precio por persona</p>
                   <p className="font-display text-xl font-semibold text-brass">{formatARS(typedEvent.price_per_person)}</p>
                 </div>
-                {remaining > 0 ? (
+                {lockedRank && (
+                  <p className="font-body text-xs text-leather">
+                    Solo para aventureros de rango <strong>{lockedRank.name}</strong> o superior.
+                  </p>
+                )}
+                {lockedRank && sessionUser ? (
+                  <Button className="w-full" disabled>Rango {lockedRank.name} requerido</Button>
+                ) : remaining > 0 ? (
                   <Button asChild className="w-full"><Link href={`/events/${typedEvent.id}/book`}>Reservar un lugar</Link></Button>
                 ) : (
                   <Button className="w-full" disabled>Sin cupo</Button>

@@ -3,12 +3,21 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Upload, CheckCircle2, Ticket, X, Info } from "lucide-react";
+import { Upload, CheckCircle2, Ticket, X, Info, Gift } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { formatARS } from "@/lib/formatting";
-import { priceWithCoupons, type CouponForPricing } from "@/lib/coupons";
+import { priceBooking } from "@/lib/bookingPricing";
 import { toast } from "sonner";
+
+type EnteredCode = { code: string; discountPercent: number; source: "coupon" | "invite" };
+
+/** What the booker's rank/level benefits allow (lib/benefits.ts bookingBenefits). */
+export interface BookingFormBenefits {
+  memberDiscountPercent: number;
+  twoForOneLeft:   number;
+  freeTicketsLeft: number;
+}
 
 interface BookingFormProps {
   eventId:         string;
@@ -19,11 +28,14 @@ interface BookingFormProps {
   /** The signed-in account's email — bookings always go to it. */
   accountEmail:    string;
   defaultPhone?:   string;
+  benefits?:       BookingFormBenefits;
 }
+
+const NO_BENEFITS: BookingFormBenefits = { memberDiscountPercent: 0, twoForOneLeft: 0, freeTicketsLeft: 0 };
 
 export function BookingForm({
   eventId, pricePerPerson, remaining, bankInstructions,
-  accountEmail, defaultName = "", defaultPhone = "",
+  accountEmail, defaultName = "", defaultPhone = "", benefits = NO_BENEFITS,
 }: BookingFormProps) {
   const router = useRouter();
   const [name, setName]   = React.useState(defaultName);
@@ -37,11 +49,22 @@ export function BookingForm({
   // aren't used (lib/coupons decides which, the same way the server does).
   const [couponInput, setCouponInput] = React.useState("");
   const [applyingCoupon, setApplyingCoupon] = React.useState(false);
-  const [coupons, setCoupons] = React.useState<CouponForPricing[]>([]);
+  const [coupons, setCoupons] = React.useState<EnteredCode[]>([]);
+  const [useTwoForOne, setUseTwoForOne] = React.useState(false);
+  const [freeTickets, setFreeTickets] = React.useState(0);
+  const maxFreeTickets = Math.min(benefits.freeTicketsLeft, guestCount);
+  const hasBenefits = benefits.memberDiscountPercent > 0 || benefits.twoForOneLeft > 0 || benefits.freeTicketsLeft > 0;
 
-  const { used, subtotal, discount, cost } = priceWithCoupons(pricePerPerson, guestCount, coupons);
-  const usedSet = new Set(used);
-  const isValid = name.trim().length > 1 && guestCount >= 1 && guestCount <= remaining && receipt != null;
+  // Same calculation the server charges (lib/bookingPricing.ts).
+  const { used, subtotal, discount, cost } = priceBooking({
+    pricePerPerson, guestCount, codes: coupons,
+    memberDiscountPercent: benefits.memberDiscountPercent,
+    freeTickets: Math.min(freeTickets, maxFreeTickets),
+    useTwoForOne: useTwoForOne && guestCount >= 2,
+  });
+  const usedCodes = new Set(used.map((s) => s.code));
+  const needsReceipt = cost > 0;
+  const isValid = name.trim().length > 1 && guestCount >= 1 && guestCount <= remaining && (!needsReceipt || receipt != null);
 
   async function applyCoupon() {
     const code = couponInput.trim();
@@ -62,9 +85,10 @@ export function BookingForm({
         toast.error(json.error ?? "No se pudo aplicar el cupón.");
         return;
       }
-      setCoupons((cs) => [...cs, { code: code.toUpperCase(), discountPercent: json.data.discount_percent }]);
+      const source = json.data.kind === "invite" ? "invite" : "coupon";
+      setCoupons((cs) => [...cs, { code: code.toUpperCase(), discountPercent: json.data.discount_percent, source }]);
       setCouponInput("");
-      toast.success(`Cupón aplicado: -${json.data.discount_percent}% en 1 lugar`);
+      toast.success(`${source === "invite" ? "Invitación" : "Cupón"} aplicado: -${json.data.discount_percent}% en 1 lugar`);
     } catch {
       toast.error("Error de red. Intentá de nuevo.");
     } finally {
@@ -78,7 +102,7 @@ export function BookingForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!isValid || !receipt) return;
+    if (!isValid || (needsReceipt && !receipt)) return;
     setSubmitting(true);
     try {
       const form = new FormData();
@@ -86,8 +110,10 @@ export function BookingForm({
       form.set("name", name.trim());
       if (phone.trim()) form.set("phone", phone.trim());
       form.set("guest_count", String(guestCount));
-      form.set("receipt", receipt);
+      if (needsReceipt && receipt) form.set("receipt", receipt);
       for (const c of coupons) form.append("coupon_code", c.code);
+      if (useTwoForOne && guestCount >= 2) form.set("use_2x1", "1");
+      if (freeTickets > 0) form.set("free_tickets", String(Math.min(freeTickets, maxFreeTickets)));
 
       const res = await fetch("/api/bookings", { method: "POST", body: form });
       const json = await res.json();
@@ -109,7 +135,9 @@ export function BookingForm({
         <CheckCircle2 size={40} className="mx-auto mb-4 text-moss" />
         <h2 className="font-display text-xl text-ink mb-2">¡Reserva enviada!</h2>
         <p className="font-body text-sm text-ink-light mb-6">
-          Te enviamos un email de confirmación. Vamos a revisar tu comprobante y te avisamos cuando esté confirmada.
+          {needsReceipt
+            ? "Te enviamos un email de confirmación. Vamos a revisar tu comprobante y te avisamos cuando esté confirmada."
+            : "Te enviamos un email de confirmación. Te avisamos cuando el equipo la confirme."}
         </p>
         {done.unusedCoupons.length > 0 && (
           <div className="mb-6 mx-auto max-w-sm px-4 py-3 rounded-sm border border-brass/40 bg-brass/10 text-left">
@@ -163,16 +191,55 @@ export function BookingForm({
         </div>
       </div>
 
+      {hasBenefits && (
+        <div className="surface-parchment p-6 flex flex-col gap-3">
+          <h2 className="font-label text-xs uppercase tracking-widest text-leather-light flex items-center gap-1.5">
+            <Gift size={14} /> Tus beneficios
+          </h2>
+          {benefits.memberDiscountPercent > 0 && (
+            <p className="font-body text-sm text-ink">
+              {benefits.memberDiscountPercent}% de descuento en tu entrada{" "}
+              <span className="text-ink-light">(se aplica solo{usedCodes.has("MEMBER") ? "" : "; hoy rinde más otro descuento"})</span>
+            </p>
+          )}
+          {benefits.twoForOneLeft > 0 && (
+            <label className="flex items-center gap-2 font-body text-sm text-ink cursor-pointer">
+              <input
+                type="checkbox" className="accent-moss size-4"
+                checked={useTwoForOne} disabled={guestCount < 2}
+                onChange={(e) => setUseTwoForOne(e.target.checked)}
+              />
+              Usar un 2x1 <span className="text-ink-light">
+                ({guestCount < 2 ? "reservá para 2 o más personas" : `te ${benefits.twoForOneLeft === 1 ? "queda 1" : `quedan ${benefits.twoForOneLeft}`} este mes`})
+              </span>
+            </label>
+          )}
+          {benefits.freeTicketsLeft > 0 && (
+            <div className="flex items-center gap-2 font-body text-sm text-ink">
+              <span>Entradas gratis a usar:</span>
+              <select
+                value={Math.min(freeTickets, maxFreeTickets)}
+                onChange={(e) => setFreeTickets(Number(e.target.value))}
+                className="h-9 px-2 bg-parchment/90 border border-border font-body text-sm"
+              >
+                {Array.from({ length: maxFreeTickets + 1 }, (_, n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+              <span className="text-ink-light">(te {benefits.freeTicketsLeft === 1 ? "queda 1" : `quedan ${benefits.freeTicketsLeft}`})</span>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="surface-parchment p-6 flex flex-col gap-4">
         <div>
-          <h2 className="font-label text-xs uppercase tracking-widest text-leather-light">Cupones de descuento</h2>
-          <p className="font-body text-xs text-ink-light mt-1">Cada cupón descuenta 1 lugar. Podés cargar uno por persona.</p>
+          <h2 className="font-label text-xs uppercase tracking-widest text-leather-light">Cupones e invitaciones</h2>
+          <p className="font-body text-xs text-ink-light mt-1">Cada código descuenta 1 lugar. Podés cargar uno por persona.</p>
         </div>
 
         {coupons.length > 0 && (
           <ul className="flex flex-col gap-2">
             {coupons.map((c) => {
-              const applies = usedSet.has(c);
+              const applies = usedCodes.has(c.code);
               return (
                 <li
                   key={c.code}
@@ -184,7 +251,7 @@ export function BookingForm({
                 >
                   <span className={applies ? "flex items-center gap-2 flex-wrap font-label text-sm font-semibold text-moss-dark" : "flex items-center gap-2 flex-wrap font-label text-sm text-ink-light"}>
                     <Ticket size={16} /> {c.code} · -{c.discountPercent}%
-                    {!applies && <span className="font-body text-2xs italic">— no se usa (más cupones que personas)</span>}
+                    {!applies && <span className="font-body text-2xs italic">— no se usa (más descuentos que personas)</span>}
                   </span>
                   <button
                     type="button"
@@ -226,9 +293,9 @@ export function BookingForm({
               </div>
               <div className="flex items-center justify-between">
                 <span className="font-body text-sm text-moss-dark">
-                  Descuento ({used.length} {used.length === 1 ? "cupón" : "cupones"})
+                  Descuentos ({used.map((s) => s.label).join(", ")})
                 </span>
-                <span className="font-body text-sm text-moss-dark">-{formatARS(discount)}</span>
+                <span className="font-body text-sm text-moss-dark shrink-0">-{formatARS(discount)}</span>
               </div>
             </>
           )}
@@ -239,6 +306,8 @@ export function BookingForm({
         </div>
       </div>
 
+      {needsReceipt ? (
+      <>
       <div className="surface-parchment p-6">
         <h2 className="font-label text-xs uppercase tracking-widest text-leather-light mb-3">Datos para transferencia</h2>
         <pre className="font-body text-sm text-ink-light whitespace-pre-wrap leading-relaxed">{bankInstructions}</pre>
@@ -259,6 +328,12 @@ export function BookingForm({
           />
         </label>
       </div>
+      </>
+      ) : (
+        <p className="surface-parchment p-4 font-body text-sm text-ink-light text-center">
+          No hay nada que pagar, así que no hace falta comprobante.
+        </p>
+      )}
 
       <Button type="submit" size="lg" loading={submitting} disabled={!isValid || submitting}>
         Confirmar reserva

@@ -4,6 +4,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 import { SettingsForm } from "@/components/admin/SettingsForm";
 import { RanksManager } from "@/components/admin/RanksManager";
+import { BenefitsManager } from "@/components/admin/BenefitsManager";
 import { BadgesManager } from "@/components/admin/BadgesManager";
 import { TagsManager } from "@/components/admin/TagsManager";
 import { OwnersManager } from "@/components/admin/OwnersManager";
@@ -18,6 +19,7 @@ const TABS = [
   { key: "general",       label: "General",    perm: "settings" as PermissionKey,      Component: SettingsForm },
   { key: "qr",            label: "Códigos QR",  perm: "settings" as PermissionKey,       Component: QrSettingsForm },
   { key: "ranks",         label: "Rangos",      perm: "ranks" as PermissionKey,          Component: RanksManager },
+  { key: "benefits",      label: "Beneficios",  perm: "ranks" as PermissionKey,          Component: BenefitsManager },
   { key: "badges",        label: "Insignias",   perm: "badges" as PermissionKey,         Component: BadgesManager },
   { key: "tags",          label: "Tags",        perm: "tags" as PermissionKey,           Component: TagsManager },
   // Same "games" permission the /api/admin/owners routes already check.

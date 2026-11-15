@@ -14,4 +14,6 @@ export const eventSchema = z.object({
   quest_ids:         z.array(z.string().uuid()).max(50).default([]),
   event_type:        z.enum(["cooperative", "competitive", "tournament", "release", "guilds_choice"]).nullable().optional(),
   reward_rp:         z.number().int().min(0).max(1000).default(0),
+  /** Only this rank and up can book (062_shg_benefits.sql). */
+  min_rank_id:       z.string().uuid().nullable().optional().or(z.literal("").transform(() => null)),
 });

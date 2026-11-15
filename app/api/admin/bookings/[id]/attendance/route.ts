@@ -3,6 +3,7 @@ import { requirePermission } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { attendanceSchema } from "@/lib/validation/bookings";
 import { getFeatureFlags } from "@/lib/features";
+import { withRewardBonus } from "@/lib/benefits";
 
 // ─── POST /api/admin/bookings/[id]/attendance ───────────────────────────────
 // Only approved bookings can have attendance recorded — pending/rejected/
@@ -52,7 +53,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         .select("reward_rp")
         .eq("id", booking.event_id)
         .maybeSingle();
-      if (event && event.reward_rp > 0) patch.rp_awarded = event.reward_rp;
+      // Recorded with the player's bonus (lib/benefits.ts) so unticking takes back exactly this.
+      if (event && event.reward_rp > 0) patch.rp_awarded = (await withRewardBonus(admin, booking.user_id, 0, event.reward_rp)).rp;
     }
   } else if (changed && !nextAttended && booking.rp_awarded > 0) {
     patch.rp_awarded = 0;

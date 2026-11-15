@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requirePermissionAny } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { withRewardBonus } from "@/lib/benefits";
 
 // ─── POST /api/admin/quests/[id]/groups/[groupId]/complete ─────────────────
 // Confirms a turned-in Group mission party: every current member gets the
@@ -38,13 +39,14 @@ export async function POST(_req: Request, { params }: { params: { id: string; gr
 
   for (let i = 0; i < rows.length; i++) {
     const m = rows[i];
+    const award = await withRewardBonus(admin, m.user_id, quest.reward_xp, quest.reward_rp);
     const { error: rewardError } = await admin.from("shg_quest_rewards").insert({
       quest_id: params.id, user_id: m.user_id, group_id: params.groupId,
-      awarded_xp: quest.reward_xp, awarded_rp: quest.reward_rp, awarded_by: adminUser.id,
+      awarded_xp: award.xp, awarded_rp: award.rp, awarded_by: adminUser.id,
     });
     if (rewardError) continue; // already rewarded somehow — skip, don't double-grant
 
-    await admin.rpc("shg_award_user", { p_user_id: m.user_id, p_xp: quest.reward_xp, p_rp: quest.reward_rp });
+    await admin.rpc("shg_award_user", { p_user_id: m.user_id, p_xp: award.xp, p_rp: award.rp });
     if (quest.badge_id) {
       await admin.from("shg_user_badges").upsert(
         { user_id: m.user_id, badge_id: quest.badge_id },
@@ -57,7 +59,7 @@ export async function POST(_req: Request, { params }: { params: { id: string; gr
       user_id: m.user_id, user_label: labels[i],
       outcome: "completed", group_id: params.groupId,
       other_participants: labels.filter((_, idx) => idx !== i),
-      awarded_xp: quest.reward_xp, awarded_rp: quest.reward_rp,
+      awarded_xp: award.xp, awarded_rp: award.rp,
     });
   }
 
