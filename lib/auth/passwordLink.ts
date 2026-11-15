@@ -13,13 +13,23 @@ type Admin = ReturnType<typeof createAdminClient>;
  * bookings — 057_shg_accounts_from_bookings.sql): same link, worded as
  * activating the account. Proving control of the inbox is what lets the
  * person claim it, so no shared or guessable password is ever involved.
+ *
+ * "invite" is the same setup link, sent when staff add a person without an
+ * account to an event (/api/admin/events/[id]/attendees). It's worded around
+ * that event and lasts INVITE_TOKEN_TTL_MINUTES, since the person didn't ask
+ * for it and may not open it within the hour. If it expires anyway, trying
+ * to sign in or sign up sends a fresh one.
  */
+export const INVITE_TOKEN_TTL_MINUTES = 7 * 24 * 60;
+
 export async function sendPasswordLink(
   admin: Admin,
   user: { id: string; email: string; name: string | null },
   baseUrl: string,
-  purpose: "reset" | "setup",
+  purpose: "reset" | "setup" | "invite",
+  invite?: { eventTitle: string; eventDate: string },
 ): Promise<void> {
+  const ttlMinutes = purpose === "invite" ? INVITE_TOKEN_TTL_MINUTES : RESET_TOKEN_TTL_MINUTES;
   const { data: recent } = await admin
     .from("shg_password_reset_tokens")
     .select("created_at")
@@ -40,7 +50,7 @@ export async function sendPasswordLink(
   const { error: insertError } = await admin.from("shg_password_reset_tokens").insert({
     user_id:    user.id,
     token_hash: tokenHash,
-    expires_at: new Date(now.getTime() + RESET_TOKEN_TTL_MINUTES * 60_000).toISOString(),
+    expires_at: new Date(now.getTime() + ttlMinutes * 60_000).toISOString(),
   });
   if (insertError) {
     console.error("[password-link] token insert failed:", insertError);
@@ -51,7 +61,8 @@ export async function sendPasswordLink(
     email:            user.email,
     name:             user.name,
     resetUrl:         `${baseUrl}/reset-password?token=${encodeURIComponent(token)}`,
-    expiresInMinutes: RESET_TOKEN_TTL_MINUTES,
-    setup:            purpose === "setup",
+    expiresInMinutes: ttlMinutes,
+    setup:            purpose !== "reset",
+    invite:           purpose === "invite" ? invite : undefined,
   });
 }

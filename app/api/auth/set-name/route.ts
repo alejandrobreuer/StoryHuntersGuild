@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSessionUser } from "@/lib/auth/guard";
-import { setNameSchema } from "@/lib/validation/auth";
-import { containsBlockedLanguage } from "@/lib/moderation/nameFilter";
+import { checkDisplayName } from "@/lib/auth/displayName";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // ─── POST /api/auth/set-name ────────────────────────────────────────────────
@@ -17,29 +16,10 @@ export async function POST(req: NextRequest) {
   try { body = await req.json(); }
   catch { return NextResponse.json({ error: "Body inválido." }, { status: 400 }); }
 
-  const parsed = setNameSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Datos inválidos." }, { status: 422 });
-  }
-
-  const name = parsed.data.name;
-
-  if (containsBlockedLanguage(name)) {
-    return NextResponse.json({ error: "Ese nombre no está permitido." }, { status: 422 });
-  }
-
   const admin = createAdminClient();
-
-  const { data: existing } = await admin
-    .from("shg_users")
-    .select("id")
-    .ilike("name", name)
-    .neq("id", user.id)
-    .maybeSingle();
-
-  if (existing) {
-    return NextResponse.json({ error: "Ese nombre ya está en uso por otro aventurero." }, { status: 409 });
-  }
+  const check = await checkDisplayName(admin, (body as { name?: unknown } | null)?.name, user.id);
+  if (!check.ok) return NextResponse.json({ error: check.error }, { status: check.status });
+  const name = check.name;
 
   const { data, error: updateError } = await admin
     .from("shg_users")

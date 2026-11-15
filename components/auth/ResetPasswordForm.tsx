@@ -8,10 +8,13 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { toast } from "sonner";
 
-export function ResetPasswordForm() {
+/** `needsName`: the account has no name yet (see app/reset-password/page.tsx),
+ * so this is also where the person picks one. */
+export function ResetPasswordForm({ needsName = false }: { needsName?: boolean }) {
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
 
+  const [name, setName] = React.useState("");
   const [newPassword, setNewPassword] = React.useState("");
   const [confirmPassword, setConfirmPassword] = React.useState("");
   const [saving, setSaving] = React.useState(false);
@@ -30,7 +33,7 @@ export function ResetPasswordForm() {
       const res = await fetch("/api/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, newPassword }),
+        body: JSON.stringify({ token, newPassword, ...(needsName ? { name } : {}) }),
       });
       const json = await res.json();
       if (!res.ok) { toast.error(json.error ?? "No se pudo restablecer la contraseña."); return; }
@@ -45,7 +48,9 @@ export function ResetPasswordForm() {
   return (
     <div className="w-full max-w-sm surface-parchment p-8">
       <KeyRound size={32} className="mx-auto mb-4 text-brass" />
-      <h1 className="font-display text-xl text-ink mb-6 text-center">Elegí una nueva contraseña</h1>
+      <h1 className="font-display text-xl text-ink mb-6 text-center">
+        {needsName ? "Activá tu cuenta" : "Elegí una nueva contraseña"}
+      </h1>
 
       {!token ? (
         <p className="font-body text-sm text-ink text-center">
@@ -59,6 +64,18 @@ export function ResetPasswordForm() {
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          {needsName && (
+            <Input
+              label="Tu nombre"
+              required
+              minLength={2}
+              maxLength={40}
+              placeholder="Cómo te van a ver en el gremio"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoFocus
+            />
+          )}
           <Input
             type="password"
             label="Nueva contraseña"

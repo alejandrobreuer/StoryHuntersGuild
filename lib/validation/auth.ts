@@ -23,6 +23,8 @@ export const forgotPasswordSchema = z.object({
 export const resetPasswordSchema = z.object({
   token:       z.string().min(1, "Enlace inválido.").max(200),
   newPassword: z.string().min(8, "La contraseña debe tener al menos 8 caracteres.").max(100),
+  /** Required (and checked by checkDisplayName) only when the account has no name yet. */
+  name:        z.string().max(100).optional(),
 });
 
 export const setNameSchema = z.object({
