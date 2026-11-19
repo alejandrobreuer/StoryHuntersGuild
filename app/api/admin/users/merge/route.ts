@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { userMergeSchema } from "@/lib/validation/users";
+import { removeAvatarFile } from "@/lib/profile/avatar";
 
 // ─── POST /api/admin/users/merge ────────────────────────────────────────────
 // Folds dropId into keepId and deletes dropId (duplicate accounts from two
 // emails). All the work — moving quests, events, bookings, badges and
 // characters, skipping duplicates and taking their XP/RP back — happens in
-// one transaction inside shg_merge_users() (058_shg_merge_users.sql).
+// one transaction inside shg_merge_users() (058, updated in 065).
 
 export async function POST(req: NextRequest) {
   const { user: adminUser, error } = await requirePermission("users");
@@ -28,9 +29,10 @@ export async function POST(req: NextRequest) {
   // read both before the merge, and keep both on the surviving account.
   const { data: noted } = await admin
     .from("shg_users")
-    .select("id, email, admin_notes")
+    .select("id, email, admin_notes, avatar_url")
     .in("id", [parsed.data.keepId, parsed.data.dropId]);
-  const keepNote = noted?.find((u) => u.id === parsed.data.keepId)?.admin_notes?.trim();
+  const keep = noted?.find((u) => u.id === parsed.data.keepId);
+  const keepNote = keep?.admin_notes?.trim();
   const drop = noted?.find((u) => u.id === parsed.data.dropId);
   const dropNote = drop?.admin_notes?.trim();
 
@@ -50,6 +52,9 @@ export async function POST(req: NextRequest) {
     const merged = keepNote ? `${keepNote}\n\n[de ${drop!.email}]\n${dropNote}` : dropNote;
     await admin.from("shg_users").update({ admin_notes: merged }).eq("id", parsed.data.keepId);
   }
+
+  // The merged account keeps its own photo; drop's file is then unused.
+  if (keep?.avatar_url && drop?.avatar_url) await removeAvatarFile(admin, drop.avatar_url);
 
   return NextResponse.json({ data });
 }

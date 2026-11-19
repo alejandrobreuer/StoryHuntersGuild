@@ -1,5 +1,5 @@
 -- ═══════════════════════════════════════════════════════════════════════════
--- Merge two accounts (run after 058_shg_merge_users.sql)
+-- Merge two accounts (run after 065_shg_merge_users_benefits.sql)
 -- ═══════════════════════════════════════════════════════════════════════════
 -- Safe to run against production: everything runs inside one block that is
 -- always rolled back at the end, pass or fail.
@@ -33,6 +33,8 @@ declare
   v_badge2  uuid;
   v_b_dup   uuid;
   v_b_new   uuid;
+  v_ben_c   uuid;   -- custom benefit, delivered on both → one delivery
+  v_ben_i   uuid;   -- monthly invites
   v_s       jsonb;
   v_u       shg_users;
 begin
@@ -93,6 +95,25 @@ begin
     update shg_users set rp = rp + 3 where id = v_keep;
     update shg_users set rp = rp + 6 where id = v_drop;
 
+    -- ── Benefits + avatar ───────────────────────────────────────────────────
+    insert into shg_benefits (name, kind, unlock_type, min_level, active)
+      values ('Prueba fusión', 'custom', 'level', 99, false) returning id into v_ben_c;
+    insert into shg_benefits (name, kind, unlock_type, min_level, percent, quantity, active)
+      values ('Prueba fusión invitaciones', 'monthly_invites', 'level', 99, 50, 1, false) returning id into v_ben_i;
+    insert into shg_benefit_deliveries (user_id, benefit_id, delivered_at) values
+      (v_keep, v_ben_c, '1990-04-01'), (v_drop, v_ben_c, '1990-03-01');
+    insert into shg_benefit_uses (user_id, benefit_id, booking_id, period) values (v_drop, v_ben_c, v_b_new, '1990-06');
+    -- 1990-05: both got codes → drop's unused one goes, its used one moves.
+    -- 1990-06: only drop → moves.
+    insert into shg_invite_codes (code, owner_id, benefit_id, period, discount_percent, expires_at, used_at) values
+      ('T-' || gen_random_uuid(), v_keep, v_ben_i, '1990-05', 50, '1990-07-01', null),
+      ('T-' || gen_random_uuid(), v_drop, v_ben_i, '1990-05', 50, '1990-07-01', null),
+      ('T-' || gen_random_uuid(), v_drop, v_ben_i, '1990-05', 50, '1990-07-01', '1990-05-10'),
+      ('T-' || gen_random_uuid(), v_drop, v_ben_i, '1990-06', 50, '1990-08-01', null);
+    insert into shg_invite_codes (code, owner_id, benefit_id, period, discount_percent, expires_at, used_at, used_by_user_id) values
+      ('T-' || gen_random_uuid(), v_keep, v_ben_i, '1990-04', 50, '1990-06-01', '1990-04-10', v_drop);
+    update shg_users set avatar_url = 'https://example.invalid/shg-media/avatars/x.png' where id = v_drop;
+
     -- ── Merge ───────────────────────────────────────────────────────────────
     v_s := shg_merge_users(v_keep, v_drop, v_admin);
     select * into v_u from shg_users where id = v_keep;
@@ -128,6 +149,20 @@ begin
     perform pg_temp.check(v_u.password_hash = 'salt:hash', 'sin contraseña propia, toma la de la duplicada');
     perform pg_temp.check(v_u.is_subscriber and v_u.subscriber_since = '2025-02-01', 'suscripción se conserva');
     perform pg_temp.check(v_u.created_at = '2025-01-01', 'fecha de alta = la más antigua');
+
+    perform pg_temp.check((select count(*) from shg_benefit_deliveries where user_id = v_keep and benefit_id = v_ben_c) = 1
+      and (select delivered_at from shg_benefit_deliveries where user_id = v_keep and benefit_id = v_ben_c) = '1990-03-01',
+      'beneficio entregado en las dos: queda una entrega, la más antigua');
+    perform pg_temp.check((select count(*) from shg_benefit_uses where user_id = v_keep and benefit_id = v_ben_c) = 1,
+      'usos de beneficios pasan a la conservada');
+    perform pg_temp.check((select count(*) from shg_invite_codes where owner_id = v_keep and period = '1990-05') = 2,
+      'invitaciones del mismo mes: la sin usar de la duplicada se descarta, la usada pasa');
+    perform pg_temp.check((select count(*) from shg_invite_codes where owner_id = v_keep and period = '1990-06') = 1,
+      'invitaciones de un mes sólo de la duplicada pasan');
+    perform pg_temp.check(exists (select 1 from shg_invite_codes where owner_id = v_keep and used_by_user_id = v_keep),
+      'invitación usada por la duplicada queda a nombre de la conservada');
+    perform pg_temp.check(v_u.avatar_url = 'https://example.invalid/shg-media/avatars/x.png',
+      'sin foto propia, toma la de la duplicada');
 
     perform pg_temp.check(exists (select 1 from shg_user_merges where kept_user_id = v_keep and merged_by = v_admin),
       'queda registro de la fusión');
